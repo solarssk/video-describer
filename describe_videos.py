@@ -91,13 +91,14 @@ class _MLXWhisperModel:
     """Thin wrapper around mlx_whisper with the same interface as faster-whisper WhisperModel."""
 
     def __init__(self, model_name: str):
+        import mlx_whisper  # eager import — validates backend is truly importable in this process
+        self._mlx_whisper = mlx_whisper
         self._model_id = _mlx_model_id(model_name)
 
     def transcribe(self, audio_path: str, language: str = 'pl',
                    beam_size: int = 5, vad_filter: bool = True,
                    vad_parameters: dict = None):
-        import mlx_whisper
-        result = mlx_whisper.transcribe(
+        result = self._mlx_whisper.transcribe(
             audio_path,
             path_or_hf_repo=self._model_id,
             language=language,
@@ -161,11 +162,17 @@ def load_whisper_model(model_name: str, openai_api_key: str = None):
     openai_api_key is only used when no local backend is available.
     """
     if MLX_WHISPER_AVAILABLE:
-        print(f"  Whisper backend: mlx (Neural Engine) — model {_mlx_model_id(model_name)}")
-        return _MLXWhisperModel(model_name)
+        try:
+            print(f"  Whisper backend: mlx (Neural Engine) — model {_mlx_model_id(model_name)}")
+            return _MLXWhisperModel(model_name)
+        except ImportError as e:
+            print(f"  mlx_whisper import failed ({e}) — falling back to next backend")
     if FASTER_WHISPER_AVAILABLE:
-        print(f"  Whisper backend: faster-whisper (CPU int8) — model {model_name}")
-        return _FasterWhisperWrapper(model_name)
+        try:
+            print(f"  Whisper backend: faster-whisper (CPU int8) — model {model_name}")
+            return _FasterWhisperWrapper(model_name)
+        except ImportError as e:
+            print(f"  faster_whisper import failed ({e}) — falling back to OpenAI API")
     key = openai_api_key or os.environ.get('OPENAI_API_KEY', '').strip()
     if key:
         print("  Whisper backend: OpenAI API (cloud) — whisper-1")
