@@ -544,17 +544,13 @@ let _whisperActiveTimer = null;
 function setWhisperActive(active) {
   const el = $('m-whisper-status');
   if (!el) return;
+  clearTimeout(_whisperActiveTimer);
   if (active) {
-    clearTimeout(_whisperActiveTimer);
     el.textContent = '●';
     el.className = 'metric-value active';
   } else {
-    clearTimeout(_whisperActiveTimer);
-    // Keep active state visible for 3s — NE is fast enough to finish before next poll
-    _whisperActiveTimer = setTimeout(() => {
-      el.textContent = '';
-      el.className = 'metric-value idle';
-    }, 3000);
+    el.textContent = '';
+    el.className = 'metric-value idle';
   }
 }
 
@@ -651,16 +647,20 @@ function handleMsg(msg) {
   } else if (msg.type === 'total') {
     totalFiles = msg.total;
   } else if (msg.type === 'progress') {
+    setWhisperActive(false);
     const pct = Math.round((msg.current / msg.total) * 100);
     $('progress-bar').style.width = pct + '%';
     setStatus('running', `[${msg.current}/${msg.total}] ${msg.file}`);
     hideStepStatus();
   } else if (msg.type === 'done_file') {
+    setWhisperActive(false);
     addFileCard('✅', msg.file, msg.preview, msg.output, msg.file_tokens || 0, msg.file_cost || 0);
     hideStepStatus();
   } else if (msg.type === 'skipped') {
+    setWhisperActive(false);
     addFileCard('⏭️', msg.file, t('status.skipped'));
   } else if (msg.type === 'error_file') {
+    setWhisperActive(false);
     addLog(`${t('status.error_file_prefix')}: ${msg.file} — ${msg.error}`, 'err');
     addFileCard('❌', msg.file, msg.error);
     hideStepStatus();
