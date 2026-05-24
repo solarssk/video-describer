@@ -531,6 +531,14 @@ def run_processing(config: dict):
                 skipped += 1
                 emit({'type': 'skipped', 'file': file_path.name})
                 _save_batch_state(config, abs_index, total_media, processed, skipped, errors)
+                if config.get('generate_summary'):
+                    try:
+                        _line = output_path.read_text(encoding='utf-8').split('\n')[0]
+                        if ' - ' in _line:
+                            _line = _line.split(' - ', 1)[1]
+                        summary_entries.append((file_path.name, _line))
+                    except OSError:
+                        pass
                 continue
 
             # Photos make no sense without AI analysis — skip with a clear log entry.
