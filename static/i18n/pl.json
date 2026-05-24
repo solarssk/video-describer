@@ -14,6 +14,7 @@
     "tooltip": "Stan systemu — odświeżane co 3s",
     "tokens": "Tokeny",
     "cost": "Koszt",
+    "thermal_label": "TEMP",
     "thermal_tooltip": "Stan termiczny"
   },
   "form": {
@@ -167,12 +168,10 @@
     "key_placeholder": "Wklej klucz API…",
     "anthropic_name": "Anthropic",
     "anthropic_desc": "Claude · opis AI filmów i zdjęć",
-    "anthropic_hint": "Klucz dostępny na console.anthropic.com",
     "from_env_hint": "Klucz API jest skonfigurowany na tym komputerze. Wklej nowy klucz powyżej, żeby go zastąpić.",
     "from_env_hint_openai": "Klucz API jest skonfigurowany na tym komputerze.",
     "openai_name": "OpenAI",
-    "openai_desc": "Whisper API · transkrypcja mowy w chmurze (0,006 $/min)",
-    "openai_hint": "Używany tylko gdy brak lokalnego Whispera",
+    "openai_desc": "Whisper API · transkrypcja w chmurze (0,006 $/min) · fallback gdy brak lokalnego modelu",
     "gemini_name": "Google Gemini",
     "gemini_desc": "Alternatywny model AI do opisu wideo",
     "assemblyai_name": "AssemblyAI",

@@ -99,8 +99,9 @@ header .badge {
   #usage-widget { display: none !important; }
 }
 @media (max-width: 920px) {
-  /* Keep only thermal dot — hide all labelled metric chips */
+  /* Keep only thermal — hide all other metric chips */
   .metric { display: none !important; }
+  #m-thermal-wrap { display: inline-flex !important; }
 }
 
 /* ── Step-status bar: progressively drop secondary info as right panel shrinks ──
@@ -831,7 +832,7 @@ input.masked.unmasked {
   flex-shrink: 0;
   color: #fff;
 }
-.conn-icon--anthropic  { background: #d4a574; }
+.conn-icon--anthropic  { background: #b5522a; }
 .conn-icon--openai     { background: #10a37f; }
 .conn-icon--gemini     { background: #4285f4; }
 .conn-icon--assemblyai { background: #5b50d6; }

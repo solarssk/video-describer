@@ -58,7 +58,10 @@
       <span class="metric-label" id="m-whisper-label">Whisper</span>
       <span class="metric-value" id="m-whisper-status">—</span>
     </span>
-    <span class="thermal" id="m-thermal" data-i18n-attr-title="metrics.thermal_tooltip" title="Thermal status"></span>
+    <span class="metric" id="m-thermal-wrap">
+      <span class="metric-label" data-i18n="metrics.thermal_label">TEMP</span>
+      <span class="thermal" id="m-thermal" data-i18n-attr-title="metrics.thermal_tooltip" title="Thermal status"></span>
+    </span>
   </div>
 </header>
 
@@ -331,8 +334,8 @@
     <section id="conn-card-anthropic">
       <div class="conn-section-header">
         <div class="conn-icon conn-icon--anthropic">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
-            <path d="M13.827 3.52h2.457L21.043 20h-2.5l-1.213-3.36h-5.538L10.58 20H8.083l5.744-16.48zm1.22 3.81-2.159 5.99h4.32l-2.161-5.99zM8.292 3.52H5.66L1 20h2.497l1.215-3.36h5.536L11.46 20h2.5L8.292 3.52zm-1.22 3.81 2.158 5.99H5.91l2.162-5.99z"/>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L3 21h3.5l1.8-4.5h7.4L17.5 21H21L12 2zm0 5.2 2.8 7.3H9.2L12 7.2z"/>
           </svg>
         </div>
         <div class="conn-info">
@@ -354,7 +357,6 @@
         </div>
         <div class="conn-status" id="conn-status-anthropic"></div>
         <div class="conn-hint" id="conn-env-hint-anthropic" style="display:none" data-i18n="connectors.from_env_hint">Key loaded from <code>ANTHROPIC_API_KEY</code> environment variable. Paste a key above to override.</div>
-        <div class="conn-hint" data-i18n="connectors.anthropic_hint">Get your key at console.anthropic.com</div>
       </div>
     </section>
 
@@ -368,7 +370,7 @@
         </div>
         <div class="conn-info">
           <h2 data-i18n="connectors.openai_name">OpenAI</h2>
-          <div class="conn-desc" data-i18n="connectors.openai_desc">Whisper API · cloud speech transcription ($0.006/min)</div>
+          <div class="conn-desc" data-i18n="connectors.openai_desc">Whisper API · cloud transcription ($0.006/min) · fallback if no local model</div>
         </div>
         <div class="conn-badge" id="conn-badge-openai"><span data-i18n="connectors.not_set">Not set</span></div>
       </div>
@@ -385,7 +387,6 @@
         </div>
         <div class="conn-status" id="conn-status-openai"></div>
         <div class="conn-hint" id="conn-env-hint-openai" style="display:none" data-i18n="connectors.from_env_hint_openai">Key loaded from <code>OPENAI_API_KEY</code> environment variable.</div>
-        <div class="conn-hint" data-i18n="connectors.openai_hint">Used only when no local Whisper is available</div>
       </div>
     </section>
 

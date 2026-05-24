@@ -14,6 +14,7 @@
     "tooltip": "System status — refreshed every 3s",
     "tokens": "Tokens",
     "cost": "Cost",
+    "thermal_label": "TEMP",
     "thermal_tooltip": "Thermal status"
   },
   "form": {
@@ -167,12 +168,10 @@
     "key_placeholder": "Paste API key…",
     "anthropic_name": "Anthropic",
     "anthropic_desc": "Claude · AI description of video & photos",
-    "anthropic_hint": "Get your key at console.anthropic.com",
     "from_env_hint": "API key is configured on this computer. Paste a new key above to replace it.",
     "from_env_hint_openai": "API key is configured on this computer.",
     "openai_name": "OpenAI",
-    "openai_desc": "Whisper API · cloud speech transcription ($0.006/min)",
-    "openai_hint": "Used only when no local Whisper is available",
+    "openai_desc": "Whisper API · cloud transcription ($0.006/min) · fallback if no local model",
     "gemini_name": "Google Gemini",
     "gemini_desc": "Alternative AI provider for video descriptions",
     "assemblyai_name": "AssemblyAI",
