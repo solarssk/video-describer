@@ -1,0 +1,18 @@
+anthropic>=0.40.0
+flask>=3.0.0
+psutil>=5.9.0
+
+# Speech transcription — install ONE of the following:
+#
+#   Apple Silicon (M1/M2/M3/M4) — uses Neural Engine, much faster:
+#     pip install mlx-whisper
+#
+#   Everything else (Intel Mac, Windows, Linux) — CPU only:
+#     pip install faster-whisper
+#
+# Both are optional. If neither is installed, speech transcription
+# is simply unavailable (AI image analysis still works fine).
+#
+# Uncomment the line that matches your machine:
+# mlx-whisper>=0.4.0
+# faster-whisper>=1.0.0

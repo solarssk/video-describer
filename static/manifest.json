@@ -1,0 +1,24 @@
+{
+  "name": "Video Describer",
+  "short_name": "Video Describer",
+  "description": "Automatically generates timestamped descriptions of GoPro / Insta360 recordings using Claude AI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1c1c1e",
+  "theme_color": "#1c1c1e",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

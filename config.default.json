@@ -1,0 +1,41 @@
+{
+  "connectors": {
+    "anthropic": {"api_key": ""},
+    "openai":    {"api_key": ""}
+  },
+  "ai": {
+    "provider": "anthropic",
+    "anthropic": {
+      "model": "claude-sonnet-4-6",
+      "max_tokens_video": 2000,
+      "max_tokens_photo": 500,
+      "price_input_per_mtok_usd": 3.0,
+      "price_output_per_mtok_usd": 15.0,
+      "timeout_sec": 600
+    }
+  },
+  "frames": {
+    "video_width_px": 640,
+    "photo_width_px": 1280,
+    "jpeg_quality": 5,
+    "max_per_video": 100
+  },
+  "defaults": {
+    "people": [
+      {"name": "Filip", "desc": "mężczyzna, kierowca motocykla"},
+      {"name": "Jadzia", "desc": "kobieta, pasażerka"}
+    ],
+    "context": "wyprawa motocyklowa Polska → Słowacja → Węgry → Serbia",
+    "interval_sec": 5
+  },
+  "whisper": {
+    "default_model": "medium",
+    "fallback_tiers": ["large-v3", "medium", "small", "base", "tiny"],
+    "timeout_sec": 300
+  },
+  "server": {
+    "port": 5555,
+    "log_buffer_max": 500,
+    "heartbeat_sec": 2
+  }
+}

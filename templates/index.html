@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Describer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/favicon.svg') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/icon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <meta name="theme-color" content="#1c1c1e">
+</head>
+<body>
+
+<div id="multi-tab-banner" style="display:none" class="multi-tab-banner">
+  <span data-i18n="multi_tab.warning">⚠ Another tab of this app is already open. Only one tab should be used at a time.</span>
+  <button onclick="document.getElementById('multi-tab-banner').style.display='none'" data-i18n="multi_tab.dismiss">Dismiss</button>
+</div>
+
+<div class="narrow-warning">
+  <div class="icon">🖥</div>
+  <h2 data-i18n="narrow.title">Desktop interface</h2>
+  <p data-i18n-html="narrow.desc1"></p>
+  <p class="muted" data-i18n-html="narrow.desc2"></p>
+  <button class="btn-bypass" onclick="document.body.classList.add('bypass-narrow')" data-i18n="narrow.bypass">Show anyway</button>
+</div>
+
+<header>
+  <h1>🎬 Video Describer</h1>
+  <span class="badge">v{{ version }}</span>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="run" data-i18n="tabs.processing">🎬 Processing</button>
+    <button class="tab" data-tab="settings" onclick="loadSettings()" data-i18n="tabs.settings">⚙️ Settings</button>
+    <button class="tab" data-tab="connectors" onclick="loadConnectors()" data-i18n="tabs.connectors">🔌 Connectors</button>
+  </nav>
+
+  <div class="lang-toggle" title="UI language">
+    <button class="lang-btn" data-lang="pl" onclick="setLang('pl')">PL</button>
+    <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+  </div>
+
+  <div class="metrics" data-i18n-attr-title="metrics.tooltip" title="System status — refreshed every 3s">
+    <span class="metric">
+      <span class="metric-label">CPU</span>
+      <span class="metric-value" id="m-cpu">—</span>
+    </span>
+    <span class="metric">
+      <span class="metric-label">RAM</span>
+      <span class="metric-value" id="m-ram">—</span>
+    </span>
+    <span class="metric">
+      <span class="metric-label">Load</span>
+      <span class="metric-value" id="m-load">—</span>
+    </span>
+    <span class="metric" id="m-whisper-wrap" style="display:none" title="">
+      <span class="metric-label" id="m-whisper-label">Whisper</span>
+      <span class="metric-value" id="m-whisper-status">—</span>
+    </span>
+    <span class="thermal" id="m-thermal" data-i18n-attr-title="metrics.thermal_tooltip" title="Thermal status"></span>
+  </div>
+</header>
+
+<div class="tab-pane" id="pane-run">
+<div class="main">
+
+  <!-- LEFT: config form -->
+  <div class="panel-left">
+
+    <div class="field">
+      <label data-i18n="form.path.label">Folder or file</label>
+      <div class="input-with-btn">
+        <input type="text" id="path" data-i18n-attr-placeholder="form.path.placeholder" placeholder="Select folder or file..." oninput="onPathChange()">
+        <button class="btn-pick" onclick="pickFolder()" data-i18n-attr-title="form.path.folder_title" data-i18n="form.path.folder_btn" title="Pick folder">📁 Folder</button>
+        <button class="btn-pick" onclick="pickFile()" data-i18n-attr-title="form.path.file_title" data-i18n="form.path.file_btn" title="Pick file">🎬 File</button>
+      </div>
+      <div class="path-info" id="path-info" style="display:none"></div>
+    </div>
+
+    <div class="field">
+      <div class="label-row">
+        <label data-i18n="form.people.label">People in recording</label>
+        <button class="btn-mini" onclick="addPerson()" data-i18n-attr-title="form.people.add_title" data-i18n="form.people.add_btn" title="Add person">+ Add</button>
+      </div>
+      <div id="people-list"></div>
+    </div>
+
+    <div class="field">
+      <label data-i18n="form.context.label">Recording context</label>
+      <textarea id="context" rows="2"
+        data-i18n-attr-placeholder="form.context.placeholder"
+        placeholder="motorcycle trip Poland → Slovakia → Hungary → Serbia"></textarea>
+    </div>
+
+    <div class="field">
+      <label data-i18n="form.interval.label">Frame interval (s)</label>
+      <input type="number" id="interval" value="5" min="1" max="120">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label" data-i18n="form.analyze_images.label">AI image analysis</div>
+        <div class="toggle-sub" data-i18n="form.analyze_images.sub">Send frames to Claude for description (requires API key)</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="analyze_images" checked onchange="updateStartEnabled()">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label" data-i18n="form.transcribe.label">Speech transcription</div>
+        <div class="toggle-sub" data-i18n="form.transcribe.sub">Whisper analyzes audio and merges with frames</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="transcribe" onchange="onTranscribeChange()">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="whisper-model-row" id="whisper-row">
+      <label data-i18n="form.transcribe.model">Model:</label>
+      <select id="whisper_model">
+        <option value="tiny"     data-i18n="whisper.tiny">tiny — fastest, less accurate</option>
+        <option value="base"     data-i18n="whisper.base">base</option>
+        <option value="small"    data-i18n="whisper.small">small</option>
+        <option value="medium" selected data-i18n="whisper.medium">medium — recommended</option>
+        <option value="large-v3" data-i18n="whisper.large">large-v3 — most accurate</option>
+      </select>
+    </div>
+
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label" data-i18n="form.overwrite.label">Overwrite existing descriptions</div>
+        <div class="toggle-sub" data-i18n="form.overwrite.sub">.txt files that already exist will be replaced</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="overwrite">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="form-actions" style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
+      <button class="btn btn-start" id="btn-start" onclick="startProcessing()" data-i18n="form.start">Start</button>
+      <button class="btn btn-stop"  id="btn-stop"  onclick="stopProcessing()" data-i18n="form.stop">Stop</button>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: progress + log -->
+  <div class="panel-right">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <div class="status-bar">
+      <div class="dot idle" id="status-dot"></div>
+      <span id="status-text" data-i18n="status.ready">Ready</span>
+    </div>
+
+    <div class="step-status" id="step-status" style="display:none">
+      <span class="step-icon">⏳</span>
+      <span class="step-name" id="step-name"></span>
+      <div class="step-bar-wrap"><div class="step-bar" id="step-bar"></div></div>
+      <span class="step-pct" id="step-pct"></span>
+      <span class="step-elapsed" id="step-elapsed"></span>
+      <span class="step-eta" id="step-eta"></span>
+    </div>
+
+    <div class="log" id="log">
+      <div class="empty-state" id="empty-state">
+        <div class="icon">🎥</div>
+        <p data-i18n="status.fill_form">Fill in the form and click Start</p>
+      </div>
+    </div>
+
+    <div class="file-cards" id="file-cards" style="display:none"></div>
+  </div>
+
+</div>
+</div><!-- /pane-run -->
+
+<div class="tab-pane" id="pane-settings" style="display:none">
+  <div class="settings-scroll">
+    <div class="settings">
+
+    <section class="about-section">
+      <div class="about-row">
+        <div>
+          <div class="about-title">Video Describer</div>
+          <div class="about-sub"><span class="about-version">v{{ version }}</span> · <span data-i18n="settings.about_sub">by solarssk — bugs, ideas, contributions welcome</span></div>
+        </div>
+        <a class="github-link" href="https://github.com/solarssk/video-describer" target="_blank" rel="noopener" data-i18n-attr-title="settings.about_github_title" title="GitHub — report a bug or contribute">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true">
+            <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.341-3.369-1.341-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+          </svg>
+          <span data-i18n="settings.about_github">GitHub</span>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="settings.version_title">Version</h2>
+      <p class="muted" data-i18n-html="settings.version_text" data-i18n-vars='{"version":"{{ version }}"}'></p>
+      <p class="muted small" data-i18n-html="settings.version_help"></p>
+    </section>
+
+    <section>
+      <h2 data-i18n="settings.claude_title">Claude AI</h2>
+      <div class="field">
+        <label data-i18n="settings.model_label">Model</label>
+        <input type="text" id="cfg-model" placeholder="claude-sonnet-4-6">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label data-i18n="settings.max_video_label">Max tokens (video)</label>
+          <input type="number" id="cfg-max-video" min="100" max="8000">
+        </div>
+        <div class="field">
+          <label data-i18n="settings.max_photo_label">Max tokens (photo)</label>
+          <input type="number" id="cfg-max-photo" min="50" max="2000">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label data-i18n="settings.price_in_label">Input price (USD / MTok)</label>
+          <input type="number" id="cfg-price-in" step="0.01" min="0">
+        </div>
+        <div class="field">
+          <label data-i18n="settings.price_out_label">Output price (USD / MTok)</label>
+          <input type="number" id="cfg-price-out" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="settings.timeout_label">Timeout (s)</label>
+        <input type="number" id="cfg-timeout" min="30" max="3600">
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="settings.frames_title">Video / photo frames</h2>
+      <div class="row">
+        <div class="field">
+          <label data-i18n="settings.video_width_label">Video frame width (px)</label>
+          <input type="number" id="cfg-video-width" min="240" max="1920">
+        </div>
+        <div class="field">
+          <label data-i18n="settings.photo_width_label">Photo width (px)</label>
+          <input type="number" id="cfg-photo-width" min="480" max="2560">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label data-i18n="settings.jpeg_q_label">JPG quality (1=best, 31=worst)</label>
+          <input type="number" id="cfg-jpeg-q" min="1" max="31">
+        </div>
+        <div class="field">
+          <label data-i18n="settings.max_frames_label">Max frames per video</label>
+          <input type="number" id="cfg-max-frames" min="10" max="500">
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="settings.whisper_title">Whisper</h2>
+      <div class="field">
+        <label data-i18n="settings.whisper_default_label">Default model</label>
+        <select id="cfg-whisper-default">
+          <option>tiny</option><option>base</option><option>small</option>
+          <option>medium</option><option>large-v3</option>
+        </select>
+      </div>
+      <div class="field">
+        <label data-i18n="settings.whisper_tiers_label">Auto-fallback order on thermal throttle (heaviest first)</label>
+        <input type="text" id="cfg-whisper-tiers" placeholder="large-v3, medium, small, base, tiny">
+        <span class="muted small" data-i18n="settings.whisper_tiers_help">Comma-separated. If the system overheats, the model is downgraded one tier.</span>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="settings.prompt_title">System prompt (instruction for Claude)</h2>
+      <p class="muted small" data-i18n="settings.prompt_help">Define how Claude should describe recordings. Edit freely.</p>
+      <textarea id="cfg-prompt" rows="18" class="mono"></textarea>
+      <div class="preset-actions">
+        <button class="btn-mini" onclick="loadPromptPreset('pl')" data-i18n="settings.prompt_load_pl">📥 Load PL preset</button>
+        <button class="btn-mini" onclick="loadPromptPreset('en')" data-i18n="settings.prompt_load_en">📥 Load EN preset</button>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="settings.defaults_title">Form defaults</h2>
+      <div class="field">
+        <label data-i18n="settings.default_context_label">Default context</label>
+        <textarea id="cfg-default-context" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label data-i18n="settings.default_interval_label">Default frame interval (s)</label>
+        <input type="number" id="cfg-default-interval" min="1" max="120">
+      </div>
+    </section>
+
+    </div>
+  </div>
+
+  <div class="settings-actions">
+    <button class="btn btn-start" id="btn-save-settings" onclick="saveSettings()" data-i18n="settings.save">💾 Save</button>
+    <button class="btn btn-secondary" id="btn-reset-settings" onclick="resetSettings()" data-i18n="settings.reset">↺ Restore defaults</button>
+    <span id="settings-status"></span>
+  </div>
+</div><!-- /pane-settings -->
+
+<div class="tab-pane" id="pane-connectors" style="display:none">
+  <div class="settings-scroll">
+    <div class="settings">
+
+    <!-- About row -->
+    <section class="about-section">
+      <div class="about-row">
+        <div>
+          <div class="about-title" data-i18n="connectors.title">Connectors</div>
+          <div class="about-sub" data-i18n="connectors.subtitle">API keys for external services. Saved locally in config.json.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Anthropic -->
+    <section id="conn-card-anthropic">
+      <div class="conn-section-header">
+        <div class="conn-icon conn-icon--anthropic">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13.827 3.52h2.457L21.043 20h-2.5l-1.213-3.36h-5.538L10.58 20H8.083l5.744-16.48zm1.22 3.81-2.159 5.99h4.32l-2.161-5.99zM8.292 3.52H5.66L1 20h2.497l1.215-3.36h5.536L11.46 20h2.5L8.292 3.52zm-1.22 3.81 2.158 5.99H5.91l2.162-5.99z"/>
+          </svg>
+        </div>
+        <div class="conn-info">
+          <h2 data-i18n="connectors.anthropic_name">Anthropic</h2>
+          <div class="conn-desc" data-i18n="connectors.anthropic_desc">Claude · AI description of video &amp; photos</div>
+        </div>
+        <div class="conn-badge" id="conn-badge-anthropic"><span data-i18n="connectors.not_set">Not set</span></div>
+      </div>
+      <div class="field">
+        <label data-i18n="form.api_key.label">Anthropic API Key</label>
+        <div class="conn-key-row">
+          <input type="text" id="conn-key-anthropic" class="conn-key-input masked"
+            data-i18n-attr-placeholder="connectors.key_placeholder"
+            placeholder="Paste API key…"
+            autocomplete="off" autocorrect="off" autocapitalize="off"
+            spellcheck="false" data-1p-ignore data-bwignore data-lpignore="true" data-form-type="other">
+          <button class="btn-mini" onclick="verifyConnector('anthropic')" data-i18n="connectors.verify">Verify</button>
+          <button class="btn-mini" style="background:var(--accent);color:#fff;border-color:transparent" onclick="saveConnector('anthropic')" data-i18n="connectors.save">Save</button>
+        </div>
+        <div class="conn-status" id="conn-status-anthropic"></div>
+        <div class="conn-hint" id="conn-env-hint-anthropic" style="display:none" data-i18n="connectors.from_env_hint">Key loaded from <code>ANTHROPIC_API_KEY</code> environment variable. Paste a key above to override.</div>
+        <div class="conn-hint" data-i18n="connectors.anthropic_hint">Get your key at console.anthropic.com</div>
+      </div>
+    </section>
+
+    <!-- OpenAI -->
+    <section id="conn-card-openai">
+      <div class="conn-section-header">
+        <div class="conn-icon conn-icon--openai">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+          </svg>
+        </div>
+        <div class="conn-info">
+          <h2 data-i18n="connectors.openai_name">OpenAI</h2>
+          <div class="conn-desc" data-i18n="connectors.openai_desc">Whisper API · cloud speech transcription ($0.006/min)</div>
+        </div>
+        <div class="conn-badge" id="conn-badge-openai"><span data-i18n="connectors.not_set">Not set</span></div>
+      </div>
+      <div class="field">
+        <label>OpenAI API Key</label>
+        <div class="conn-key-row">
+          <input type="text" id="conn-key-openai" class="conn-key-input masked"
+            data-i18n-attr-placeholder="connectors.key_placeholder"
+            placeholder="Paste API key…"
+            autocomplete="off" autocorrect="off" autocapitalize="off"
+            spellcheck="false" data-1p-ignore data-bwignore data-lpignore="true" data-form-type="other">
+          <button class="btn-mini" onclick="verifyConnector('openai')" data-i18n="connectors.verify">Verify</button>
+          <button class="btn-mini" style="background:var(--accent);color:#fff;border-color:transparent" onclick="saveConnector('openai')" data-i18n="connectors.save">Save</button>
+        </div>
+        <div class="conn-status" id="conn-status-openai"></div>
+        <div class="conn-hint" id="conn-env-hint-openai" style="display:none" data-i18n="connectors.from_env_hint_openai">Key loaded from <code>OPENAI_API_KEY</code> environment variable.</div>
+        <div class="conn-hint" data-i18n="connectors.openai_hint">Used only when no local Whisper is available</div>
+      </div>
+    </section>
+
+    <!-- Gemini — coming soon -->
+    <section class="conn-card--soon">
+      <div class="conn-section-header">
+        <div class="conn-icon conn-icon--gemini">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 24A14.304 14.304 0 0 0 0 12 14.304 14.304 0 0 0 12 0a14.304 14.304 0 0 0 12 12 14.304 14.304 0 0 0-12 12"/>
+          </svg>
+        </div>
+        <div class="conn-info">
+          <h2 data-i18n="connectors.gemini_name">Google Gemini</h2>
+          <div class="conn-desc" data-i18n="connectors.gemini_desc">Alternative AI provider for video descriptions</div>
+        </div>
+        <div class="conn-badge conn-badge--soon"><span data-i18n="connectors.coming_soon">Coming soon</span></div>
+      </div>
+    </section>
+
+    <!-- AssemblyAI — coming soon -->
+    <section class="conn-card--soon">
+      <div class="conn-section-header">
+        <div class="conn-icon conn-icon--assemblyai">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2 L22 20 H2 Z M12 7 L6.5 17 H17.5 Z M12 12 L9.5 17 H14.5 Z"/>
+          </svg>
+        </div>
+        <div class="conn-info">
+          <h2 data-i18n="connectors.assemblyai_name">AssemblyAI</h2>
+          <div class="conn-desc" data-i18n="connectors.assemblyai_desc">Cloud transcription with speaker diarization</div>
+        </div>
+        <div class="conn-badge conn-badge--soon"><span data-i18n="connectors.coming_soon">Coming soon</span></div>
+      </div>
+    </section>
+
+    </div>
+  </div>
+</div><!-- /pane-connectors -->
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js');
+  }
+</script>
+</body>
+</html>

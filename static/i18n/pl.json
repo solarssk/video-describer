@@ -1,0 +1,197 @@
+{
+  "narrow": {
+    "title": "Interfejs dla desktopa",
+    "desc1": "Video Describer został zaprojektowany do pracy w oknie o szerokości <b>min. 900px</b>.",
+    "desc2": "Aplikacja przetwarza lokalne pliki z dysku i nie jest dostępna z urządzeń mobilnych — serwer słucha tylko na <code>localhost</code>.",
+    "bypass": "Pokaż mimo to"
+  },
+  "tabs": {
+    "processing": "🎬 Przetwarzanie",
+    "settings": "⚙️ Ustawienia",
+    "connectors": "🔌 Połączenia"
+  },
+  "metrics": {
+    "tooltip": "Stan systemu — odświeżane co 3s",
+    "tokens": "Tokeny",
+    "cost": "Koszt",
+    "thermal_tooltip": "Stan termiczny"
+  },
+  "form": {
+    "api_key": {
+      "label": "Klucz API Anthropic",
+      "placeholder": "sk-ant-api03-... (opcjonalnie jeśli ustawiony w env)",
+      "show_hide": "Pokaż / ukryj",
+      "verify": "Sprawdź klucz"
+    },
+    "path": {
+      "label": "Folder lub plik",
+      "placeholder": "Wybierz folder lub plik...",
+      "folder_btn": "📁 Folder",
+      "file_btn": "🎬 Plik",
+      "folder_title": "Wybierz folder",
+      "file_title": "Wybierz plik"
+    },
+    "people": {
+      "label": "Osoby na nagraniu",
+      "add_btn": "+ Dodaj",
+      "add_title": "Dodaj osobę",
+      "name_placeholder": "Imię",
+      "desc_placeholder": "Opis (np. mężczyzna, kierowca)",
+      "remove_title": "Usuń"
+    },
+    "context": {
+      "label": "Kontekst nagrania",
+      "placeholder": "wyprawa motocyklowa Polska → Słowacja → Węgry → Serbia"
+    },
+    "interval": {
+      "label": "Interwał klatek (s)"
+    },
+    "analyze_images": {
+      "label": "Analiza obrazu (AI)",
+      "sub": "Wysyła klatki do Claude do opisu (wymaga klucza API)"
+    },
+    "transcribe": {
+      "label": "Transkrypcja mowy",
+      "sub": "Whisper analizuje audio i scala z obrazem",
+      "model": "Model:"
+    },
+    "overwrite": {
+      "label": "Nadpisz istniejące opisy",
+      "sub": "Pliki .txt które już istnieją zostaną zastąpione"
+    },
+    "start": "Rozpocznij",
+    "stop": "Zatrzymaj"
+  },
+  "whisper": {
+    "tiny": "tiny — najszybszy, mniej dokładny",
+    "base": "base",
+    "small": "small",
+    "medium": "medium — zalecany",
+    "large": "large-v3 — najdokładniejszy"
+  },
+  "status": {
+    "ready": "Gotowy do pracy",
+    "fill_form": "Uzupełnij formularz i kliknij Rozpocznij",
+    "processing": "Przetwarzam…",
+    "stopping": "Zatrzymuję…",
+    "error": "Błąd",
+    "connection_lost": "Połączenie utracone — próba wznowienia…",
+    "reconnected": "🔄 Przywrócono połączenie z serwerem",
+    "restoring": "↩️ Przywracam stan z serwera…",
+    "skipped": "Pominięto — plik .txt już istnieje",
+    "done_summary": "Gotowe — przetworzono {{processed}}, pominięto {{skipped}}, błędy {{errors}}",
+    "finished_summary": "✓ Zakończono: {{processed}} przetworzono, {{skipped}} pominięto, {{errors}} błędów",
+    "error_file_prefix": "BŁĄD"
+  },
+  "verify": {
+    "enter_key": "⚠ Wpisz klucz",
+    "checking": "⏳ Sprawdzam...",
+    "works": "✓ Działa ({{model}})",
+    "invalid": "✗ Nieprawidłowy klucz API",
+    "network_error": "✗ błąd sieci"
+  },
+  "path_info": {
+    "unsupported": "⚠ Nieobsługiwany typ pliku",
+    "no_supported": "brak obsługiwanych plików",
+    "video": "wideo",
+    "photos": "zdjęć",
+    "more": "…i {{count}} więcej"
+  },
+  "alerts": {
+    "provide_path": "Podaj ścieżkę do folderu lub pliku"
+  },
+  "tooltip": {
+    "start_no_path": "Wybierz folder lub plik",
+    "start_no_key": "Wymagany klucz API (wpisz powyżej lub ustaw ANTHROPIC_API_KEY w env)",
+    "start_no_features": "Włącz przynajmniej jedną opcję: analizę obrazu lub transkrypcję"
+  },
+  "lock": {
+    "banner": "🔒 Trwa przetwarzanie — edycja zablokowana"
+  },
+  "guard": {
+    "leave_warning": "Trwa przetwarzanie. Czy na pewno chcesz opuścić stronę?"
+  },
+  "settings": {
+    "about_sub": "by solarssk — bugi, pomysły i kontrybucje mile widziane",
+    "about_github": "GitHub",
+    "about_github_title": "GitHub — zgłoś buga lub dołącz do projektu",
+    "version_title": "Wersja",
+    "version_text": "video-describer <b>v{{version}}</b>",
+    "version_help": "Konfiguracja zapisywana w <code>config.json</code> i <code>prompts/system.md</code>. Zmiany wchodzą w życie przy następnym uruchomieniu przetwarzania.",
+    "claude_title": "Claude AI",
+    "model_label": "Model",
+    "max_video_label": "Max tokens (wideo)",
+    "max_photo_label": "Max tokens (zdjęcie)",
+    "price_in_label": "Cena input (USD / MTok)",
+    "price_out_label": "Cena output (USD / MTok)",
+    "timeout_label": "Timeout (s)",
+    "frames_title": "Klatki wideo / zdjęć",
+    "video_width_label": "Szerokość klatek wideo (px)",
+    "photo_width_label": "Szerokość zdjęć (px)",
+    "jpeg_q_label": "Jakość JPG klatek (1=najlepsza, 31=najgorsza)",
+    "max_frames_label": "Max klatek na wideo",
+    "whisper_title": "Whisper",
+    "whisper_default_label": "Domyślny model",
+    "whisper_tiers_label": "Kolejność auto-fallback przy thermal throttle (od najcięższego)",
+    "whisper_tiers_help": "Po przecinku. Jeśli system się grzeje, model schodzi o jeden poziom w dół.",
+    "prompt_title": "System prompt (instrukcja dla Claude)",
+    "prompt_help": "Tu definiujesz jak Claude ma opisywać nagrania. Edytuj swobodnie — możesz zmienić ton, format, dodać własne zasady.",
+    "prompt_load_pl": "📥 Wczytaj preset PL",
+    "prompt_load_en": "📥 Wczytaj preset EN",
+    "prompt_preset_confirm": "Zastąpić aktualny prompt presetem {{lang}}? Twoje zmiany zostaną utracone.",
+    "defaults_title": "Domyślne wartości formularza",
+    "default_context_label": "Domyślny kontekst",
+    "default_interval_label": "Domyślny interwał klatek (s)",
+    "save": "💾 Zapisz",
+    "reset": "↺ Przywróć fabryczne",
+    "reset_confirm": "Przywrócić wszystkie ustawienia konfiguracji do fabrycznych? (Nie dotyczy promptu systemowego.)",
+    "loading": "Ładuję...",
+    "saving": "⏳ Zapisuję...",
+    "saved": "✓ Zapisano. Zmiany wejdą w życie od następnego 'Rozpocznij'.",
+    "resetting": "⏳ Resetuję...",
+    "restored": "✓ Przywrócono fabryczne ustawienia.",
+    "prompt_loaded": "✓ Wczytano preset {{lang}}."
+  },
+  "connectors": {
+    "title": "Połączenia",
+    "subtitle": "Klucze API do zewnętrznych usług. Zapisywane lokalnie w config.json.",
+    "connected": "Połączony",
+    "not_set": "Nie skonfigurowany",
+    "coming_soon": "Wkrótce",
+    "from_env": "ze zmiennej env",
+    "save": "Zapisz",
+    "verify": "Sprawdź",
+    "saving": "Zapisywanie…",
+    "saved": "✓ Zapisano",
+    "checking": "⏳ Sprawdzanie…",
+    "key_placeholder": "Wklej klucz API…",
+    "anthropic_name": "Anthropic",
+    "anthropic_desc": "Claude · opis AI filmów i zdjęć",
+    "anthropic_hint": "Klucz dostępny na console.anthropic.com",
+    "from_env_hint": "Klucz API jest skonfigurowany na tym komputerze. Wklej nowy klucz powyżej, żeby go zastąpić.",
+    "from_env_hint_openai": "Klucz API jest skonfigurowany na tym komputerze.",
+    "openai_name": "OpenAI",
+    "openai_desc": "Whisper API · transkrypcja mowy w chmurze (0,006 $/min)",
+    "openai_hint": "Używany tylko gdy brak lokalnego Whispera",
+    "gemini_name": "Google Gemini",
+    "gemini_desc": "Alternatywny model AI do opisu wideo",
+    "assemblyai_name": "AssemblyAI",
+    "assemblyai_desc": "Transkrypcja w chmurze z rozróżnianiem mówców",
+    "verify_ok_anthropic": "✓ Połączony ({{model}})",
+    "verify_ok_openai": "✓ Połączony — Whisper dostępny",
+    "verify_fail": "✗ {{error}}",
+    "no_key_warning": "⚠ Brak klucza Anthropic — skonfiguruj w Połączeniach"
+  },
+  "multi_tab": {
+    "warning": "⚠ Ta aplikacja jest otwarta w innej karcie. Używaj tylko jednej karty naraz.",
+    "dismiss": "Zamknij"
+  },
+  "file_card": {
+    "open_btn": "Otwórz",
+    "open_title": "Otwórz plik"
+  },
+  "lang": {
+    "pl": "PL",
+    "en": "EN"
+  }
+}

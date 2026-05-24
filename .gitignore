@@ -1,0 +1,38 @@
+# ── User config (contains API keys — never commit) ──────────────────────────
+config.json
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# ── Virtual environments ─────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+
+# ── Editor / IDE ─────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Temp / output files ──────────────────────────────────────────────────────
+*.log
+tmp/
+temp/
+
+# ── Model cache (downloaded by mlx-whisper / faster-whisper) ─────────────────
+models/
+
+# ── Cowork / Claude Code local launch config ────────────────────────────────
+.claude/
