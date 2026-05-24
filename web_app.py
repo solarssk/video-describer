@@ -336,6 +336,7 @@ def run_processing(config: dict):
 
         resume_from = int(config.get('resume_from_index', 0) or 0)
         total_media = len(media)
+        pre_resume_media = media[:resume_from]  # saved for summary reconstruction
         if resume_from > 0:
             media = media[resume_from:]
             print(f"Resuming from file {resume_from + 1}/{total_media}")
@@ -391,9 +392,10 @@ def run_processing(config: dict):
                 cfg,
             )
             print(f"Estimated cost: ~${est_cost:.2f} ({total_est_frames} frames across {len(media)} files)")
-            if budget_usd is not None and est_cost > budget_usd:
+            if budget_usd is not None and resume_cost_offset + est_cost > budget_usd:
                 emit({'type': 'error', 'text':
-                      f'⛔ Estimated cost ${est_cost:.2f} exceeds budget limit ${budget_usd:.2f} — batch not started'})
+                      f'⛔ Estimated cost ${resume_cost_offset + est_cost:.2f} exceeds budget limit '
+                      f'${budget_usd:.2f} — batch not started'})
                 return
 
         processed = int(config.get('resume_processed', 0) or 0)
@@ -407,6 +409,17 @@ def run_processing(config: dict):
         current_progress: list = [None, ''] # [percent_or_None, label]
         completed_times: list = []          # times of finished files → ETA
         summary_entries: list = []          # (filename, first_line) for _summary.txt
+        if pre_resume_media and config.get('generate_summary'):
+            _out_base = Path(config['output_dir']) if config.get('output_dir') else None
+            for _fp, _ in pre_resume_media:
+                _txt = (_out_base if _out_base else _fp.parent) / (_fp.stem + '.txt')
+                try:
+                    _line = _txt.read_text(encoding='utf-8').split('\n')[0]
+                    if ' - ' in _line:
+                        _line = _line.split(' - ', 1)[1]
+                    summary_entries.append((_fp.name, _line))
+                except OSError:
+                    pass
 
         def _emit_step_status():
             if not current_step[0]:
