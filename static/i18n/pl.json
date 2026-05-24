@@ -64,6 +64,10 @@
       "label": "Generuj podsumowanie folderu",
       "sub": "Zapisuje _summary.txt z jednolinijkowymi opisami wszystkich przetworzonych plików"
     },
+    "budget": {
+      "label": "Limit budżetu (USD)",
+      "placeholder": "bez limitu"
+    },
     "start": "Rozpocznij",
     "stop": "Zatrzymaj"
   },

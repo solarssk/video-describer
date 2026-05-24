@@ -345,6 +345,13 @@ def run_processing(config: dict):
                 cfg,
             )
             print(f"Estimated cost: ~${est_cost:.2f} ({total_est_frames} frames across {len(media)} files)")
+            budget_usd = config.get('budget_usd') or None
+            if budget_usd and est_cost > budget_usd:
+                emit({'type': 'error', 'text':
+                      f'⛔ Estimated cost ${est_cost:.2f} exceeds budget limit ${budget_usd:.2f} — batch not started'})
+                return
+        else:
+            budget_usd = config.get('budget_usd') or None
 
         processed = skipped = errors = 0
 
@@ -413,6 +420,15 @@ def run_processing(config: dict):
         for i, (file_path, media_type) in enumerate(media, 1):
             if stop_event.is_set():
                 print("Stopped by user.")
+                break
+
+            # Budget guard — check before each file so we stop gracefully mid-batch
+            if budget_usd and usage_global['cost_usd'] >= budget_usd:
+                msg = (f"Budget limit ${budget_usd:.2f} reached — "
+                       f"processed {processed}/{len(media)} files "
+                       f"(${usage_global['cost_usd']:.2f} spent)")
+                print(f"⚠ {msg}")
+                emit({'type': 'error', 'text': f'⛔ {msg}'})
                 break
 
             # Auto-fallback: if the system overheats, downgrade Whisper before next file
