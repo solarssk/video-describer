@@ -608,7 +608,8 @@ def run_processing(config: dict):
                 print(f"  ERROR: {err_msg}")
                 errors += 1
                 emit({'type': 'error_file', 'file': file_path.name, 'error': err_msg})
-                _save_batch_state(config, abs_index, total_media, processed, skipped, errors)
+                # abs_index - 1: on resume, retry this file (not advance past it)
+                _save_batch_state(config, abs_index - 1, total_media, processed, skipped, errors)
 
                 # Fatal API errors (no credit, bad key) — stop the whole batch,
                 # otherwise we'd waste minutes of ffmpeg + Whisper on the next file
