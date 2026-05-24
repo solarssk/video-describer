@@ -866,11 +866,9 @@ async function fetchSysinfo() {
                        : s.whisper_backend === 'faster-whisper' ? 'CPU (faster-whisper)'
                        : 'not installed — transcription unavailable';
       syscheck.innerHTML = [
-        row('macOS',   chip,                           true),
-        row('ffmpeg',  s.ffmpeg ? 'installed' : 'not found — required', s.ffmpeg),
-        row('Whisper', whisperVal,                     s.whisper_backend ? true : null),
-        row('Claude',  s.anthropic_connected ? 'API key configured' : 'API key missing', s.anthropic_connected),
-        row('OpenAI',  s.openai_connected    ? 'API key configured' : 'not configured (optional)', s.openai_connected ? true : null),
+        row('macOS',   chip,                                              true),
+        row('ffmpeg',  s.ffmpeg ? 'installed' : 'not found — required',  s.ffmpeg),
+        row('Whisper', whisperVal,                                        s.whisper_backend ? true : null),
       ].join('');
     }
 
