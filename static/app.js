@@ -752,7 +752,7 @@ function startProcessing() {
     output_dir:     null,
     overwrite:      $('overwrite').checked,
     generate_summary: $('generate_summary').checked,
-    budget_usd:     parseFloat($('budget_usd').value) || null,
+    budget_usd:     (v => isNaN(v) ? null : v)(parseFloat($('budget_usd').value)),
     files:          getSelectedFiles(),  // [] = all, [...] = filtered subset
   };
 

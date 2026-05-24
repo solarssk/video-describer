@@ -308,6 +308,15 @@ def run_processing(config: dict):
         print(f"Found: {videos} video, {photos} photos.")
         emit({'type': 'total', 'total': len(media)})
 
+        # Validate and normalise budget_usd once — treat 0 as a valid limit
+        _raw_budget = config.get('budget_usd')
+        try:
+            budget_usd = float(_raw_budget) if _raw_budget is not None else None
+            if budget_usd is not None and (math.isnan(budget_usd) or math.isinf(budget_usd) or budget_usd < 0):
+                budget_usd = None
+        except (TypeError, ValueError):
+            budget_usd = None
+
         # ── Pre-batch cost estimate ──────────────────────────────────────
         # Scan durations and estimate the number of frames that will be sent
         # to the AI provider, then compute a rough cost.  This gives the user
@@ -345,13 +354,10 @@ def run_processing(config: dict):
                 cfg,
             )
             print(f"Estimated cost: ~${est_cost:.2f} ({total_est_frames} frames across {len(media)} files)")
-            budget_usd = config.get('budget_usd') or None
-            if budget_usd and est_cost > budget_usd:
+            if budget_usd is not None and est_cost > budget_usd:
                 emit({'type': 'error', 'text':
                       f'⛔ Estimated cost ${est_cost:.2f} exceeds budget limit ${budget_usd:.2f} — batch not started'})
                 return
-        else:
-            budget_usd = config.get('budget_usd') or None
 
         processed = skipped = errors = 0
 
@@ -423,7 +429,7 @@ def run_processing(config: dict):
                 break
 
             # Budget guard — check before each file so we stop gracefully mid-batch
-            if budget_usd and usage_global['cost_usd'] >= budget_usd:
+            if budget_usd is not None and usage_global['cost_usd'] >= budget_usd:
                 msg = (f"Budget limit ${budget_usd:.2f} reached — "
                        f"processed {processed}/{len(media)} files "
                        f"(${usage_global['cost_usd']:.2f} spent)")
