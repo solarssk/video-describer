@@ -164,7 +164,10 @@ def _save_batch_state(config: dict, next_index: int, total: int,
         'cost_usd': usage_global['cost_usd'],
         'timestamp': datetime.datetime.now().isoformat(timespec='seconds'),
     }
-    BATCH_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
+    try:
+        BATCH_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
+    except OSError as e:
+        print(f"⚠ Warning: could not save batch state: {e}")
 
 
 def _clear_batch_state() -> None:
@@ -259,7 +262,8 @@ def run_processing(config: dict):
     global is_processing, usage_global
     is_processing = True
     stop_event.clear()
-    usage_global = {'input': 0, 'output': 0, 'cost_usd': 0.0}
+    resume_cost = float(config.get('resume_cost_usd') or 0)
+    usage_global = {'input': 0, 'output': 0, 'cost_usd': resume_cost}
     heartbeat_stop = None
 
     old_stdout = sys.stdout

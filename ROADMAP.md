@@ -110,7 +110,7 @@ Z dokumentu `UI_PLAN.md` pozostały:
 - `describe_videos.py` — `process_folder()` z `file_filter`
 
 ### Batch resume po przerwaniu
-- Zapisuj stan batch w `config.json` lub osobnym pliku stanu
+- Zapisuj stan batch w `batch_state.json` (gitignored, automatycznie usuwany po zakończeniu)
 - Po restarcie aplikacji → "Resume previous batch? (9/15 plików, $0.43 zużyte)"
 - Przydatne przy awarii prądu, przegrzaniu, błędzie sieci
 

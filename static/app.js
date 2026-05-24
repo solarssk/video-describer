@@ -1208,6 +1208,7 @@ function resumeBatch() {
     resume_processed:  s.processed,
     resume_skipped:    s.skipped,
     resume_errors:     s.errors,
+    resume_cost_usd:   s.cost_usd ?? 0,
   });
 }
 
