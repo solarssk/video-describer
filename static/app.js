@@ -734,7 +734,7 @@ function handleMsg(msg) {
 }
 
 // ── Start / stop ──────────────────────────────────────────
-function startProcessing() {
+function startProcessing(resumeExtra = {}) {
   const path = $('path').value.trim();
   if (!path) { alert(t('alerts.provide_path')); return; }
 
@@ -754,6 +754,7 @@ function startProcessing() {
     generate_summary: $('generate_summary').checked,
     budget_usd:     (v => isNaN(v) ? null : v)(parseFloat($('budget_usd').value)),
     files:          getSelectedFiles(),  // [] = all, [...] = filtered subset
+    ...resumeExtra,
   };
 
   $('log').innerHTML = '';
@@ -1153,8 +1154,61 @@ window.addEventListener('load', async () => {
   // 4. Restore processing state if anything is running on server
   restoreState();
 
-  // 5. Start polling metrics + one-time system info
+  // 5. Check for interrupted batch and show resume banner (skip if already processing)
+  if (!isProcessing) checkBatchState();
+
+  // 6. Start polling metrics + one-time system info
   fetchSysinfo();
   pollMetrics();
   setInterval(pollMetrics, 3000);
 });
+
+// ── Batch resume ──────────────────────────────────────────
+let _batchStateData = null;
+
+async function checkBatchState() {
+  try {
+    const data = await fetch('/batch-state').then(r => r.json());
+    if (!data || !data.config) return;
+    _batchStateData = data;
+    const banner = $('resume-banner');
+    const text = $('resume-banner-text');
+    const processed = data.processed || 0;
+    const total = data.total || '?';
+    const cost = `$${(data.cost_usd || 0).toFixed(2)}`;
+    text.textContent = t('resume.banner', { processed, total, cost });
+    banner.style.display = 'flex';
+  } catch { /* no state or network error — stay silent */ }
+}
+
+function resumeBatch() {
+  if (!_batchStateData) return;
+  const s = _batchStateData;
+  $('resume-banner').style.display = 'none';
+  _batchStateData = null;
+  const cfg = s.config;
+  // Restore form fields from saved config
+  if (cfg.path)     $('path').value = cfg.path;
+  if (cfg.interval) $('interval').value = cfg.interval;
+  if (cfg.context !== undefined) $('context').value = cfg.context || '';
+  $('analyze_images').checked  = !!cfg.analyze_images;
+  $('transcribe').checked      = !!cfg.transcribe;
+  $('overwrite').checked       = !!cfg.overwrite;
+  $('generate_summary').checked = cfg.generate_summary !== false;
+  if (cfg.whisper_model) $('whisper_model').value = cfg.whisper_model;
+  onTranscribeChange();
+  loadPathInfo();
+  // Start with resume offset
+  startProcessing({
+    resume_from_index: s.next_index,
+    resume_processed:  s.processed,
+    resume_skipped:    s.skipped,
+    resume_errors:     s.errors,
+  });
+}
+
+async function discardBatch() {
+  _batchStateData = null;
+  $('resume-banner').style.display = 'none';
+  await fetch('/batch-state/discard', { method: 'POST' });
+}

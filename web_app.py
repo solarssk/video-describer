@@ -148,6 +148,31 @@ is_processing = False
 stop_event = threading.Event()
 _start_lock = threading.Lock()
 
+BATCH_STATE_PATH = Path(__file__).parent / 'batch_state.json'
+
+
+def _save_batch_state(config: dict, next_index: int, total: int,
+                      processed: int, skipped: int, errors: int) -> None:
+    import datetime
+    state = {
+        'config': config,
+        'next_index': next_index,
+        'total': total,
+        'processed': processed,
+        'skipped': skipped,
+        'errors': errors,
+        'cost_usd': usage_global['cost_usd'],
+        'timestamp': datetime.datetime.now().isoformat(timespec='seconds'),
+    }
+    BATCH_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def _clear_batch_state() -> None:
+    try:
+        BATCH_STATE_PATH.unlink(missing_ok=True)
+    except OSError:
+        pass
+
 # Persisted state — survives browser reconnect
 log_buffer: list = []          # last 500 log entries
 results_buffer: list = []      # finished files
@@ -303,10 +328,16 @@ def run_processing(config: dict):
             emit({'type': 'error', 'text': f"No video/photo files found in: {config['path']}"})
             return
 
+        resume_from = int(config.get('resume_from_index', 0) or 0)
+        total_media = len(media)
+        if resume_from > 0:
+            media = media[resume_from:]
+            print(f"Resuming from file {resume_from + 1}/{total_media}")
+
         videos = sum(1 for _, t in media if t == 'video')
         photos = sum(1 for _, t in media if t == 'photo')
         print(f"Found: {videos} video, {photos} photos.")
-        emit({'type': 'total', 'total': len(media)})
+        emit({'type': 'total', 'total': total_media})
 
         # Validate and normalise budget_usd once — treat 0 as a valid limit
         _raw_budget = config.get('budget_usd')
@@ -359,7 +390,9 @@ def run_processing(config: dict):
                       f'⛔ Estimated cost ${est_cost:.2f} exceeds budget limit ${budget_usd:.2f} — batch not started'})
                 return
 
-        processed = skipped = errors = 0
+        processed = int(config.get('resume_processed', 0) or 0)
+        skipped   = int(config.get('resume_skipped',   0) or 0)
+        errors    = int(config.get('resume_errors',    0) or 0)
 
         # Heartbeat — emits 'step_status' every 2s (ephemeral, not logged)
         heartbeat_stop = threading.Event()
@@ -453,13 +486,15 @@ def run_processing(config: dict):
             out_dir.mkdir(parents=True, exist_ok=True)
             output_path = out_dir / (file_path.stem + '.txt')
 
-            emit({'type': 'progress', 'current': i, 'total': len(media), 'file': file_path.name})
-            print(f"[{i}/{len(media)}] {file_path.name}")
+            abs_index = resume_from + i  # absolute position in the full media list
+            emit({'type': 'progress', 'current': abs_index, 'total': total_media, 'file': file_path.name})
+            print(f"[{abs_index}/{total_media}] {file_path.name}")
 
             if output_path.exists() and not config.get('overwrite'):
                 print(f"  Skipped — {file_path.stem}.txt already exists")
                 skipped += 1
                 emit({'type': 'skipped', 'file': file_path.name})
+                _save_batch_state(config, abs_index, total_media, processed, skipped, errors)
                 continue
 
             # Photos make no sense without AI analysis — skip with a clear log entry.
@@ -467,6 +502,7 @@ def run_processing(config: dict):
                 print("  Skipped — photo requires AI analysis (currently disabled)")
                 skipped += 1
                 emit({'type': 'skipped', 'file': file_path.name})
+                _save_batch_state(config, abs_index, total_media, processed, skipped, errors)
                 continue
 
             try:
@@ -523,6 +559,7 @@ def run_processing(config: dict):
                 file_cost = usage_global['cost_usd'] - file_usage_before['cost_usd']
                 emit({'type': 'done_file', 'file': file_path.name, 'output': str(output_path),
                       'preview': first_line, 'file_tokens': file_tokens, 'file_cost': file_cost})
+                _save_batch_state(config, abs_index, total_media, processed, skipped, errors)
 
             except InterruptedError:
                 current_step[0] = ''
@@ -569,6 +606,7 @@ def run_processing(config: dict):
             summary_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
             print(f"Summary saved: {summary_path.name}")
 
+        _clear_batch_state()
         print(f"\n--- Done: processed {processed}, skipped {skipped}, errors {errors} ---")
         emit({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
 
@@ -592,6 +630,22 @@ def index():
     return render_template('index.html',
                            whisper_available=WHISPER_AVAILABLE,
                            version=VERSION)
+
+
+@app.route('/batch-state', methods=['GET'])
+def batch_state():
+    if BATCH_STATE_PATH.exists():
+        try:
+            return jsonify(json.loads(BATCH_STATE_PATH.read_text(encoding='utf-8')))
+        except (OSError, json.JSONDecodeError):
+            pass
+    return jsonify(None)
+
+
+@app.route('/batch-state/discard', methods=['POST'])
+def batch_state_discard():
+    _clear_batch_state()
+    return jsonify({'ok': True})
 
 
 @app.route('/start', methods=['POST'])

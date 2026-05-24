@@ -218,5 +218,10 @@
   "lang": {
     "pl": "PL",
     "en": "EN"
+  },
+  "resume": {
+    "banner": "↩ Interrupted batch — {{processed}}/{{total}} files, {{cost}} spent",
+    "btn_resume": "Resume",
+    "btn_discard": "Discard"
   }
 }
