@@ -1216,7 +1216,7 @@ function resumeBatch() {
     files:             Array.isArray(cfg.files) ? cfg.files : [],
     budget_usd:        cfg.budget_usd ?? null,
     resume_from_index:    s.next_index,
-    resume_next_filename: s.next_filename ?? null,
+    resume_next_filepath: s.next_filepath ?? null,
     resume_processed:     s.processed,
     resume_skipped:       s.skipped,
     resume_errors:        s.errors,

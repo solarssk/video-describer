@@ -67,14 +67,17 @@ app = Flask(__name__)
 # app.log lives next to web_app.py (gitignored via *.log).
 # 2 MB × 3 backups = up to ~6 MB of history.
 _LOG_PATH = Path(__file__).parent / 'app.log'
-_log_handler = logging.handlers.RotatingFileHandler(
-    _LOG_PATH, maxBytes=2 * 1024 * 1024, backupCount=3, encoding='utf-8',
-)
-_log_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
 app_logger = logging.getLogger('video_describer')
 app_logger.setLevel(logging.DEBUG)
 app_logger.propagate = False
-app_logger.addHandler(_log_handler)
+try:
+    _log_handler = logging.handlers.RotatingFileHandler(
+        _LOG_PATH, maxBytes=2 * 1024 * 1024, backupCount=3, encoding='utf-8',
+    )
+    _log_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+    app_logger.addHandler(_log_handler)
+except OSError:
+    pass  # non-writable directory — skip file logging, app still starts
 
 
 VERSION = config_loader.get_version()
@@ -173,7 +176,7 @@ def _save_batch_state(config: dict, next_index: int, total: int,
     state = {
         'config': config,
         'next_index': next_index,
-        'next_filename': next_filename,
+        'next_filepath': next_filename,  # full path string for unambiguous matching
         'total': total,
         'processed': processed,
         'skipped': skipped,
@@ -353,13 +356,14 @@ def run_processing(config: dict):
             return
 
         resume_from = int(config.get('resume_from_index', 0) or 0)
-        resume_next_filename = config.get('resume_next_filename')
+        resume_next_filepath = config.get('resume_next_filepath')
         # Guard against file-list changes between crash and resume: if the file
-        # at the saved index doesn't match the saved name, find it by name.
-        if resume_next_filename and resume_from > 0:
-            if resume_from >= len(media) or media[resume_from][0].name != resume_next_filename:
+        # at the saved index doesn't match the saved path, find it by full path.
+        # Falls back to basename for state files written by older versions.
+        if resume_next_filepath and resume_from > 0:
+            if resume_from >= len(media) or str(media[resume_from][0]) != resume_next_filepath:
                 for _idx, (_fp, _) in enumerate(media):
-                    if _fp.name == resume_next_filename:
+                    if str(_fp) == resume_next_filepath or _fp.name == Path(resume_next_filepath).name:
                         resume_from = _idx
                         break
                 else:
@@ -544,7 +548,7 @@ def run_processing(config: dict):
                 skipped += 1
                 emit({'type': 'skipped', 'file': file_path.name})
                 _save_batch_state(config, abs_index, total_media, processed, skipped, errors,
-                                  next_filename=media[i][0].name if i < len(media) else None)
+                                  next_filename=str(media[i][0]) if i < len(media) else None)
                 if config.get('generate_summary'):
                     try:
                         _line = output_path.read_text(encoding='utf-8').split('\n')[0]
@@ -561,7 +565,7 @@ def run_processing(config: dict):
                 skipped += 1
                 emit({'type': 'skipped', 'file': file_path.name})
                 _save_batch_state(config, abs_index, total_media, processed, skipped, errors,
-                                  next_filename=media[i][0].name if i < len(media) else None)
+                                  next_filename=str(media[i][0]) if i < len(media) else None)
                 continue
 
             try:
@@ -619,7 +623,7 @@ def run_processing(config: dict):
                 emit({'type': 'done_file', 'file': file_path.name, 'output': str(output_path),
                       'preview': first_line, 'file_tokens': file_tokens, 'file_cost': file_cost})
                 _save_batch_state(config, abs_index, total_media, processed, skipped, errors,
-                                  next_filename=media[i][0].name if i < len(media) else None)
+                                  next_filename=str(media[i][0]) if i < len(media) else None)
 
             except InterruptedError:
                 current_step[0] = ''
@@ -634,7 +638,7 @@ def run_processing(config: dict):
                 emit({'type': 'error_file', 'file': file_path.name, 'error': err_msg})
                 # abs_index - 1: on resume, retry this file (not advance past it)
                 _save_batch_state(config, abs_index - 1, total_media, processed, skipped, errors,
-                                  next_filename=file_path.name)
+                                  next_filename=str(file_path))
 
                 # Fatal API errors (no credit, bad key) — stop the whole batch,
                 # otherwise we'd waste minutes of ffmpeg + Whisper on the next file
