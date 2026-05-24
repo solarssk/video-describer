@@ -809,6 +809,9 @@ def open_file():
     path = (request.json or {}).get('path', '').strip()
     if not path or not os.path.exists(path):
         return jsonify({'error': 'path not found'}), 400
+    # Only allow opening .txt output files — prevents arbitrary file access via the API.
+    if not path.endswith('.txt'):
+        return jsonify({'error': 'only .txt output files can be opened'}), 403
     try:
         subprocess.Popen(['open', path])
         return jsonify({'ok': True})
@@ -1089,4 +1092,4 @@ if __name__ == '__main__':
         sys.exit(1)
 
     print(f'  Open in browser: http://localhost:{port}\n')
-    app.run(debug=False, port=port, threaded=True)
+    app.run(host='127.0.0.1', debug=False, port=port, threaded=True)
