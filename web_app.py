@@ -484,7 +484,7 @@ def run_processing(config: dict):
             # Budget guard — check before each file so we stop gracefully mid-batch
             if budget_usd is not None and analyze_images and usage_global['cost_usd'] >= budget_usd:
                 msg = (f"Budget limit ${budget_usd:.2f} reached — "
-                       f"processed {processed}/{len(media)} files "
+                       f"processed {processed}/{total_media} files "
                        f"(${usage_global['cost_usd']:.2f} spent)")
                 print(f"⚠ {msg}")
                 emit({'type': 'error', 'text': f'⛔ {msg}'})

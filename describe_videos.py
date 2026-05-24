@@ -402,10 +402,11 @@ def transcribe_audio_with_timeout(audio_path: str, model_name: str,
 
     Returns (segments, timed_out). On timeout, returns ([], True).
     """
-    # macOS/POSIX: fork avoids re-importing this module in the child process.
-    # That matters for mlx/Metal, which can crash during fresh spawn imports.
-    # Windows is not supported yet, but spawn keeps the helper portable enough.
-    ctx = mp.get_context('fork' if os.name != 'nt' else 'spawn')
+    # spawn: child starts a fresh interpreter, so ObjC/Metal init never races
+    # with Flask's threads (fork + ObjC threads → SIGABRT on macOS).
+    # mlx_whisper is imported lazily inside _MLXWhisperModel.__init__, so
+    # the parent never holds a Metal context that the child would inherit.
+    ctx = mp.get_context('spawn')
     result_queue = ctx.Queue()
     proc = ctx.Process(
         target=_transcribe_audio_worker,
