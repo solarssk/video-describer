@@ -1152,10 +1152,10 @@ window.addEventListener('load', async () => {
   updateStartEnabled();
 
   // 4. Restore processing state if anything is running on server
-  restoreState();
+  await restoreState();
 
   // 5. Check for interrupted batch and show resume banner (skip if already processing)
-  if (!isProcessing) checkBatchState();
+  if (!activelyProcessing) await checkBatchState();
 
   // 6. Start polling metrics + one-time system info
   fetchSysinfo();
@@ -1198,8 +1198,12 @@ function resumeBatch() {
   if (cfg.whisper_model) $('whisper_model').value = cfg.whisper_model;
   onTranscribeChange();
   loadPathInfo();
-  // Start with resume offset
+  // Start with resume offset — pass saved people/files directly so they
+  // aren't rebuilt from the form (which may not be fully restored yet)
   startProcessing({
+    people:            cfg.people ?? getPeopleString(),
+    files:             Array.isArray(cfg.files) ? cfg.files : [],
+    budget_usd:        cfg.budget_usd ?? null,
     resume_from_index: s.next_index,
     resume_processed:  s.processed,
     resume_skipped:    s.skipped,

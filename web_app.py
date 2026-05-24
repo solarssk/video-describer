@@ -581,6 +581,10 @@ def run_processing(config: dict):
                     emit({'type': 'error', 'text': f'⛔ {err_msg}'})
                     break
 
+        else:
+            # Loop completed without break — batch finished naturally, clear saved state
+            _clear_batch_state()
+
         heartbeat_stop.set()
 
         input_path = Path(config['path'])
@@ -606,7 +610,6 @@ def run_processing(config: dict):
             summary_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
             print(f"Summary saved: {summary_path.name}")
 
-        _clear_batch_state()
         print(f"\n--- Done: processed {processed}, skipped {skipped}, errors {errors} ---")
         emit({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
 
