@@ -64,6 +64,10 @@
       "label": "Generate folder summary",
       "sub": "Saves _summary.txt with one-line descriptions of all processed files"
     },
+    "budget": {
+      "label": "Budget limit (USD)",
+      "placeholder": "no limit"
+    },
     "start": "Start",
     "stop": "Stop"
   },

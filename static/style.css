@@ -435,6 +435,10 @@ input:disabled, textarea:disabled, select:disabled {
 .btn-start { background: var(--accent); color: white; }
 .btn-stop  { background: var(--red);   color: white; display: none; }
 
+.budget-row { display: flex; align-items: center; gap: 8px; }
+.budget-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.budget-input { width: 80px; text-align: right; font-size: 13px; }
+
 .input-with-btn { display: flex; gap: 8px; }
 .input-with-btn input { flex: 1; }
 .btn-pick {
