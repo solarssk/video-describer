@@ -157,6 +157,16 @@ function renderSyscheck(s) {
       s.ffmpeg,
     ),
     row(t('settings.syscheck.whisper'), whisperVal, s.whisper_backend ? true : null),
+    row(
+      t('settings.syscheck.claude'),
+      s.anthropic_connected ? t('settings.syscheck.api_key_configured') : t('settings.syscheck.api_key_missing'),
+      s.anthropic_connected,
+    ),
+    row(
+      t('settings.syscheck.openai'),
+      s.openai_connected ? t('settings.syscheck.api_key_configured') : t('settings.syscheck.optional_not_configured'),
+      s.openai_connected ? true : null,
+    ),
   ].join('');
 }
 

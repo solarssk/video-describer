@@ -120,6 +120,8 @@
       "macos": "macOS",
       "ffmpeg": "ffmpeg",
       "whisper": "Whisper",
+      "claude": "Claude",
+      "openai": "OpenAI",
       "apple_silicon": "Apple Silicon · {{ram}} GB RAM",
       "ram_only": "{{ram}} GB RAM",
       "unsupported_platform": "{{platform}} · {{ram}} GB RAM — unsupported",
@@ -127,7 +129,10 @@
       "ffmpeg_missing": "not found — required",
       "whisper_mlx": "Neural Engine (mlx-whisper)",
       "whisper_cpu": "CPU (faster-whisper)",
-      "whisper_missing": "not installed — transcription unavailable"
+      "whisper_missing": "not installed — transcription unavailable",
+      "api_key_configured": "API key configured",
+      "api_key_missing": "API key missing — required for AI analysis",
+      "optional_not_configured": "not configured — optional"
     },
     "version_title": "Version",
     "version_text": "video-describer <b>v{{version}}</b>",
