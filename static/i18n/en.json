@@ -60,6 +60,10 @@
       "label": "Overwrite existing descriptions",
       "sub": ".txt files that already exist will be replaced"
     },
+    "summary": {
+      "label": "Generate folder summary",
+      "sub": "Saves _summary.txt with one-line descriptions of all processed files"
+    },
     "start": "Start",
     "stop": "Stop"
   },

@@ -354,6 +354,7 @@ def run_processing(config: dict):
         current_step: list = ['']           # updated by step_cb
         current_progress: list = [None, ''] # [percent_or_None, label]
         completed_times: list = []          # times of finished files → ETA
+        summary_entries: list = []          # (filename, first_line) for _summary.txt
 
         def _emit_step_status():
             if not current_step[0]:
@@ -494,6 +495,7 @@ def run_processing(config: dict):
                 first_line = desc.split('\n')[0] if desc else ''
                 if ' - ' in first_line:
                     first_line = first_line.split(' - ', 1)[1]
+                summary_entries.append((file_path.name, first_line))
                 file_tokens = (usage_global['input'] - file_usage_before['input']) + \
                               (usage_global['output'] - file_usage_before['output'])
                 file_cost = usage_global['cost_usd'] - file_usage_before['cost_usd']
@@ -521,6 +523,29 @@ def run_processing(config: dict):
                     break
 
         heartbeat_stop.set()
+
+        input_path = Path(config['path'])
+        if config.get('generate_summary') and summary_entries and input_path.is_dir():
+            summary_dir = Path(config['output_dir']) if config.get('output_dir') else input_path
+            summary_path = summary_dir / '_summary.txt'
+            date_str = __import__('datetime').date.today().isoformat()
+            model_label = cfg['ai'].get('model', 'claude')
+            cost_str = f"${usage_global['cost_usd']:.2f}"
+            sep = '─' * 60
+            lines = [
+                f"{input_path.name} — {date_str}",
+                sep,
+            ]
+            col = max((len(name) for name, _ in summary_entries), default=20) + 2
+            for name, desc in summary_entries:
+                lines.append(f"{name:<{col}}{desc}")
+            lines += [
+                '',
+                f"Total: {processed} files · {cost_str} spent · {model_label}",
+            ]
+            summary_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+            print(f"Summary saved: {summary_path.name}")
+
         print(f"\n--- Done: processed {processed}, skipped {skipped}, errors {errors} ---")
         emit({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
 

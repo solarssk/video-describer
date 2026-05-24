@@ -751,6 +751,7 @@ function startProcessing() {
     whisper_model:  $('whisper_model').value,
     output_dir:     null,
     overwrite:      $('overwrite').checked,
+    generate_summary: $('generate_summary').checked,
     files:          getSelectedFiles(),  // [] = all, [...] = filtered subset
   };
 
