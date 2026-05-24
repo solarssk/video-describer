@@ -5,7 +5,6 @@ Run:  python3 web_app.py
 Open: http://localhost:5555
 """
 
-import concurrent.futures
 import json
 import logging
 import os
@@ -42,7 +41,7 @@ class _QuietAccessLogFilter(logging.Filter):
 logging.getLogger('werkzeug').addFilter(_QuietAccessLogFilter())
 
 sys.path.insert(0, os.path.dirname(__file__))
-import warnings
+import warnings  # noqa: E402
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 # Print "Starting up..." immediately — before the slow describe_videos import
@@ -52,7 +51,7 @@ if __name__ == '__main__':
     sys.stdout.write('\n  Starting up...\r')
     sys.stdout.flush()
 
-from describe_videos import (
+from describe_videos import (  # noqa: E402
     WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
     MLX_WHISPER_AVAILABLE, FASTER_WHISPER_AVAILABLE,
     load_whisper_model,
@@ -422,7 +421,7 @@ def run_processing(config: dict):
 
             # Photos make no sense without AI analysis — skip with a clear log entry.
             if media_type == 'photo' and not analyze_images:
-                print(f"  Skipped — photo requires AI analysis (currently disabled)")
+                print("  Skipped — photo requires AI analysis (currently disabled)")
                 skipped += 1
                 emit({'type': 'skipped', 'file': file_path.name})
                 continue
@@ -921,7 +920,6 @@ def _preflight_startup() -> bool:
     YELLOW = '\033[33m' if _use_colour else ''
     RED    = '\033[31m' if _use_colour else ''
     RESET  = '\033[0m'  if _use_colour else ''
-    BOLD   = '\033[1m'  if _use_colour else ''
     DIM    = '\033[2m'  if _use_colour else ''
     CYAN   = '\033[36m' if _use_colour else ''
 

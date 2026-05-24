@@ -44,7 +44,7 @@ if IS_APPLE_SILICON:
 
 if not MLX_WHISPER_AVAILABLE:
     try:
-        from faster_whisper import WhisperModel as _FasterWhisperModel
+        from faster_whisper import WhisperModel as _FasterWhisperModel  # noqa: F401
         FASTER_WHISPER_AVAILABLE = True
     except ImportError:
         pass
@@ -180,8 +180,8 @@ def load_whisper_model(model_name: str, openai_api_key: str = None):
         "or add an OpenAI API key in the Connectors tab."
     )
 
-from config_loader import load_config, load_system_prompt
-from providers import AIProvider, make_provider
+from config_loader import load_config, load_system_prompt  # noqa: E402
+from providers import AIProvider, make_provider  # noqa: E402
 
 VIDEO_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.mts', '.m2ts', '.insv'}
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png'}

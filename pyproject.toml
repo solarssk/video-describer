@@ -1,0 +1,13 @@
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+# E501 excluded: existing style uses long decorative comment separators
+# I excluded: late imports (after startup print) are intentional
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[tool.bandit]
+# Skip low-severity subprocess alerts — this tool calls ffmpeg/pmset/caffeinate/osascript
+# by design (macOS-only, local app, no user-controlled shell expansion).
+skips = ["B404", "B603", "B607"]
