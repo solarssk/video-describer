@@ -60,6 +60,10 @@
       "label": "Nadpisz istniejące opisy",
       "sub": "Pliki .txt które już istnieją zostaną zastąpione"
     },
+    "summary": {
+      "label": "Generuj podsumowanie folderu",
+      "sub": "Zapisuje _summary.txt z jednolinijkowymi opisami wszystkich przetworzonych plików"
+    },
     "start": "Rozpocznij",
     "stop": "Zatrzymaj"
   },

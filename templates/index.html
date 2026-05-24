@@ -147,6 +147,17 @@
       </label>
     </div>
 
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label" data-i18n="form.summary.label">Generate folder summary</div>
+        <div class="toggle-sub" data-i18n="form.summary.sub">Saves _summary.txt with one-line descriptions of all processed files</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="generate_summary" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
     <div class="form-actions" style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
       <button class="btn btn-start" id="btn-start" onclick="startProcessing()" data-i18n="form.start">Start</button>
       <button class="btn btn-stop"  id="btn-stop"  onclick="stopProcessing()" data-i18n="form.stop">Stop</button>
