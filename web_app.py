@@ -167,11 +167,13 @@ BATCH_STATE_PATH = Path(__file__).parent / 'batch_state.json'
 
 
 def _save_batch_state(config: dict, next_index: int, total: int,
-                      processed: int, skipped: int, errors: int) -> None:
+                      processed: int, skipped: int, errors: int,
+                      next_filename=None) -> None:
     import datetime
     state = {
         'config': config,
         'next_index': next_index,
+        'next_filename': next_filename,
         'total': total,
         'processed': processed,
         'skipped': skipped,
@@ -351,6 +353,17 @@ def run_processing(config: dict):
             return
 
         resume_from = int(config.get('resume_from_index', 0) or 0)
+        resume_next_filename = config.get('resume_next_filename')
+        # Guard against file-list changes between crash and resume: if the file
+        # at the saved index doesn't match the saved name, find it by name.
+        if resume_next_filename and resume_from > 0:
+            if resume_from >= len(media) or media[resume_from][0].name != resume_next_filename:
+                for _idx, (_fp, _) in enumerate(media):
+                    if _fp.name == resume_next_filename:
+                        resume_from = _idx
+                        break
+                else:
+                    resume_from = 0  # file removed — restart from beginning
         total_media = len(media)
         pre_resume_media = media[:resume_from]  # saved for summary reconstruction
         if resume_from > 0:
@@ -530,7 +543,8 @@ def run_processing(config: dict):
                 print(f"  Skipped — {file_path.stem}.txt already exists")
                 skipped += 1
                 emit({'type': 'skipped', 'file': file_path.name})
-                _save_batch_state(config, abs_index, total_media, processed, skipped, errors)
+                _save_batch_state(config, abs_index, total_media, processed, skipped, errors,
+                                  next_filename=media[i][0].name if i < len(media) else None)
                 if config.get('generate_summary'):
                     try:
                         _line = output_path.read_text(encoding='utf-8').split('\n')[0]
@@ -546,7 +560,8 @@ def run_processing(config: dict):
                 print("  Skipped — photo requires AI analysis (currently disabled)")
                 skipped += 1
                 emit({'type': 'skipped', 'file': file_path.name})
-                _save_batch_state(config, abs_index, total_media, processed, skipped, errors)
+                _save_batch_state(config, abs_index, total_media, processed, skipped, errors,
+                                  next_filename=media[i][0].name if i < len(media) else None)
                 continue
 
             try:
@@ -603,7 +618,8 @@ def run_processing(config: dict):
                 file_cost = usage_global['cost_usd'] - file_usage_before['cost_usd']
                 emit({'type': 'done_file', 'file': file_path.name, 'output': str(output_path),
                       'preview': first_line, 'file_tokens': file_tokens, 'file_cost': file_cost})
-                _save_batch_state(config, abs_index, total_media, processed, skipped, errors)
+                _save_batch_state(config, abs_index, total_media, processed, skipped, errors,
+                                  next_filename=media[i][0].name if i < len(media) else None)
 
             except InterruptedError:
                 current_step[0] = ''
@@ -617,7 +633,8 @@ def run_processing(config: dict):
                 errors += 1
                 emit({'type': 'error_file', 'file': file_path.name, 'error': err_msg})
                 # abs_index - 1: on resume, retry this file (not advance past it)
-                _save_batch_state(config, abs_index - 1, total_media, processed, skipped, errors)
+                _save_batch_state(config, abs_index - 1, total_media, processed, skipped, errors,
+                                  next_filename=file_path.name)
 
                 # Fatal API errors (no credit, bad key) — stop the whole batch,
                 # otherwise we'd waste minutes of ffmpeg + Whisper on the next file
