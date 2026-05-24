@@ -122,6 +122,7 @@
       "whisper": "Whisper",
       "apple_silicon": "Apple Silicon · {{ram}} GB RAM",
       "ram_only": "{{ram}} GB RAM",
+      "unsupported_platform": "{{platform}} · {{ram}} GB RAM — niewspierany system",
       "installed": "zainstalowany",
       "ffmpeg_missing": "nie znaleziono — wymagany",
       "whisper_mlx": "Neural Engine (mlx-whisper)",

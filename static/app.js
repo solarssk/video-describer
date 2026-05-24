@@ -139,7 +139,10 @@ function renderSyscheck(s) {
 
   const chip = s.apple_silicon
     ? t('settings.syscheck.apple_silicon', { ram: s.ram_gb })
-    : t('settings.syscheck.ram_only', { ram: s.ram_gb });
+    : s.platform === 'Darwin'
+      ? t('settings.syscheck.ram_only', { ram: s.ram_gb })
+      : t('settings.syscheck.unsupported_platform', { platform: s.platform, ram: s.ram_gb });
+  const isMacos = s.platform === 'Darwin';
   const whisperVal = s.whisper_backend === 'mlx'
     ? t('settings.syscheck.whisper_mlx')
     : s.whisper_backend === 'faster-whisper'
@@ -147,7 +150,7 @@ function renderSyscheck(s) {
       : t('settings.syscheck.whisper_missing');
 
   syscheck.innerHTML = [
-    row(t('settings.syscheck.macos'), chip, true),
+    row(t('settings.syscheck.macos'), chip, isMacos),
     row(
       t('settings.syscheck.ffmpeg'),
       s.ffmpeg ? t('settings.syscheck.installed') : t('settings.syscheck.ffmpeg_missing'),
