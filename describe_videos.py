@@ -299,7 +299,7 @@ def extract_frames(video_path: str, output_dir: str, interval: int,
     if duration / interval > frames_per_cam:
         effective_interval = max(interval, math.ceil(duration / frames_per_cam))
         if effective_interval != interval:
-            print(f"  Long video ({duration/60:.0f} min), interval adjusted: {interval}s → {effective_interval}s (max_frames cap)")
+            print(f"⚠ Long video ({duration/60:.0f} min), interval adjusted: {interval}s → {effective_interval}s (max_frames cap)")
 
     all_frames = []
 
