@@ -540,10 +540,22 @@ async function openFile(path) {
 }
 
 // ── Whisper active indicator ──────────────────────────────
+let _whisperActiveTimer = null;
 function setWhisperActive(active) {
   const el = $('m-whisper-status');
   if (!el) return;
-  el.className = 'metric-value' + (active ? ' active' : '');
+  if (active) {
+    clearTimeout(_whisperActiveTimer);
+    el.textContent = '●';
+    el.className = 'metric-value active';
+  } else {
+    clearTimeout(_whisperActiveTimer);
+    // Keep active state visible for 3s — NE is fast enough to finish before next poll
+    _whisperActiveTimer = setTimeout(() => {
+      el.textContent = '—';
+      el.className = 'metric-value';
+    }, 3000);
+  }
 }
 
 // ── Live step status ──────────────────────────────────────
@@ -830,9 +842,9 @@ async function fetchSysinfo() {
     const status = $('m-whisper-status');
 
     if (s.whisper_backend) {
-      label.textContent = 'Whisper';
-      status.textContent = s.mlx_available ? 'NE' : 'CPU';
-      status.className = 'metric-value';   // idle by default — no colour yet
+      label.textContent = s.whisper_backend === 'mlx' ? 'NE' : 'WSPR';
+      status.textContent = '—';
+      status.className = 'metric-value';
       wrap.title = `Whisper: ${s.whisper_label}${s.apple_silicon ? ' · Apple Silicon' : ''} · ${s.ram_gb} GB RAM`;
       wrap.style.display = '';
     }
