@@ -783,6 +783,10 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
     }
     if (callbacks.onSuccess) callbacks.onSuccess();
     connectStream();
+  }).catch(err => {
+    addLog(`Failed to start: ${err}`, 'err');
+    resetUI();
+    if (callbacks.onError) callbacks.onError();
   });
 }
 
