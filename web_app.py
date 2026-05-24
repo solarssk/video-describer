@@ -165,7 +165,9 @@ def _save_batch_state(config: dict, next_index: int, total: int,
         'timestamp': datetime.datetime.now().isoformat(timespec='seconds'),
     }
     try:
-        BATCH_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
+        tmp = BATCH_STATE_PATH.with_suffix('.json.tmp')
+        tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
+        tmp.replace(BATCH_STATE_PATH)
     except OSError as e:
         print(f"⚠ Warning: could not save batch state: {e}")
 
@@ -262,8 +264,8 @@ def run_processing(config: dict):
     global is_processing, usage_global
     is_processing = True
     stop_event.clear()
-    resume_cost = float(config.get('resume_cost_usd') or 0)
-    usage_global = {'input': 0, 'output': 0, 'cost_usd': resume_cost}
+    resume_cost_offset = float(config.get('resume_cost_usd') or 0)
+    usage_global = {'input': 0, 'output': 0, 'cost_usd': resume_cost_offset}
     heartbeat_stop = None
 
     old_stdout = sys.stdout
@@ -455,9 +457,10 @@ def run_processing(config: dict):
             usage_global = {
                 'input': usage_global['input'] + input_tok,
                 'output': usage_global['output'] + output_tok,
-                'cost_usd': 0.0,
+                'cost_usd': resume_cost_offset,
             }
-            usage_global['cost_usd'] = _calc_cost(usage_global['input'], usage_global['output'], cfg)
+            usage_global['cost_usd'] = resume_cost_offset + _calc_cost(
+                usage_global['input'], usage_global['output'], cfg)
             emit({'type': 'usage', **usage_global})
 
         for i, (file_path, media_type) in enumerate(media, 1):
