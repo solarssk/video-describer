@@ -275,7 +275,15 @@ header .badge {
 .metric-value.ok     { color: var(--green); }
 .metric-value.warn   { color: var(--yellow); }
 .metric-value.hot    { color: var(--red); }
-.metric-value.active { color: var(--green); animation: whisper-pulse 1.4s ease-in-out infinite; }
+.metric-value.active {
+  width: 8px; height: 8px; min-width: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  font-size: 0;          /* hide ● text, show CSS circle */
+  align-self: center;
+  margin-bottom: 1px;    /* optical — matches .thermal */
+  animation: whisper-pulse 1.4s ease-in-out infinite;
+}
 
 @keyframes whisper-pulse {
   0%, 100% { opacity: 1; }
