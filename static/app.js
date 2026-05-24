@@ -549,6 +549,7 @@ function setWhisperActive(active) {
     el.textContent = '●';
     el.className = 'metric-value active';
   } else {
+    clearTimeout(_whisperActiveTimer);
     // Keep active state visible for 3s — NE is fast enough to finish before next poll
     _whisperActiveTimer = setTimeout(() => {
       el.textContent = '—';
