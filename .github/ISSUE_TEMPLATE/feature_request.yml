@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest something new or an improvement to existing behaviour.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        What would make Video Describer more useful for your workflow?
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem or gap?
+      description: What are you trying to do that doesn't work well right now?
+      placeholder: |
+        When I have 200 files, there's no way to filter which ones get processed —
+        it always runs the whole folder from scratch.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to see?
+      description: Describe the behaviour you'd want. Rough ideas are fine.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Any workarounds you've tried?
+      description: Optional — helps understand the priority.

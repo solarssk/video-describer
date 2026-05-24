@@ -1,0 +1,91 @@
+name: Bug report
+description: Something isn't working as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The more detail you give, the faster it gets fixed.
+
+  - type: dropdown
+    id: feature
+    attributes:
+      label: Where does it break?
+      options:
+        - Web UI (python3 web_app.py)
+        - CLI (python3 describe_videos.py)
+        - Startup / pre-flight check
+        - Settings / config
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: media_type
+    attributes:
+      label: What type of file?
+      multiple: true
+      options:
+        - GoPro (.mp4)
+        - Insta360 (.insv)
+        - Photo (.jpg / .png)
+        - Other video
+        - Not file-related
+
+  - type: dropdown
+    id: features_used
+    attributes:
+      label: Features in use
+      multiple: true
+      options:
+        - AI image analysis
+        - Whisper transcription (local)
+        - Whisper via OpenAI API
+        - Both AI + Whisper
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what actually happened.
+      placeholder: |
+        I pointed it at a folder of GoPro files and clicked Start.
+        Expected: processing to begin.
+        Got: spinner appeared then immediately stopped, no error shown.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error message
+      description: Copy the log output from the UI, or the terminal output if using CLI.
+      render: text
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: e.g. macOS 15.2
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: e.g. 3.12.3 — run `python3 --version`
+    validations:
+      required: true
+
+  - type: input
+    id: ffmpeg
+    attributes:
+      label: ffmpeg version
+      placeholder: e.g. 7.1 — run `ffmpeg -version | head -1`
+
+  - type: input
+    id: chip
+    attributes:
+      label: Chip
+      placeholder: Apple M3 Pro / Intel Core i7 / etc.
