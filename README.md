@@ -1,4 +1,4 @@
-# video-describer
+# Video Describer
 
 [![CI](https://github.com/solarssk/video-describer/actions/workflows/ci.yml/badge.svg)](https://github.com/solarssk/video-describer/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.9+-3776ab)
