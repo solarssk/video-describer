@@ -113,6 +113,7 @@ function rerenderDynamicLabels() {
   document.querySelectorAll('.person-desc').forEach(el => {
     el.placeholder = t('form.people.desc_placeholder');
   });
+  renderSyscheck(lastSysinfo);
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -122,8 +123,43 @@ function escHtml(str) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function renderSyscheck(s) {
+  const syscheck = $('syscheck-rows');
+  if (!syscheck || !s) return;
+
+  const row = (label, value, ok) => {
+    const icon = ok === true ? '✓' : ok === false ? '✗' : '—';
+    const cls  = ok === true ? 'ok' : ok === false ? 'err' : 'na';
+    return `<div class="syscheck-row">
+      <span class="syscheck-label">${escHtml(label)}</span>
+      <span class="syscheck-value">${escHtml(value)}</span>
+      <span class="syscheck-icon ${cls}">${icon}</span>
+    </div>`;
+  };
+
+  const chip = s.apple_silicon
+    ? t('settings.syscheck.apple_silicon', { ram: s.ram_gb })
+    : t('settings.syscheck.ram_only', { ram: s.ram_gb });
+  const whisperVal = s.whisper_backend === 'mlx'
+    ? t('settings.syscheck.whisper_mlx')
+    : s.whisper_backend === 'faster-whisper'
+      ? t('settings.syscheck.whisper_cpu')
+      : t('settings.syscheck.whisper_missing');
+
+  syscheck.innerHTML = [
+    row(t('settings.syscheck.macos'), chip, true),
+    row(
+      t('settings.syscheck.ffmpeg'),
+      s.ffmpeg ? t('settings.syscheck.installed') : t('settings.syscheck.ffmpeg_missing'),
+      s.ffmpeg,
+    ),
+    row(t('settings.syscheck.whisper'), whisperVal, s.whisper_backend ? true : null),
+  ].join('');
+}
+
 // ── Connector state ───────────────────────────────────────
 let anthropicConnected = false;   // updated by fetchSysinfo() and loadConnectors()
+let lastSysinfo = null;
 
 function _setAnthropicConnected(connected) {
   anthropicConnected = connected;
@@ -849,28 +885,8 @@ async function fetchSysinfo() {
       wrap.style.display = '';
     }
 
-    // System status check rows (Settings tab)
-    const syscheck = $('syscheck-rows');
-    if (syscheck) {
-      const row = (label, value, ok) => {
-        const icon = ok === true ? '✓' : ok === false ? '✗' : '—';
-        const cls  = ok === true ? 'ok' : ok === false ? 'err' : 'na';
-        return `<div class="syscheck-row">
-          <span class="syscheck-label">${label}</span>
-          <span class="syscheck-value">${value}</span>
-          <span class="syscheck-icon ${cls}">${icon}</span>
-        </div>`;
-      };
-      const chip = s.apple_silicon ? `Apple Silicon · ${s.ram_gb} GB RAM` : `${s.ram_gb} GB RAM`;
-      const whisperVal = s.whisper_backend === 'mlx'            ? 'Neural Engine (mlx-whisper)'
-                       : s.whisper_backend === 'faster-whisper' ? 'CPU (faster-whisper)'
-                       : 'not installed — transcription unavailable';
-      syscheck.innerHTML = [
-        row('macOS',   chip,                                              true),
-        row('ffmpeg',  s.ffmpeg ? 'installed' : 'not found — required',  s.ffmpeg),
-        row('Whisper', whisperVal,                                        s.whisper_backend ? true : null),
-      ].join('');
-    }
+    lastSysinfo = s;
+    renderSyscheck(s);
 
     // Update Start button enable state based on Anthropic key presence
     if (typeof s.anthropic_connected !== 'undefined') {

@@ -116,6 +116,18 @@
     "about_sub": "by solarssk — bugi, pomysły i kontrybucje mile widziane",
     "about_github": "GitHub",
     "about_github_title": "GitHub — zgłoś buga lub dołącz do projektu",
+    "syscheck": {
+      "macos": "macOS",
+      "ffmpeg": "ffmpeg",
+      "whisper": "Whisper",
+      "apple_silicon": "Apple Silicon · {{ram}} GB RAM",
+      "ram_only": "{{ram}} GB RAM",
+      "installed": "zainstalowany",
+      "ffmpeg_missing": "nie znaleziono — wymagany",
+      "whisper_mlx": "Neural Engine (mlx-whisper)",
+      "whisper_cpu": "CPU (faster-whisper)",
+      "whisper_missing": "nie zainstalowano — transkrypcja niedostępna"
+    },
     "version_title": "Wersja",
     "version_text": "video-describer <b>v{{version}}</b>",
     "version_help": "Konfiguracja zapisywana w <code>config.json</code> i <code>prompts/system.md</code>. Zmiany wchodzą w życie przy następnym uruchomieniu przetwarzania.",
