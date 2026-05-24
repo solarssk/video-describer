@@ -529,7 +529,8 @@ def run_processing(config: dict):
             summary_dir = Path(config['output_dir']) if config.get('output_dir') else input_path
             summary_path = summary_dir / '_summary.txt'
             date_str = __import__('datetime').date.today().isoformat()
-            model_label = cfg['ai'].get('model', 'claude')
+            _ai_provider = cfg['ai'].get('provider', 'anthropic')
+            model_label = cfg['ai'].get(_ai_provider, {}).get('model', 'claude')
             cost_str = f"${usage_global['cost_usd']:.2f}"
             sep = '─' * 60
             lines = [
