@@ -1,150 +1,141 @@
-# Video Describer
+# video-describer
 
-Automatically generates text descriptions of GoPro / Insta360 recordings (and photos) with timestamps, using Claude AI. Optionally transcribes speech with Whisper.
-
-> **Current status:** macOS only. Cross-platform support is on the roadmap.
-
-**Version:** 0.2.0
+[![CI](https://github.com/solarssk/video-describer/actions/workflows/ci.yml/badge.svg)](https://github.com/solarssk/video-describer/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.9+-3776ab)
+![macOS](https://img.shields.io/badge/macOS-only-lightgrey)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](#license)
 
 ---
 
-## What it does
+We came back from a motorcycle trip with 1 TB of GoPro footage and zero idea what was on most of it. My editor friend needed to start cutting, but scrubbing through raw files to find the good moments — the ones worth keeping — was going to take days.
 
-Point it at a folder of video files. It extracts frames every few seconds, sends them to Claude, and gets back a timestamped description of what's happening — who's there, what they're doing, the mood. Useful for quickly cataloguing action camera footage without watching everything.
+**video-describer** points Claude at a folder of recordings and comes back with timestamped descriptions of what's happening in each file. Who's there, what they're doing, where they are, what the light looks like. Enough for an editor to know which clips are worth opening before they open them.
 
-Example output:
+It works on GoPro, Insta360, and anything ffmpeg can read. Whisper transcription is optional — useful when there's actual dialogue you'd want to find later.
+
+---
+
+## What the output looks like
+
 ```
-VID_20250829_173904_00_003 - departure day, Filip and Jadzia pack the motorcycle outside the building
-00:15 Filip buckles the roll bags.
-02:30 Jadzia checks the map on her phone.
-08:12 they pull out from the building.
+VID_20250829_173904 — departure day, Filip and Jadzia pack the motorcycle outside the building
+00:15  Filip buckles the roll bags, checks the straps twice
+02:30  Jadzia looks at the map on her phone, points at something
+08:12  they pull out onto the street, morning light, long shadows
 ```
+
+One `.txt` per file, next to the original. Your editor can grep it, read it, feed it into their own workflow — it's just text.
 
 ---
 
 ## Requirements
 
-- **macOS**, Python 3.9+
-- **ffmpeg** — `brew install ffmpeg`
-- **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com/settings/api-keys)
-- A browser (Safari, Chrome, Firefox all work)
-
-### Optional: speech transcription
-
-If you want Whisper to transcribe what people say in the recordings, install one of:
-
-```bash
-# Apple Silicon (M1/M2/M3/M4) — uses the Neural Engine, much faster:
-pip3 install mlx-whisper
-
-# Intel Mac — CPU only:
-pip3 install faster-whisper
-```
-
-If neither is installed, image analysis still works fine — just no speech transcription.
+- macOS (Apple Silicon or Intel), Python 3.9+
+- [ffmpeg](https://ffmpeg.org/) — `brew install ffmpeg`
+- [Anthropic API key](https://console.anthropic.com/settings/api-keys)
 
 ---
 
-## Installation
+## Quick start
 
 ```bash
 git clone https://github.com/solarssk/video-describer.git
 cd video-describer
 pip3 install -r requirements.txt
-```
-
----
-
-## Usage
-
-### Web UI (recommended)
-
-```bash
 python3 web_app.py
 ```
 
-Open `http://localhost:5555` in your browser. On first launch, go to the **Connectors** tab and paste your Anthropic API key — it's stored locally in `config.json` (never leaves your machine).
+Open `http://localhost:5555`. Go to **Connectors**, paste your API key. Point it at a folder. That's it.
 
-### CLI
+The key is stored locally in `config.json` — it never leaves your machine.
+
+---
+
+## Speech transcription (optional)
+
+If the footage has dialogue worth capturing, install a Whisper backend:
+
+```bash
+# Apple Silicon — runs on the Neural Engine, fast
+pip3 install mlx-whisper
+
+# Intel Mac — CPU only
+pip3 install faster-whisper
+```
+
+You can run it alongside image analysis or as a standalone transcript. If neither is installed, image analysis still works fine.
+
+---
+
+## CLI
+
+If you prefer terminal over browser:
 
 ```bash
 export ANTHROPIC_API_KEY='sk-ant-...'
 
-# Whole folder
 python3 describe_videos.py /Volumes/GoPro/DCIM/
 
-# With speech transcription
+# with transcription
 python3 describe_videos.py . --transcribe --whisper-model medium
 
-# With context and people
+# with context
 python3 describe_videos.py . \
-  --people "Alice, Bob" \
+  --people "Filip, Jadzia" \
   --context "motorcycle trip, Poland to Serbia"
 ```
 
 ---
 
-## Features
+## How it works
 
-- **GoPro `.mp4`** — single video stream
-- **Insta360 `.insv` dual-lens** — detects both cameras, analyzes each separately
-- **Photos `.jpg/.jpeg/.png`** — single-frame analysis
-- **AI image analysis on/off** — frames sent to Claude for description (requires API key)
-- **Speech transcription on/off** — Whisper runs locally; can be used alongside AI or as standalone transcript
-- **Auto-resume** — skips files that already have a `.txt`, so you can rerun after interruption
-- **Pre-flight check** — verifies the API key before loading Whisper or running ffmpeg
-- **Cost tracking** — live token usage and cost visible in the header
-- **Whisper auto-fallback** — if the system overheats, automatically steps down to a lighter model
-- **Settings tab** — model, pricing, frame size, system prompt — editable in the UI without touching code
-- **PL/EN UI toggle** — interface language is independent from output language (which is driven by the system prompt)
+1. ffmpeg extracts one frame every N seconds (default: 5s, configurable)
+2. Frames are sent to Claude with a system prompt that tells it who the people are and what the trip is about
+3. Claude returns a timestamped description
+4. The description is saved as a `.txt` next to the original file
+
+For Insta360 `.insv` files, it detects both lenses and analyzes them separately.
 
 ---
 
-## Configuration
+## Features
 
-Everything useful is in the **Settings tab** in the UI. For direct edits:
-
-### `config.json`
-
-Created automatically on first launch from `config.default.json`. Key fields:
-
-| Section | Field | What it does |
-|---|---|---|
-| `ai.anthropic` | `model` | Claude model (default: `claude-sonnet-4-6`) |
-| | `max_tokens_video` / `_photo` | Max response length |
-| | `price_input_per_mtok_usd` | Input token price (for cost display) |
-| `frames` | `video_width_px` | Frame width sent to AI — smaller = cheaper |
-| | `max_per_video` | Max frames per video |
-| `defaults` | `people` | People list pre-filled in the form |
-| | `context` | Default recording context |
-| `whisper` | `default_model` | Default Whisper model |
-| | `fallback_tiers` | Downgrade order when the system overheats |
-
-### `prompts/system.md`
-
-The system prompt — controls tone, format, and output language. Edit freely, or use the preset buttons in **Settings → System prompt**:
-- **Load PL preset** — Polish output
-- **Load EN preset** — English output
-
-### UI language vs. output language
-
-These are independent:
-- **UI language** (toggle in header) — changes interface labels only, stored in browser `localStorage`
-- **Output language** — set by the system prompt; change it in Settings → System prompt
-
-### Reset to defaults
-
-- **Config values** — Settings → "↺ Restore defaults" (does not touch the prompt)
-- **System prompt** — use the PL / EN preset buttons
-- **Full reset** — delete `config.json` and `prompts/system.md`, restart; both regenerate from defaults
+- **GoPro `.mp4`** — single stream
+- **Insta360 `.insv`** — dual-lens, both cameras analyzed
+- **Photos** — `.jpg`, `.jpeg`, `.png`
+- **Auto-resume** — skips files that already have a `.txt`
+- **Pre-flight check** — verifies the API key before doing any heavy work
+- **Cost tracking** — live token count and USD cost in the header
+- **Thermal protection** — if the Mac overheats during a long batch, Whisper automatically steps down to a lighter model
+- **Settings tab** — model, pricing, frame interval, system prompt — editable in the UI without touching files
+- **PL / EN UI** — interface language toggle, independent from output language (which is controlled by the system prompt)
 
 ---
 
 ## Cost
 
-With `claude-sonnet-4-6` and default settings (up to 100 frames at 640 px per video):
-- roughly $0.15–0.25 per 30-minute recording
-- live token count and cost are shown in the header during processing
+With `claude-sonnet-4-6` at default settings (up to 100 frames per video, 640 px wide):
+
+> roughly **$0.15–0.25 per 30-minute recording**
+
+Live token count and running cost are shown in the header while processing.
+
+---
+
+## Configuration
+
+Everything is in the **Settings tab**. For direct edits, see `config.json` (created from `config.default.json` on first launch):
+
+| Field | Default | What it does |
+|---|---|---|
+| `ai.anthropic.model` | `claude-sonnet-4-6` | Claude model |
+| `frames.video_width_px` | `640` | Smaller = cheaper, lower detail |
+| `frames.max_per_video` | `100` | Cap per file |
+| `defaults.people` | — | Pre-filled people list |
+| `defaults.context` | — | Pre-filled trip context |
+| `whisper.default_model` | `medium` | Starting Whisper model |
+
+The system prompt lives in `prompts/system.md`. Change it to change the output language, tone, or format. PL and EN presets are available in Settings.
 
 ---
 
@@ -152,40 +143,38 @@ With `claude-sonnet-4-6` and default settings (up to 100 frames at 640 px per vi
 
 ```
 video-describer/
-├── VERSION
-├── README.md
-├── requirements.txt
-├── config.default.json      ← factory settings (tracked in git)
-├── config.json              ← your settings + API keys (gitignored)
+├── describe_videos.py       — processing logic + CLI
+├── web_app.py               — Flask server
 ├── config_loader.py
-├── describe_videos.py       ← processing logic + CLI
-├── web_app.py               ← Flask server
+├── config.default.json      — factory settings (in git)
+├── config.json              — your settings + API key (gitignored)
 ├── providers/
-│   ├── __init__.py
 │   ├── base.py
 │   └── anthropic_provider.py
 ├── prompts/
 │   ├── system.pl.default.md
 │   ├── system.en.default.md
-│   └── system.md            ← your prompt (gitignored)
-├── templates/
-│   └── index.html
+│   └── system.md            — your prompt (gitignored)
+├── templates/index.html
 └── static/
     ├── style.css
     ├── app.js
-    └── i18n/
-        ├── pl.json
-        └── en.json
+    └── i18n/pl.json, en.json
 ```
 
 ---
 
-## Adding a new AI provider
+## Adding a provider
 
-1. Create `providers/<name>_provider.py` implementing `AIProvider` from `providers/base.py` — two methods: `verify()` and `describe(content_blocks, system_prompt, max_tokens)`.
-2. Register it in `providers/__init__.py` `REGISTRY`.
-3. Add a config block under `ai.<name>` in `config.default.json`.
-4. Switch providers by changing `ai.provider` in `config.json`.
+Implement `AIProvider` from `providers/base.py` — two methods: `verify()` and `describe()`. Register it in `providers/__init__.py` and add a config block under `ai.<name>` in `config.default.json`.
+
+---
+
+## Origin
+
+This started after a motorcycle trip from Poland through Slovakia, Hungary and Serbia — Desert Horizons. We came back with about 1 TB of raw footage across two cameras. A friend who edits professionally was going to cut something from it, but the first step — just knowing what's on each clip — was going to take longer than the editing itself.
+
+Editors are already using AI in their workflows. This is the part before that: giving them a map of the material before they open a single file.
 
 ---
 
