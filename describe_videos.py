@@ -445,7 +445,15 @@ def transcribe_audio_with_timeout(audio_path: str, model_name: str,
                 if not proc.is_alive():
                     proc.join(timeout=1)
                     if proc.exitcode not in (0, None):
-                        raise RuntimeError(f"Whisper process exited with code {proc.exitcode}")
+                        _SIG = {
+                            -6:  'SIGABRT (ObjC/Metal crash)',
+                            -9:  'SIGKILL (out of memory or killed)',
+                            -11: 'SIGSEGV (segfault)',
+                            -15: 'SIGTERM (terminated)',
+                        }
+                        code = proc.exitcode
+                        label = _SIG.get(code) or (f'signal {-code}' if code < 0 else f'exit {code}')
+                        raise RuntimeError(f"Whisper crashed ({label}) — transcription skipped for this file")
                 continue
 
             proc.join(timeout=3)

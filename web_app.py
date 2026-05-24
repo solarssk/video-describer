@@ -7,6 +7,7 @@ Open: http://localhost:5555
 
 import json
 import logging
+import logging.handlers
 import math
 import os
 import platform
@@ -61,6 +62,20 @@ from describe_videos import (  # noqa: E402
 )
 
 app = Flask(__name__)
+
+# ── Rotating log file ────────────────────────────────────────────────────────
+# app.log lives next to web_app.py (gitignored via *.log).
+# 2 MB × 3 backups = up to ~6 MB of history.
+_LOG_PATH = Path(__file__).parent / 'app.log'
+_log_handler = logging.handlers.RotatingFileHandler(
+    _LOG_PATH, maxBytes=2 * 1024 * 1024, backupCount=3, encoding='utf-8',
+)
+_log_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+app_logger = logging.getLogger('video_describer')
+app_logger.setLevel(logging.DEBUG)
+app_logger.propagate = False
+app_logger.addHandler(_log_handler)
+
 
 VERSION = config_loader.get_version()
 
@@ -245,7 +260,7 @@ def emit(msg: dict):
 
 
 class QueueLogger:
-    """Redirects print() to emit() and the original stdout."""
+    """Redirects print() to emit() and the original stdout, and mirrors to app.log."""
     def __init__(self):
         self.orig = sys.__stdout__
 
@@ -254,6 +269,7 @@ class QueueLogger:
         self.orig.flush()
         if text and text.strip():
             t = text.rstrip()
+            app_logger.info(t)
             emit({'type': 'warn', 'text': t} if t.startswith('⚠') else {'type': 'log', 'text': t})
 
     def flush(self):
@@ -1244,4 +1260,5 @@ if __name__ == '__main__':
         sys.exit(1)
 
     print(f'  Open in browser: http://localhost:{port}\n')
+    app_logger.info(f'=== video-describer started · port {port} · log: {_LOG_PATH} ===')
     app.run(host='127.0.0.1', debug=False, port=port, threaded=True)
