@@ -552,8 +552,8 @@ function setWhisperActive(active) {
     clearTimeout(_whisperActiveTimer);
     // Keep active state visible for 3s — NE is fast enough to finish before next poll
     _whisperActiveTimer = setTimeout(() => {
-      el.textContent = '—';
-      el.className = 'metric-value';
+      el.textContent = '';
+      el.className = 'metric-value idle';
     }, 3000);
   }
 }
@@ -843,8 +843,8 @@ async function fetchSysinfo() {
 
     if (s.whisper_backend) {
       label.textContent = s.whisper_backend === 'mlx' ? 'NE' : 'WSPR';
-      status.textContent = '—';
-      status.className = 'metric-value';
+      status.textContent = '';
+      status.className = 'metric-value idle';
       wrap.title = `Whisper: ${s.whisper_label}${s.apple_silicon ? ' · Apple Silicon' : ''} · ${s.ram_gb} GB RAM`;
       wrap.style.display = '';
     }
