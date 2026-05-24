@@ -849,6 +849,31 @@ async function fetchSysinfo() {
       wrap.style.display = '';
     }
 
+    // System status check rows (Settings tab)
+    const syscheck = $('syscheck-rows');
+    if (syscheck) {
+      const row = (label, value, ok) => {
+        const icon = ok === true ? '✓' : ok === false ? '✗' : '—';
+        const cls  = ok === true ? 'ok' : ok === false ? 'err' : 'na';
+        return `<div class="syscheck-row">
+          <span class="syscheck-label">${label}</span>
+          <span class="syscheck-value">${value}</span>
+          <span class="syscheck-icon ${cls}">${icon}</span>
+        </div>`;
+      };
+      const chip = s.apple_silicon ? `Apple Silicon · ${s.ram_gb} GB RAM` : `${s.ram_gb} GB RAM`;
+      const whisperVal = s.whisper_backend === 'mlx'            ? 'Neural Engine (mlx-whisper)'
+                       : s.whisper_backend === 'faster-whisper' ? 'CPU (faster-whisper)'
+                       : 'not installed — transcription unavailable';
+      syscheck.innerHTML = [
+        row('macOS',   chip,                           true),
+        row('ffmpeg',  s.ffmpeg ? 'installed' : 'not found — required', s.ffmpeg),
+        row('Whisper', whisperVal,                     s.whisper_backend ? true : null),
+        row('Claude',  s.anthropic_connected ? 'API key configured' : 'API key missing', s.anthropic_connected),
+        row('OpenAI',  s.openai_connected    ? 'API key configured' : 'not configured (optional)', s.openai_connected ? true : null),
+      ].join('');
+    }
+
     // Update Start button enable state based on Anthropic key presence
     if (typeof s.anthropic_connected !== 'undefined') {
       _setAnthropicConnected(s.anthropic_connected);

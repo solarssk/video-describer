@@ -194,8 +194,8 @@
     <section class="about-section">
       <div class="about-row">
         <div>
-          <div class="about-title">Video Describer</div>
-          <div class="about-sub"><span class="about-version">v{{ version }}</span> · <span data-i18n="settings.about_sub">by solarssk — bugs, ideas, contributions welcome</span></div>
+          <div class="about-title">Video Describer <span class="about-version">v{{ version }}</span></div>
+          <div class="about-sub"><span data-i18n="settings.about_sub">by solarssk — bugs, ideas, contributions welcome</span></div>
         </div>
         <a class="github-link" href="https://github.com/solarssk/video-describer" target="_blank" rel="noopener" data-i18n-attr-title="settings.about_github_title" title="GitHub — report a bug or contribute">
           <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true">
@@ -204,12 +204,9 @@
           <span data-i18n="settings.about_github">GitHub</span>
         </a>
       </div>
-    </section>
-
-    <section>
-      <h2 data-i18n="settings.version_title">Version</h2>
-      <p class="muted" data-i18n-html="settings.version_text" data-i18n-vars='{"version":"{{ version }}"}'></p>
-      <p class="muted small" data-i18n-html="settings.version_help"></p>
+      <div class="syscheck" id="syscheck-rows">
+        <!-- populated by fetchSysinfo() -->
+      </div>
     </section>
 
     <section>

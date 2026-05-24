@@ -832,6 +832,45 @@ input.masked.unmasked {
 }
 .github-link:hover { color: var(--text); }
 
+/* System status check rows */
+.syscheck {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.syscheck-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.syscheck-label {
+  width: 56px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.syscheck-value {
+  flex: 1;
+  color: var(--text);
+}
+.syscheck-icon {
+  font-size: 11px;
+  font-weight: 600;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.syscheck-icon.ok  { color: var(--green); }
+.syscheck-icon.err { color: var(--red); }
+.syscheck-icon.na  { color: var(--muted); }
+
 /* Provider icon — used in Connectors sections */
 .conn-icon {
   width: 36px; height: 36px;
