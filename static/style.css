@@ -703,6 +703,7 @@ input.masked.unmasked {
 .log-line.err .msg  { color: var(--red); }
 .log-line.ok  .msg  { color: var(--green); }
 .log-line.skip .msg { color: var(--yellow); }
+.log-line.warn .msg { color: var(--yellow); }
 .log-line .msg { word-break: break-all; }
 
 .file-cards {

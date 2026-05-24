@@ -688,6 +688,8 @@ function handleMsg(msg) {
   if (msg.type === 'ping') return;
   if (msg.type === 'log') {
     addLog(msg.text);
+  } else if (msg.type === 'warn') {
+    addLog(msg.text, 'warn');
   } else if (msg.type === 'step_status') {
     updateStepStatus(msg);
     setWhisperActive(msg.step && /transcrib|whisper/i.test(msg.step));

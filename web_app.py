@@ -223,7 +223,8 @@ class QueueLogger:
         self.orig.write(text)
         self.orig.flush()
         if text and text.strip():
-            emit({'type': 'log', 'text': text.rstrip()})
+            t = text.rstrip()
+            emit({'type': 'warn', 'text': t} if t.startswith('⚠') else {'type': 'log', 'text': t})
 
     def flush(self):
         self.orig.flush()
