@@ -645,7 +645,7 @@ function handleMsg(msg) {
     addLog(msg.text);
   } else if (msg.type === 'step_status') {
     updateStepStatus(msg);
-    setWhisperActive(msg.step && msg.step.toLowerCase().includes('whisper'));
+    setWhisperActive(msg.step && /transcrib|whisper/i.test(msg.step));
   } else if (msg.type === 'usage') {
     updateUsage(msg);
   } else if (msg.type === 'total') {
