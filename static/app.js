@@ -113,6 +113,7 @@ function rerenderDynamicLabels() {
   document.querySelectorAll('.person-desc').forEach(el => {
     el.placeholder = t('form.people.desc_placeholder');
   });
+  renderSyscheck(lastSysinfo);
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -122,8 +123,56 @@ function escHtml(str) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function renderSyscheck(s) {
+  const syscheck = $('syscheck-rows');
+  if (!syscheck || !s) return;
+
+  const row = (label, value, ok) => {
+    const icon = ok === true ? '✓' : ok === false ? '✗' : '—';
+    const cls  = ok === true ? 'ok' : ok === false ? 'err' : 'na';
+    return `<div class="syscheck-row">
+      <span class="syscheck-label">${escHtml(label)}</span>
+      <span class="syscheck-value">${escHtml(value)}</span>
+      <span class="syscheck-icon ${cls}">${icon}</span>
+    </div>`;
+  };
+
+  const chip = s.apple_silicon
+    ? t('settings.syscheck.apple_silicon', { ram: s.ram_gb })
+    : s.platform === 'Darwin'
+      ? t('settings.syscheck.ram_only', { ram: s.ram_gb })
+      : t('settings.syscheck.unsupported_platform', { platform: s.platform, ram: s.ram_gb });
+  const isMacos = s.platform === 'Darwin';
+  const whisperVal = s.whisper_backend === 'mlx'
+    ? t('settings.syscheck.whisper_mlx')
+    : s.whisper_backend === 'faster-whisper'
+      ? t('settings.syscheck.whisper_cpu')
+      : t('settings.syscheck.whisper_missing');
+
+  syscheck.innerHTML = [
+    row(t('settings.syscheck.macos'), chip, isMacos),
+    row(
+      t('settings.syscheck.ffmpeg'),
+      s.ffmpeg ? t('settings.syscheck.installed') : t('settings.syscheck.ffmpeg_missing'),
+      s.ffmpeg,
+    ),
+    row(t('settings.syscheck.whisper'), whisperVal, s.whisper_backend ? true : null),
+    row(
+      t('settings.syscheck.claude'),
+      s.anthropic_connected ? t('settings.syscheck.api_key_configured') : t('settings.syscheck.api_key_missing'),
+      s.anthropic_connected,
+    ),
+    row(
+      t('settings.syscheck.openai'),
+      s.openai_connected ? t('settings.syscheck.api_key_configured') : t('settings.syscheck.optional_not_configured'),
+      s.openai_connected ? true : null,
+    ),
+  ].join('');
+}
+
 // ── Connector state ───────────────────────────────────────
 let anthropicConnected = false;   // updated by fetchSysinfo() and loadConnectors()
+let lastSysinfo = null;
 
 function _setAnthropicConnected(connected) {
   anthropicConnected = connected;
@@ -544,17 +593,13 @@ let _whisperActiveTimer = null;
 function setWhisperActive(active) {
   const el = $('m-whisper-status');
   if (!el) return;
+  clearTimeout(_whisperActiveTimer);
   if (active) {
-    clearTimeout(_whisperActiveTimer);
     el.textContent = '●';
     el.className = 'metric-value active';
   } else {
-    clearTimeout(_whisperActiveTimer);
-    // Keep active state visible for 3s — NE is fast enough to finish before next poll
-    _whisperActiveTimer = setTimeout(() => {
-      el.textContent = '—';
-      el.className = 'metric-value';
-    }, 3000);
+    el.textContent = '';
+    el.className = 'metric-value idle';
   }
 }
 
@@ -651,16 +696,20 @@ function handleMsg(msg) {
   } else if (msg.type === 'total') {
     totalFiles = msg.total;
   } else if (msg.type === 'progress') {
+    setWhisperActive(false);
     const pct = Math.round((msg.current / msg.total) * 100);
     $('progress-bar').style.width = pct + '%';
     setStatus('running', `[${msg.current}/${msg.total}] ${msg.file}`);
     hideStepStatus();
   } else if (msg.type === 'done_file') {
+    setWhisperActive(false);
     addFileCard('✅', msg.file, msg.preview, msg.output, msg.file_tokens || 0, msg.file_cost || 0);
     hideStepStatus();
   } else if (msg.type === 'skipped') {
+    setWhisperActive(false);
     addFileCard('⏭️', msg.file, t('status.skipped'));
   } else if (msg.type === 'error_file') {
+    setWhisperActive(false);
     addLog(`${t('status.error_file_prefix')}: ${msg.file} — ${msg.error}`, 'err');
     addFileCard('❌', msg.file, msg.error);
     hideStepStatus();
@@ -843,11 +892,14 @@ async function fetchSysinfo() {
 
     if (s.whisper_backend) {
       label.textContent = s.whisper_backend === 'mlx' ? 'NE' : 'WSPR';
-      status.textContent = '—';
-      status.className = 'metric-value';
+      status.textContent = '';
+      status.className = 'metric-value idle';
       wrap.title = `Whisper: ${s.whisper_label}${s.apple_silicon ? ' · Apple Silicon' : ''} · ${s.ram_gb} GB RAM`;
       wrap.style.display = '';
     }
+
+    lastSysinfo = s;
+    renderSyscheck(s);
 
     // Update Start button enable state based on Anthropic key presence
     if (typeof s.anthropic_connected !== 'undefined') {

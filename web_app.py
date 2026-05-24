@@ -344,33 +344,43 @@ def run_processing(config: dict):
         current_progress: list = [None, ''] # [percent_or_None, label]
         completed_times: list = []          # times of finished files → ETA
 
+        def _emit_step_status():
+            if not current_step[0]:
+                return
+
+            elapsed = int(time.time() - file_start[0])
+            em, es = divmod(elapsed, 60)
+
+            # ETA from previously completed files (cross-file)
+            eta_str = ''
+            if completed_times:
+                avg = sum(completed_times) / len(completed_times)
+                remaining = len(media) - len(completed_times) - 1
+                if remaining > 0:
+                    eta_s = int(avg * remaining)
+                    eta_m, eta_ss = divmod(eta_s, 60)
+                    eta_str = f'remaining files: ~{eta_m}min {eta_ss:02d}s'
+
+            emit({
+                'type': 'step_status',
+                'step': current_step[0],
+                'elapsed': f'{em}min {es:02d}s',
+                'progress': current_progress[0],   # 0..1 or None
+                'progress_label': current_progress[1],
+                'eta_files': eta_str,
+            })
+
+        def _step_cb(step: str):
+            current_step[0] = step
+            current_progress[0] = None
+            current_progress[1] = ''
+            _emit_step_status()
+
         def heartbeat():
             while not heartbeat_stop.is_set():
                 heartbeat_stop.wait(2)
-                if heartbeat_stop.is_set() or not current_step[0]:
-                    continue
-
-                elapsed = int(time.time() - file_start[0])
-                em, es = divmod(elapsed, 60)
-
-                # ETA from previously completed files (cross-file)
-                eta_str = ''
-                if completed_times:
-                    avg = sum(completed_times) / len(completed_times)
-                    remaining = len(media) - len(completed_times) - 1
-                    if remaining > 0:
-                        eta_s = int(avg * remaining)
-                        eta_m, eta_ss = divmod(eta_s, 60)
-                        eta_str = f'remaining files: ~{eta_m}min {eta_ss:02d}s'
-
-                emit({
-                    'type': 'step_status',
-                    'step': current_step[0],
-                    'elapsed': f'{em}min {es:02d}s',
-                    'progress': current_progress[0],   # 0..1 or None
-                    'progress_label': current_progress[1],
-                    'eta_files': eta_str,
-                })
+                if not heartbeat_stop.is_set():
+                    _emit_step_status()
 
         threading.Thread(target=heartbeat, daemon=True).start()
 
@@ -440,7 +450,7 @@ def run_processing(config: dict):
                             int(config.get('interval', 5)),
                             whisper_model,
                             stop_event=stop_event,
-                            step_cb=lambda s: current_step.__setitem__(0, s),
+                            step_cb=_step_cb,
                             progress_cb=_progress_cb,
                             usage_cb=_usage_cb,
                             cfg=cfg, system_prompt=system_prompt,
@@ -450,12 +460,12 @@ def run_processing(config: dict):
                         desc = transcribe_only_video(
                             str(file_path), whisper_model,
                             stop_event=stop_event,
-                            step_cb=lambda s: current_step.__setitem__(0, s),
+                            step_cb=_step_cb,
                             progress_cb=_progress_cb,
                             cfg=cfg,
                         )
                 else:
-                    current_step[0] = f"analyzing photo with {cfg['ai']['provider']}"
+                    _step_cb(f"analyzing photo with {cfg['ai']['provider']}")
                     print("  Analyzing photo...")
                     desc = describe_photo(
                         str(file_path), provider, config['people'], config['context'],

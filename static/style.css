@@ -275,15 +275,16 @@ header .badge {
 .metric-value.ok     { color: var(--green); }
 .metric-value.warn   { color: var(--yellow); }
 .metric-value.hot    { color: var(--red); }
+.metric-value.idle,
 .metric-value.active {
   width: 8px; height: 8px; min-width: 8px;
   border-radius: 50%;
-  background: var(--green);
-  font-size: 0;          /* hide ● text, show CSS circle */
+  font-size: 0;
   align-self: center;
   margin-bottom: 1px;    /* optical — matches .thermal */
-  animation: whisper-pulse 1.4s ease-in-out infinite;
 }
+.metric-value.idle   { background: var(--muted); opacity: 0.5; }
+.metric-value.active { background: var(--green); animation: whisper-pulse 1.4s ease-in-out infinite; }
 
 @keyframes whisper-pulse {
   0%, 100% { opacity: 1; }
@@ -831,6 +832,45 @@ input.masked.unmasked {
   transition: color 0.15s;
 }
 .github-link:hover { color: var(--text); }
+
+/* System status check rows */
+.syscheck {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.syscheck-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.syscheck-label {
+  width: 56px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.syscheck-value {
+  flex: 1;
+  color: var(--text);
+}
+.syscheck-icon {
+  font-size: 11px;
+  font-weight: 600;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.syscheck-icon.ok  { color: var(--green); }
+.syscheck-icon.err { color: var(--red); }
+.syscheck-icon.na  { color: var(--muted); }
 
 /* Provider icon — used in Connectors sections */
 .conn-icon {
