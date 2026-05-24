@@ -8,7 +8,10 @@ Usage: python3 describe_videos.py [files_or_folder] [options]
 
 import argparse
 import base64
+import importlib.util
 import math
+import multiprocessing as mp
+import queue
 import os
 import platform
 import subprocess
@@ -37,18 +40,10 @@ MLX_WHISPER_AVAILABLE = False
 FASTER_WHISPER_AVAILABLE = False
 
 if IS_APPLE_SILICON:
-    try:
-        import mlx_whisper as _mlx_whisper_module  # noqa: F401
-        MLX_WHISPER_AVAILABLE = True
-    except ImportError:
-        pass
+    MLX_WHISPER_AVAILABLE = importlib.util.find_spec('mlx_whisper') is not None
 
 if not MLX_WHISPER_AVAILABLE:
-    try:
-        from faster_whisper import WhisperModel as _FasterWhisperModel  # noqa: F401
-        FASTER_WHISPER_AVAILABLE = True
-    except ImportError:
-        pass
+    FASTER_WHISPER_AVAILABLE = importlib.util.find_spec('faster_whisper') is not None
 
 WHISPER_AVAILABLE = MLX_WHISPER_AVAILABLE or FASTER_WHISPER_AVAILABLE
 WHISPER_BACKEND = (
@@ -96,13 +91,14 @@ class _MLXWhisperModel:
     """Thin wrapper around mlx_whisper with the same interface as faster-whisper WhisperModel."""
 
     def __init__(self, model_name: str):
+        import mlx_whisper  # eager import — validates backend is truly importable in this process
+        self._mlx_whisper = mlx_whisper
         self._model_id = _mlx_model_id(model_name)
 
     def transcribe(self, audio_path: str, language: str = 'pl',
                    beam_size: int = 5, vad_filter: bool = True,
                    vad_parameters: dict = None):
-        import mlx_whisper
-        result = mlx_whisper.transcribe(
+        result = self._mlx_whisper.transcribe(
             audio_path,
             path_or_hf_repo=self._model_id,
             language=language,
@@ -166,11 +162,17 @@ def load_whisper_model(model_name: str, openai_api_key: str = None):
     openai_api_key is only used when no local backend is available.
     """
     if MLX_WHISPER_AVAILABLE:
-        print(f"  Whisper backend: mlx (Neural Engine) — model {_mlx_model_id(model_name)}")
-        return _MLXWhisperModel(model_name)
+        try:
+            print(f"  Whisper backend: mlx (Neural Engine) — model {_mlx_model_id(model_name)}")
+            return _MLXWhisperModel(model_name)
+        except ImportError as e:
+            print(f"  mlx_whisper import failed ({e}) — falling back to next backend")
     if FASTER_WHISPER_AVAILABLE:
-        print(f"  Whisper backend: faster-whisper (CPU int8) — model {model_name}")
-        return _FasterWhisperWrapper(model_name)
+        try:
+            print(f"  Whisper backend: faster-whisper (CPU int8) — model {model_name}")
+            return _FasterWhisperWrapper(model_name)
+        except ImportError as e:
+            print(f"  faster_whisper import failed ({e}) — falling back to OpenAI API")
     key = openai_api_key or os.environ.get('OPENAI_API_KEY', '').strip()
     if key:
         print("  Whisper backend: OpenAI API (cloud) — whisper-1")
@@ -372,6 +374,92 @@ def transcribe_audio(audio_path: str, model) -> list:
     return list(segments)
 
 
+def _transcribe_audio_worker(result_queue, audio_path: str,
+                             model_name: str, openai_api_key: str = None):
+    """Child-process entrypoint. Returns only JSON/pickle-friendly data."""
+    try:
+        sys.stdout = sys.__stdout__
+        model = load_whisper_model(model_name, openai_api_key=openai_api_key)
+        segments = transcribe_audio(audio_path, model)
+        result_queue.put({
+            'ok': True,
+            'segments': [
+                {'start': seg.start, 'end': seg.end, 'text': seg.text}
+                for seg in segments
+            ],
+        })
+    except BaseException as e:
+        result_queue.put({'ok': False, 'error': str(e)})
+
+
+def transcribe_audio_with_timeout(audio_path: str, model_name: str,
+                                  openai_api_key: str = None,
+                                  timeout_sec: int = 300,
+                                  stop_event=None,
+                                  progress_cb=None,
+                                  duration: float = None) -> tuple:
+    """Run Whisper in a child process so timeout/stop can terminate it safely.
+
+    Returns (segments, timed_out). On timeout, returns ([], True).
+    """
+    # macOS/POSIX: fork avoids re-importing this module in the child process.
+    # That matters for mlx/Metal, which can crash during fresh spawn imports.
+    # Windows is not supported yet, but spawn keeps the helper portable enough.
+    ctx = mp.get_context('fork' if os.name != 'nt' else 'spawn')
+    result_queue = ctx.Queue()
+    proc = ctx.Process(
+        target=_transcribe_audio_worker,
+        args=(result_queue, audio_path, model_name, openai_api_key),
+        daemon=True,
+    )
+    started = time.time()
+    timeout_sec = int(timeout_sec or 0)
+    proc.start()
+
+    def _terminate():
+        if proc.is_alive():
+            proc.terminate()
+            proc.join(timeout=3)
+            if proc.is_alive():
+                proc.kill()
+                proc.join(timeout=3)
+
+    try:
+        while True:
+            if stop_event and stop_event.is_set():
+                _terminate()
+                raise InterruptedError("Stopped by user")
+
+            elapsed = time.time() - started
+            if timeout_sec > 0 and elapsed >= timeout_sec:
+                _terminate()
+                return [], True
+
+            try:
+                result = result_queue.get(timeout=1)
+            except queue.Empty:
+                if progress_cb and duration and duration > 0:
+                    est_pct = min(0.95, elapsed / max(duration, 1))
+                    progress_cb(est_pct, f'~{int(est_pct * 100)}% (estimate)')
+                if not proc.is_alive():
+                    proc.join(timeout=1)
+                    if proc.exitcode not in (0, None):
+                        raise RuntimeError(f"Whisper process exited with code {proc.exitcode}")
+                continue
+
+            proc.join(timeout=3)
+            if not result.get('ok'):
+                raise RuntimeError(result.get('error') or 'Whisper transcription failed')
+            segments = [
+                _Segment(item['start'], item['end'], item['text'])
+                for item in result.get('segments', [])
+            ]
+            return segments, False
+    finally:
+        if proc.is_alive():
+            _terminate()
+
+
 def format_transcript(segments: list) -> str:
     lines = []
     for seg in segments:
@@ -455,7 +543,10 @@ def build_content(frames: list, filename: str, people: str, context: str,
 
 def describe_video(video_path: str, provider: AIProvider,
                    people: str, context: str, interval: int,
-                   whisper_model=None, stop_event=None,
+                   whisper_model_name: str = None,
+                   openai_api_key: str = None,
+                   whisper_timeout_sec: int = None,
+                   stop_event=None,
                    step_cb=None, progress_cb=None, usage_cb=None,
                    cfg: dict = None, system_prompt: str = None) -> str:
     cfg = cfg or _DEFAULT_CFG
@@ -505,7 +596,7 @@ def describe_video(video_path: str, provider: AIProvider,
         _check_stop()
 
         transcript = None
-        if whisper_model is not None:
+        if whisper_model_name:
             t0 = time.time()
             _step('extracting audio')
             print("  Extracting audio...")
@@ -519,24 +610,18 @@ def describe_video(video_path: str, provider: AIProvider,
             t0 = time.time()
             _step('Transcribing speech')
             print("  Transcribing speech (Whisper)...")
-            try:
-                import concurrent.futures
-                # Whisper runs in a thread; we poll every 2s to allow cancellation.
-                # Rough progress estimate: Whisper on CPU ~1x realtime (medium model),
-                # so pct ≈ elapsed / duration.
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                    future = ex.submit(transcribe_audio, audio_path, whisper_model)
-                    while True:
-                        try:
-                            segments = future.result(timeout=2)
-                            break
-                        except concurrent.futures.TimeoutError:
-                            if stop_event and stop_event.is_set():
-                                future.cancel()
-                                raise InterruptedError("Stopped by user")
-                            elapsed_w = time.time() - t0
-                            est_pct = min(0.95, elapsed_w / max(duration, 1))
-                            _progress(est_pct, f'~{int(est_pct*100)}% (estimate)')
+            segments, timed_out = transcribe_audio_with_timeout(
+                audio_path,
+                whisper_model_name,
+                openai_api_key=openai_api_key,
+                timeout_sec=whisper_timeout_sec or cfg['whisper'].get('timeout_sec', 300),
+                stop_event=stop_event,
+                progress_cb=_progress,
+                duration=duration,
+            )
+            if timed_out:
+                print(f"  ⚠ Transcription timed out after {whisper_timeout_sec or cfg['whisper'].get('timeout_sec', 300)}s — skipping audio, continuing")
+            else:
                 transcript = format_transcript(segments)
                 word_count = len(transcript.split()) if transcript else 0
                 elapsed = time.time() - t0
@@ -544,10 +629,6 @@ def describe_video(video_path: str, provider: AIProvider,
                     print(f"  ✓ {len(segments)} speech segments, {word_count} words ({elapsed:.0f}s)")
                 else:
                     print(f"  No speech detected ({elapsed:.0f}s)")
-            except InterruptedError:
-                raise
-            except concurrent.futures.TimeoutError:
-                print("  ⚠ Transcription took too long (>5 min) — skipping audio, continuing")
 
         _check_stop()
 
@@ -625,7 +706,9 @@ def describe_photo(photo_path: str, provider: AIProvider,
     return response.text
 
 
-def transcribe_only_video(video_path: str, whisper_model,
+def transcribe_only_video(video_path: str, whisper_model_name: str,
+                          openai_api_key: str = None,
+                          whisper_timeout_sec: int = None,
                           stop_event=None, step_cb=None, progress_cb=None,
                           cfg: dict = None) -> str:
     """Audio-only mode: extract audio, run Whisper, return formatted transcript.
@@ -667,21 +750,19 @@ def transcribe_only_video(video_path: str, whisper_model,
         t0 = time.time()
         _step('Transcribing speech')
         print("  Transcribing speech (Whisper)...")
-        try:
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                future = ex.submit(transcribe_audio, audio_path, whisper_model)
-                while True:
-                    try:
-                        segments = future.result(timeout=2)
-                        break
-                    except concurrent.futures.TimeoutError:
-                        if stop_event and stop_event.is_set():
-                            future.cancel()
-                            raise InterruptedError("Stopped by user")
-                        elapsed_w = time.time() - t0
-                        est_pct = min(0.95, elapsed_w / max(duration, 1))
-                        _progress(est_pct, f'~{int(est_pct*100)}% (estimate)')
+        segments, timed_out = transcribe_audio_with_timeout(
+            audio_path,
+            whisper_model_name,
+            openai_api_key=openai_api_key,
+            timeout_sec=whisper_timeout_sec or cfg['whisper'].get('timeout_sec', 300),
+            stop_event=stop_event,
+            progress_cb=_progress,
+            duration=duration,
+        )
+        if timed_out:
+            print(f"  ⚠ Transcription timed out after {whisper_timeout_sec or cfg['whisper'].get('timeout_sec', 300)}s — skipping audio")
+            transcript = ''
+        else:
             transcript = format_transcript(segments)
             word_count = len(transcript.split()) if transcript else 0
             elapsed = time.time() - t0
@@ -689,8 +770,6 @@ def transcribe_only_video(video_path: str, whisper_model,
                 print(f"  ✓ {len(segments)} speech segments, {word_count} words ({elapsed:.0f}s)")
             else:
                 print(f"  No speech detected ({elapsed:.0f}s)")
-        except InterruptedError:
-            raise
 
         _step('')
 
@@ -698,7 +777,11 @@ def transcribe_only_video(video_path: str, whisper_model,
         # Per-language description label could be i18n-driven later; for now Polish
         # matches the default prompt language.
         header = f"{filename} - transkrypcja mowy (bez analizy obrazu)"
-        body = transcript or "Brak mowy w nagraniu."
+        body = transcript or (
+            "Transkrypcja nie została ukończona (timeout)."
+            if timed_out else
+            "Brak mowy w nagraniu."
+        )
         return f"{header}\n\n{body}"
 
 
@@ -782,16 +865,14 @@ def main():
     cfg = _DEFAULT_CFG
     provider = make_provider(cfg['ai']['provider'], cfg, api_key)
 
-    whisper_model = None
     if args.transcribe:
         if not WHISPER_AVAILABLE:
             print("No Whisper backend available.")
             print("  Apple Silicon: pip3 install mlx-whisper")
             print("  Other:         pip3 install faster-whisper")
             sys.exit(1)
-        print(f"Loading Whisper model '{args.whisper_model}' (first use may download ~500MB–1.5GB)...")
-        whisper_model = load_whisper_model(args.whisper_model)
-        print("Model loaded.\n")
+        print(f"Transcription backend selected: {WHISPER_BACKEND} — model '{args.whisper_model}'")
+        print("Model loads inside an isolated worker process per file.\n")
 
     media = find_media(args.paths)
     if not media:
@@ -830,7 +911,9 @@ def main():
                 description = describe_video(
                     str(file_path), provider,
                     args.people, args.context,
-                    args.interval, whisper_model
+                    args.interval,
+                    whisper_model_name=args.whisper_model if args.transcribe else None,
+                    whisper_timeout_sec=cfg['whisper'].get('timeout_sec', 300),
                 )
             else:
                 print("  Analyzing photo with provider...")

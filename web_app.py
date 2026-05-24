@@ -55,7 +55,6 @@ if __name__ == '__main__':
 from describe_videos import (  # noqa: E402
     WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
     MLX_WHISPER_AVAILABLE, FASTER_WHISPER_AVAILABLE,
-    load_whisper_model,
     describe_photo, describe_video, find_media,
     transcribe_only_video,
     get_video_duration, get_video_stream_count,
@@ -284,8 +283,8 @@ def run_processing(config: dict):
                 emit({'type': 'error', 'text': 'Both AI and speech transcription are disabled — nothing to do'})
                 return
 
-        whisper_model = None
         whisper_model_name = None
+        openai_key = ''
         if transcribe:
             openai_key = cfg.get('connectors', {}).get('openai', {}).get('api_key', '').strip() \
                          or os.environ.get('OPENAI_API_KEY', '')
@@ -295,9 +294,7 @@ def run_processing(config: dict):
                 return
             whisper_model_name = config.get('whisper_model') or cfg['whisper']['default_model']
             backend_label = WHISPER_BACKEND or 'openai-api'
-            print(f"Loading Whisper model '{whisper_model_name}' via {backend_label} (first use may download the model)...")
-            whisper_model = load_whisper_model(whisper_model_name, openai_api_key=openai_key)
-            print("Whisper model loaded.")
+            print(f"Whisper backend selected: {backend_label} — model '{whisper_model_name}'")
 
         file_filter = config.get('files', [])  # [] = all, [...names] = subset
         media = find_media([config['path']], file_filter=file_filter)
@@ -417,7 +414,7 @@ def run_processing(config: dict):
                 break
 
             # Auto-fallback: if the system overheats, downgrade Whisper before next file
-            if whisper_model is not None and whisper_model_name and i > 1:
+            if transcribe and whisper_model_name and i > 1:
                 state = get_thermal_state()
                 tiers = cfg['whisper']['fallback_tiers']
                 if state['thermal'] == 'hot' and whisper_model_name in tiers:
@@ -425,9 +422,8 @@ def run_processing(config: dict):
                     if idx < len(tiers) - 1:
                         new_name = tiers[idx + 1]
                         print(f"⚠ System under load ({state['thermal_label']}) — switching Whisper from '{whisper_model_name}' to '{new_name}'")
-                        whisper_model = load_whisper_model(new_name)
                         whisper_model_name = new_name
-                        print(f"✓ Model '{new_name}' loaded via {WHISPER_BACKEND}")
+                        print(f"✓ Next transcription will use '{new_name}' via {WHISPER_BACKEND or 'openai-api'}")
 
             out_dir = Path(config['output_dir']) if config.get('output_dir') else file_path.parent
             out_dir.mkdir(parents=True, exist_ok=True)
@@ -461,7 +457,9 @@ def run_processing(config: dict):
                             str(file_path), provider,
                             config['people'], config['context'],
                             int(config.get('interval', 5)),
-                            whisper_model,
+                            whisper_model_name=whisper_model_name,
+                            openai_api_key=openai_key,
+                            whisper_timeout_sec=cfg['whisper'].get('timeout_sec', 300),
                             stop_event=stop_event,
                             step_cb=_step_cb,
                             progress_cb=_progress_cb,
@@ -469,9 +467,11 @@ def run_processing(config: dict):
                             cfg=cfg, system_prompt=system_prompt,
                         )
                     else:
-                        # Whisper-only path — guaranteed by validation that whisper_model exists
+                        # Whisper-only path — guaranteed by validation that a backend/key exists
                         desc = transcribe_only_video(
-                            str(file_path), whisper_model,
+                            str(file_path), whisper_model_name,
+                            openai_api_key=openai_key,
+                            whisper_timeout_sec=cfg['whisper'].get('timeout_sec', 300),
                             stop_event=stop_event,
                             step_cb=_step_cb,
                             progress_cb=_progress_cb,
