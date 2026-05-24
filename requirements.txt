@@ -1,6 +1,6 @@
 anthropic~=0.104
 flask~=3.1
-psutil~=5.9
+psutil~=7.2
 
 # Speech transcription — install ONE of the following:
 #
