@@ -7,6 +7,7 @@ Open: http://localhost:5555
 
 import json
 import logging
+import math
 import os
 import platform
 import queue
@@ -57,7 +58,7 @@ from describe_videos import (  # noqa: E402
     load_whisper_model,
     describe_photo, describe_video, find_media,
     transcribe_only_video,
-    get_video_duration,
+    get_video_duration, get_video_stream_count,
 )
 
 app = Flask(__name__)
@@ -234,6 +235,7 @@ def run_processing(config: dict):
     is_processing = True
     stop_event.clear()
     usage_global = {'input': 0, 'output': 0, 'cost_usd': 0.0}
+    heartbeat_stop = None
 
     old_stdout = sys.stdout
     sys.stdout = QueueLogger()
@@ -317,15 +319,26 @@ def run_processing(config: dict):
             _EST_IN_PER_FRAME  = 600
             _EST_OUT_PER_FRAME = 60
             total_est_frames   = 0
+
+            def _estimate_frame_count(fp: Path) -> int:
+                dur = get_video_duration(str(fp))
+                if dur <= 0:
+                    return 1
+
+                interval = int(config.get('interval', 5))
+                max_frames = cfg['frames']['max_per_video']
+                stream_count = max(1, get_video_stream_count(str(fp)))
+                frames_per_stream = max(1, max_frames // stream_count)
+                effective_interval = interval
+                if dur / interval > frames_per_stream:
+                    effective_interval = max(interval, math.ceil(dur / frames_per_stream))
+
+                estimated_per_stream = min(math.ceil(dur / effective_interval), frames_per_stream)
+                return estimated_per_stream * stream_count
+
             for fp, mt in media:
                 if mt == 'video':
-                    dur  = get_video_duration(str(fp))
-                    itvl = int(config.get('interval', 5))
-                    max_f = cfg['frames']['max_per_video']
-                    # Mirror the long-video interval bump from extract_frames()
-                    if dur > 0 and (dur / itvl) > max_f:
-                        itvl = max(itvl, int(dur / max_f))
-                    total_est_frames += min(int(dur / itvl) + 1, max_f) if dur > 0 else 1
+                    total_est_frames += _estimate_frame_count(fp)
                 else:
                     total_est_frames += 1  # photos count as one frame each
             est_cost = _calc_cost(
@@ -514,6 +527,8 @@ def run_processing(config: dict):
         emit({'type': 'error', 'text': str(e)})
         print(f"Fatal error: {e}")
     finally:
+        if heartbeat_stop is not None:
+            heartbeat_stop.set()
         sys.stdout = old_stdout
         is_processing = False
         if sleep_block is not None:
