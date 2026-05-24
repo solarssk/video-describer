@@ -734,7 +734,7 @@ function handleMsg(msg) {
 }
 
 // ── Start / stop ──────────────────────────────────────────
-function startProcessing(resumeExtra = {}) {
+function startProcessing(resumeExtra = {}, callbacks = {}) {
   const path = $('path').value.trim();
   if (!path) { alert(t('alerts.provide_path')); return; }
 
@@ -775,7 +775,13 @@ function startProcessing(resumeExtra = {}) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(config)
   }).then(r => r.json()).then(data => {
-    if (data.error) { addLog(data.error, 'err'); resetUI(); return; }
+    if (data.error) {
+      addLog(data.error, 'err');
+      resetUI();
+      if (callbacks.onError) callbacks.onError();
+      return;
+    }
+    if (callbacks.onSuccess) callbacks.onSuccess();
     connectStream();
   });
 }
@@ -1185,7 +1191,8 @@ function resumeBatch() {
   if (!_batchStateData) return;
   const s = _batchStateData;
   $('resume-banner').style.display = 'none';
-  _batchStateData = null;
+  // _batchStateData cleared only after /start confirms success —
+  // if start fails, banner is restored so the user can retry resume.
   const cfg = s.config;
   // Restore form fields from saved config
   if (cfg.path)     $('path').value = cfg.path;
@@ -1210,6 +1217,9 @@ function resumeBatch() {
     resume_skipped:       s.skipped,
     resume_errors:        s.errors,
     resume_cost_usd:      s.cost_usd ?? 0,
+  }, {
+    onSuccess: () => { _batchStateData = null; },
+    onError:   () => { $('resume-banner').style.display = 'flex'; },
   });
 }
 
