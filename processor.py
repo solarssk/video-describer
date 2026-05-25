@@ -543,7 +543,11 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                             _err_flag.unlink()
                     except Exception as _sidecar_err:
                         _warn = str(_sidecar_err)
-                        output_path.with_suffix('.sidecar_error').write_text(_warn, encoding='utf-8')
+                        try:
+                            output_path.with_suffix('.sidecar_error').write_text(_warn, encoding='utf-8')
+                        except OSError as _flag_err:
+                            logger.warning("Could not write sidecar error flag for %s: %s",
+                                           file_path.name, _flag_err)
                         print(f"  ⚠ NLE export failed: {_warn}")
                         emit_fn({'type': 'log', 'text': f'⚠ NLE export failed for {file_path.name}: {_warn}'})
                 processed += 1
