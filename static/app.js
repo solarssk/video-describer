@@ -1130,9 +1130,12 @@ function readSettingsForm() {
     price_output_per_mtok_usd: parseFloat($('cfg-price-out').value),
     timeout_sec: parseInt($('cfg-timeout').value),
   };
+  // Merge active provider config into existing ai section so other providers are preserved
+  const existingAi = _cachedSettingsCfg?.ai || {};
   return {
     config: {
       ai: {
+        ...existingAi,
         provider: activeProviderName,
         [activeProviderName]: providerCfg,
       },
@@ -1178,6 +1181,10 @@ async function saveSettings() {
     if (data.ok) {
       status.textContent = t('settings.saved');
       status.className = 'ok';
+      // Refresh cache so onProviderChange() reads fresh values after save
+      if (_cachedSettingsCfg) {
+        _cachedSettingsCfg = body.config;
+      }
     } else {
       status.textContent = '✗ ' + (data.error || 'error');
       status.className = 'err';
