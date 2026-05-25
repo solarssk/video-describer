@@ -661,7 +661,7 @@ function _fmtElapsed(raw) {
 function updateStepStatus(msg) {
   const el = $('step-status');
   if (!el) return;
-  el.style.display = 'flex';
+  el.classList.add('active');
 
   // Whisper with VAD never reaches 100% — use an indeterminate shimmer + mic icon
   const isWhisper = msg.step && /transcrib|whisper/i.test(msg.step);
@@ -706,7 +706,7 @@ function updateStepStatus(msg) {
 
 function hideStepStatus() {
   const el = $('step-status');
-  if (el) el.style.display = 'none';
+  if (el) el.classList.remove('active');
 }
 
 // ── Token usage / cost (tracked internally; shown per-file in cards) ─────────
