@@ -186,6 +186,7 @@ def load_whisper_model(model_name: str, openai_api_key: str = None):
     )
 
 from config_loader import load_config, load_system_prompt  # noqa: E402
+from output_paths import find_existing_output, output_txt_path  # noqa: E402
 from providers import AIProvider, make_provider  # noqa: E402
 
 VIDEO_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.mts', '.m2ts', '.insv'}
@@ -985,19 +986,19 @@ def main():
 
     processed = skipped = errors = 0
 
+    out_dir = Path(args.output_dir) if args.output_dir else None
+    if out_dir:
+        out_dir.mkdir(parents=True, exist_ok=True)
+
     for i, (file_path, media_type) in enumerate(media, 1):
-        if args.output_dir:
-            out_dir = Path(args.output_dir)
-            out_dir.mkdir(parents=True, exist_ok=True)
-            output_path = out_dir / (file_path.stem + '.txt')
-        else:
-            output_path = file_path.parent / (file_path.stem + '.txt')
+        output_path = output_txt_path(file_path, out_dir)
 
         label = 'video' if media_type == 'video' else 'photo'
         print(f"[{i}/{len(media)}] {file_path.name} ({label})")
 
-        if output_path.exists() and not args.overwrite:
-            print(f"  Skipped - {output_path.name} already exists (--overwrite to replace)\n")
+        existing = find_existing_output(file_path, out_dir)
+        if existing and not args.overwrite:
+            print(f"  Skipped - {existing.name} already exists (--overwrite to replace)\n")
             skipped += 1
             continue
 
