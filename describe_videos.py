@@ -838,7 +838,7 @@ def main():
         epilog="""Examples:
   python3 describe_videos.py /Volumes/GoPro/DCIM/
   python3 describe_videos.py VID_001.mp4 VID_002.mp4
-  python3 describe_videos.py . --people "Filip,Jadzia,Lukasz,Milosz" --context "motorcycle trip Poland->Serbia"
+  python3 describe_videos.py . --people "Filip,Jadzia,Lukasz,Milosz" --context "motorcycle trip, Poland to Oman"
   python3 describe_videos.py . --transcribe                         # + speech transcription
   python3 describe_videos.py . --transcribe --whisper-model large-v3  # more accurate model
   python3 describe_videos.py . --interval 60    # one frame per minute
