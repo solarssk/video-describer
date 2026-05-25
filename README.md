@@ -150,11 +150,12 @@ Everything is in the **Settings tab**. For direct edits, see `config.json` (crea
 | `ai.anthropic.model` | `claude-sonnet-4-6` | Claude model |
 | `frames.video_width_px` | `640` | Smaller = cheaper, lower detail |
 | `frames.max_per_video` | `100` | Cap per file |
+| `defaults.output_language` | `pl` | Language for output scaffolding and transcript-only files; independent from UI language |
 | `defaults.people` | — | Pre-filled people list |
 | `defaults.context` | — | Pre-filled trip context |
 | `whisper.default_model` | `medium` | Starting Whisper model |
 
-The system prompt lives in `prompts/system.md`. Change it to change the output language, tone, or format. PL and EN presets are available in Settings.
+The system prompt lives in `prompts/system.md`. Change it to change the output language, tone, or format. PL and EN presets are available in Settings. The UI language toggle does not change output language.
 
 ---
 

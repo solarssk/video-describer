@@ -725,6 +725,7 @@ def config_reset():
         config_loader.reset_config()
     if what in ('all', 'prompt'):
         config_loader.reset_system_prompt(lang)
+        config_loader.set_output_language(lang)
     return jsonify({
         'ok': True,
         'config': config_loader.load_config(),

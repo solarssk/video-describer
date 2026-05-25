@@ -130,6 +130,17 @@ def reset_system_prompt(lang: str = DEFAULT_PROMPT_LANG) -> str:
     return preset
 
 
+def set_output_language(lang: str) -> dict:
+    """Stores the output language independently from UI language."""
+    lang = str(lang or '').strip().lower()
+    if lang not in PROMPT_LANGUAGES:
+        lang = DEFAULT_PROMPT_LANG
+    cfg = load_config()
+    cfg.setdefault('defaults', {})['output_language'] = lang
+    save_config(cfg)
+    return cfg
+
+
 def _deep_merge(base: dict, override: dict) -> dict:
     """Recursively overrides base values with override. Used for config migration."""
     result = dict(base)
