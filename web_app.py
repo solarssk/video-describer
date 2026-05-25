@@ -292,7 +292,6 @@ def start():
         has_key = (
             saved_cfg.get('connectors', {}).get('anthropic', {}).get('api_key', '').strip()
             or os.environ.get('ANTHROPIC_API_KEY', '')
-            or config.get('api_key', '')
         )
         if not has_key:
             return jsonify({'error': 'Anthropic API key required. Add it in the Connectors tab.'}), 400

@@ -116,9 +116,10 @@ def _save_batch_state(config: dict, next_index: int, total: int,
     import datetime
     safe_config = copy.deepcopy(config)
     safe_config.pop('api_key', None)
-    for provider_cfg in safe_config.get('ai', {}).values():
-        if isinstance(provider_cfg, dict):
-            provider_cfg.pop('api_key', None)
+    for section in ('ai', 'connectors'):
+        for provider_cfg in safe_config.get(section, {}).values():
+            if isinstance(provider_cfg, dict):
+                provider_cfg.pop('api_key', None)
     state = {
         'config': safe_config,
         'next_index': next_index,
@@ -229,7 +230,6 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             api_key = (
                 cfg.get('connectors', {}).get('anthropic', {}).get('api_key', '').strip()
                 or os.environ.get('ANTHROPIC_API_KEY', '')
-                or config.get('api_key', '')
             )
             if not api_key:
                 emit_fn({'type': 'error', 'text': 'Missing Anthropic API key. Add it in the Connectors tab.'})
