@@ -55,8 +55,8 @@ class GeminiProvider(AIProvider):
         return ProviderResponse(
             text=response.text,
             model=self.model_name,
-            input_tokens=usage.prompt_token_count or 0,
-            output_tokens=usage.candidates_token_count or 0,
+            input_tokens=getattr(usage, 'prompt_token_count', None) or 0,
+            output_tokens=getattr(usage, 'candidates_token_count', None) or 0,
         )
 
 
