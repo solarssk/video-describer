@@ -896,10 +896,9 @@ def _preflight_startup() -> bool:
             tiers_str  = ' → '.join(w_tiers) if w_tiers else '—'
             _info('Model',    w_default,  GREEN if WHISPER_AVAILABLE else DIM)
             _info('Fallback', tiers_str,  DIM)
-        # Claude model
         ai_provider = cfg.get('ai', {}).get('provider', 'anthropic')
         ai_model    = cfg.get('ai', {}).get(ai_provider, {}).get('model', '?')
-        _info('Claude', ai_model, DIM)
+        _info(ai_provider.title(), ai_model, DIM)
 
     print()
 
