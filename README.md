@@ -7,7 +7,7 @@
 
 ---
 
-We came back from a motorcycle trip with 1 TB of GoPro footage and zero idea what was on most of it. My editor friend needed to start cutting, but scrubbing through raw files to find the good moments — the ones worth keeping — was going to take days.
+We rode from Warsaw to Muscat, Oman — through Turkey, Iraq, Kuwait, Saudi Arabia, and the UAE — and came back with 1 TB of footage across two cameras. Our editor needed to start cutting, but figuring out what was even on each clip was going to take days of scrubbing before any real work could begin.
 
 **video-describer** points Claude at a folder of recordings and comes back with timestamped descriptions of what's happening in each file. Who's there, what they're doing, where they are, what the light looks like. Enough for an editor to know which clips are worth opening before they open them.
 
@@ -82,7 +82,7 @@ python3 describe_videos.py . --transcribe --whisper-model medium
 # with context
 python3 describe_videos.py . \
   --people "Filip, Jadzia" \
-  --context "motorcycle trip, Poland to Serbia"
+  --context "motorcycle trip, Poland to Oman"
 ```
 
 ---
@@ -125,7 +125,7 @@ Unsupported files are ignored when scanning a folder, and a directly selected un
 - **Pre-flight check** — verifies the API key before doing any heavy work
 - **Cost tracking** — live token count and USD cost in the header
 - **Thermal protection** — if the Mac overheats during a long batch, Whisper automatically steps down to a lighter model
-- **Log file** — everything written to the UI is also appended to `app.log` (rotating, gitignored); useful when something goes wrong and you want the full session history
+- **Log file** — everything written to the UI is also appended to `logs/app.log` (daily rotation, 30 days, gitignored); useful when something goes wrong and you want the full session history
 - **Settings tab** — model, pricing, frame interval, system prompt — editable in the UI without touching files
 - **PL / EN UI** — interface language toggle, independent from output language (which is controlled by the system prompt)
 
@@ -163,7 +163,7 @@ The system prompt lives in `prompts/system.md`. Change it to change the output l
 ```
 video-describer/
 ├── describe_videos.py       — processing logic + CLI
-├── web_app.py               — Flask server
+├── web_app.py               — Waitress/Flask app
 ├── config_loader.py
 ├── config.default.json      — factory settings (in git)
 ├── config.json              — your settings + API key (gitignored)
@@ -175,10 +175,12 @@ video-describer/
 │   ├── system.en.default.md
 │   └── system.md            — your prompt (gitignored)
 ├── templates/index.html
-└── static/
-    ├── style.css
-    ├── app.js
-    └── i18n/pl.json, en.json
+├── static/
+│   ├── style.css
+│   ├── app.js
+│   └── i18n/pl.json, en.json
+└── tools/
+    └── macos_path_picker.swift  — native folder/file picker (compiled on first use)
 ```
 
 ---
@@ -191,7 +193,9 @@ Implement `AIProvider` from `providers/base.py` — two methods: `verify()` and 
 
 ## Origin
 
-This started after a motorcycle trip from Poland through Slovakia, Hungary and Serbia — Desert Horizons. We came back with about 1 TB of raw footage across two cameras. A friend who edits professionally was going to cut something from it, but the first step — just knowing what's on each clip — was going to take longer than the editing itself.
+[Desert Horizons 2025](https://warsawtravelers.pl/en/desert-horizons-2025/) — Warsaw to Muscat, Oman, through Turkey, Iraq, Kuwait, Saudi Arabia, and the UAE. 11,000+ km on a BMW R1250GS, two cameras, about 1 TB of raw footage.
+
+Miłosz, who does post-production for our [YouTube channel](https://www.youtube.com/@filipchochol), needed to start cutting. But before any editing, someone had to figure out what was on each clip. That was going to take days.
 
 Editors are already using AI in their workflows. This is the part before that: giving them a map of the material before they open a single file.
 
