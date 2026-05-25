@@ -81,8 +81,9 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
     Regular moments become <marker> elements (blue).
     frameDuration and clip duration are derived from fps for correct timebase.
     """
-    fps_base = max(1, int(round(fps)))
-    is_ntsc = abs(fps - fps_base) > 0.01
+    fps_eff = fps if fps and fps > 0 else 25.0
+    fps_base = max(1, int(round(fps_eff)))
+    is_ntsc = abs(fps_eff - fps_base) > 0.01
     frame_dur = f'1001/{fps_base * 1000}s' if is_ntsc else f'1/{fps_base}s'
     duration_frames = int(round(duration_s * fps_base))
     duration_str = f'{duration_frames}/{fps_base}s'
