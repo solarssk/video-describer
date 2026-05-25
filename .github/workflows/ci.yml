@@ -32,13 +32,17 @@ jobs:
       - run: ruff check .
 
   tests:
-    name: Tests and syntax checks
+    name: Tests and syntax checks (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11"]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
