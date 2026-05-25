@@ -104,9 +104,14 @@ For Insta360 `.insv` files, it detects both lenses and analyzes them separately.
 - **Insta360 `.insv`** — dual-lens, both cameras analyzed
 - **Photos** — `.jpg`, `.jpeg`, `.png`
 - **Auto-resume** — skips files that already have a `.txt`
+- **Batch resume** — if the batch stops (crash, power loss, manual stop), the app remembers where it was; on next launch it offers to pick up from file 7/15, $0.43 already spent
+- **Budget guard** — set a USD cap before starting; the batch stops gracefully before it would exceed it
+- **Folder summary** — after each batch, `_summary.txt` is written: one line per file with a short description, plus totals; useful for editors who want a map of the material before opening anything
+- **File selection** — deselect individual files from the list before starting
 - **Pre-flight check** — verifies the API key before doing any heavy work
 - **Cost tracking** — live token count and USD cost in the header
 - **Thermal protection** — if the Mac overheats during a long batch, Whisper automatically steps down to a lighter model
+- **Log file** — everything written to the UI is also appended to `app.log` (rotating, gitignored); useful when something goes wrong and you want the full session history
 - **Settings tab** — model, pricing, frame interval, system prompt — editable in the UI without touching files
 - **PL / EN UI** — interface language toggle, independent from output language (which is controlled by the system prompt)
 
@@ -175,6 +180,18 @@ Implement `AIProvider` from `providers/base.py` — two methods: `verify()` and 
 This started after a motorcycle trip from Poland through Slovakia, Hungary and Serbia — Desert Horizons. We came back with about 1 TB of raw footage across two cameras. A friend who edits professionally was going to cut something from it, but the first step — just knowing what's on each clip — was going to take longer than the editing itself.
 
 Editors are already using AI in their workflows. This is the part before that: giving them a map of the material before they open a single file.
+
+---
+
+## Tips
+
+**External disk ejection** — when the batch writes `.txt` files to an external volume, macOS Spotlight indexes them automatically, which can delay the "eject" command for a few seconds after processing ends. If that's annoying, disable Spotlight for the volume:
+
+```bash
+sudo mdutil -i off /Volumes/your-disk
+```
+
+Or add it via System Settings → Siri & Spotlight → Spotlight Privacy.
 
 ---
 
