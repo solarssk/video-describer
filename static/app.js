@@ -204,11 +204,11 @@ function renderSyscheck(s) {
 }
 
 // ── Connector state ───────────────────────────────────────
-let anthropicConnected = false;   // updated by fetchSysinfo() and loadConnectors()
+let providerConnected = { anthropic: false, openai: false, gemini: false };
 let lastSysinfo = null;
 
 function _setAnthropicConnected(connected) {
-  anthropicConnected = connected;
+  providerConnected.anthropic = connected;
   updateStartEnabled();
 }
 
@@ -226,7 +226,7 @@ function _applyMasking(input) {
 
 async function loadConnectors() {
   // Apply masking to connector key inputs
-  ['anthropic', 'openai'].forEach(p => {
+  ['anthropic', 'openai', 'gemini'].forEach(p => {
     const el = $(`conn-key-${p}`);
     if (el) _applyMasking(el);
   });
@@ -236,7 +236,11 @@ async function loadConnectors() {
     const data = await res.json();
     _renderConnectorBadge('anthropic', data.anthropic);
     _renderConnectorBadge('openai', data.openai);
-    _setAnthropicConnected(data.anthropic?.connected || false);
+    _renderConnectorBadge('gemini', data.gemini);
+    providerConnected.anthropic = data.anthropic?.connected || false;
+    providerConnected.openai    = data.openai?.connected    || false;
+    providerConnected.gemini    = data.gemini?.connected    || false;
+    updateStartEnabled();
   } catch (e) {
     console.warn('Failed to load connectors:', e);
   }
@@ -360,6 +364,8 @@ async function verifyConnector(provider) {
     if (data.ok) {
       if (provider === 'anthropic') {
         statusEl.textContent = t('connectors.verify_ok_anthropic', { model: data.model });
+      } else if (provider === 'gemini') {
+        statusEl.textContent = t('connectors.verify_ok_gemini', { model: data.model });
       } else {
         statusEl.textContent = t('connectors.verify_ok_openai');
       }
@@ -592,7 +598,7 @@ function updateStartEnabled() {
   let reason = '';
   if (!path) reason = t('tooltip.start_no_path');
   else if (!aiOn && !transcribeOn) reason = t('tooltip.start_no_features');
-  else if (aiOn && !anthropicConnected) reason = t('tooltip.start_no_key');
+  else if (aiOn && !providerConnected[activeProviderName]) reason = t('tooltip.start_no_key');
 
   const btn = $('btn-start');
   btn.disabled = !!reason;
@@ -996,10 +1002,10 @@ async function fetchSysinfo() {
     lastSysinfo = s;
     renderSyscheck(s);
 
-    // Update Start button enable state based on Anthropic key presence
-    if (typeof s.anthropic_connected !== 'undefined') {
-      _setAnthropicConnected(s.anthropic_connected);
-    }
+    if (typeof s.anthropic_connected !== 'undefined') providerConnected.anthropic = s.anthropic_connected;
+    if (typeof s.openai_connected   !== 'undefined') providerConnected.openai    = s.openai_connected;
+    if (typeof s.gemini_connected   !== 'undefined') providerConnected.gemini    = s.gemini_connected;
+    updateStartEnabled();
   } catch {
     // server not ready yet — ignore
   }
@@ -1069,16 +1075,24 @@ async function loadSettings() {
 // to extend when more providers land.
 let activeProviderName = 'anthropic';
 
-function fillSettingsForm(cfg, prompt) {
-  activeProviderName = cfg.ai?.provider || 'anthropic';
-  const p = cfg.ai[activeProviderName];
+// Full config cached so onProviderChange can re-read provider-specific fields
+let _cachedSettingsCfg = null;
 
-  $('cfg-model').value = p.model;
-  $('cfg-max-video').value = p.max_tokens_video;
-  $('cfg-max-photo').value = p.max_tokens_photo;
-  $('cfg-price-in').value = p.price_input_per_mtok_usd;
-  $('cfg-price-out').value = p.price_output_per_mtok_usd;
-  $('cfg-timeout').value = p.timeout_sec;
+function fillSettingsForm(cfg, prompt) {
+  _cachedSettingsCfg = cfg;
+  activeProviderName = cfg.ai?.provider || 'anthropic';
+  const providerSel = $('cfg-ai-provider');
+  if (providerSel) providerSel.value = activeProviderName;
+
+  updateStartEnabled();
+
+  const p = cfg.ai[activeProviderName] || {};
+  $('cfg-model').value = p.model ?? '';
+  $('cfg-max-video').value = p.max_tokens_video ?? '';
+  $('cfg-max-photo').value = p.max_tokens_photo ?? '';
+  $('cfg-price-in').value = p.price_input_per_mtok_usd ?? '';
+  $('cfg-price-out').value = p.price_output_per_mtok_usd ?? '';
+  $('cfg-timeout').value = p.timeout_sec ?? '';
 
   $('cfg-video-width').value = cfg.frames.video_width_px;
   $('cfg-photo-width').value = cfg.frames.photo_width_px;
@@ -1094,6 +1108,19 @@ function fillSettingsForm(cfg, prompt) {
   $('cfg-prompt').value = prompt;
 }
 
+function onProviderChange(name) {
+  if (!_cachedSettingsCfg) return;
+  activeProviderName = name;
+  updateStartEnabled();
+  const p = _cachedSettingsCfg.ai[name] || {};
+  $('cfg-model').value = p.model ?? '';
+  $('cfg-max-video').value = p.max_tokens_video ?? '';
+  $('cfg-max-photo').value = p.max_tokens_photo ?? '';
+  $('cfg-price-in').value = p.price_input_per_mtok_usd ?? '';
+  $('cfg-price-out').value = p.price_output_per_mtok_usd ?? '';
+  $('cfg-timeout').value = p.timeout_sec ?? '';
+}
+
 function readSettingsForm() {
   const providerCfg = {
     model: $('cfg-model').value.trim(),
@@ -1103,9 +1130,12 @@ function readSettingsForm() {
     price_output_per_mtok_usd: parseFloat($('cfg-price-out').value),
     timeout_sec: parseInt($('cfg-timeout').value),
   };
+  // Merge active provider config into existing ai section so other providers are preserved
+  const existingAi = _cachedSettingsCfg?.ai || {};
   return {
     config: {
       ai: {
+        ...existingAi,
         provider: activeProviderName,
         [activeProviderName]: providerCfg,
       },
@@ -1151,6 +1181,10 @@ async function saveSettings() {
     if (data.ok) {
       status.textContent = t('settings.saved');
       status.className = 'ok';
+      // Refresh cache so onProviderChange() reads fresh values after save
+      if (_cachedSettingsCfg) {
+        _cachedSettingsCfg = body.config;
+      }
     } else {
       status.textContent = '✗ ' + (data.error || 'error');
       status.className = 'err';
@@ -1224,7 +1258,7 @@ window.addEventListener('load', async () => {
   await setLang(detectInitialLang());
   checkSingleTab();
 
-  // 2. Load people defaults from server config
+  // 2. Load people defaults and active provider from server config
   try {
     const res = await fetch('/config');
     const data = await res.json();
@@ -1234,6 +1268,9 @@ window.addEventListener('load', async () => {
     } else {
       renderPeople(DEFAULT_PEOPLE_FALLBACK);
     }
+    // Set activeProviderName before first updateStartEnabled() so the Start
+    // button checks the right provider's connection status from the start
+    activeProviderName = data.config?.ai?.provider || 'anthropic';
   } catch {
     renderPeople(DEFAULT_PEOPLE_FALLBACK);
   }

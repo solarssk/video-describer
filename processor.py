@@ -229,12 +229,14 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
 
         provider = None
         if analyze_images:
+            _env_map = {'anthropic': 'ANTHROPIC_API_KEY', 'openai': 'OPENAI_API_KEY', 'gemini': 'GEMINI_API_KEY'}
+            _active_provider = cfg.get('ai', {}).get('provider', 'anthropic')
             api_key = (
-                cfg.get('connectors', {}).get('anthropic', {}).get('api_key', '').strip()
-                or os.environ.get('ANTHROPIC_API_KEY', '')
+                cfg.get('connectors', {}).get(_active_provider, {}).get('api_key', '').strip()
+                or os.environ.get(_env_map.get(_active_provider, ''), '')
             )
             if not api_key:
-                emit_fn({'type': 'error', 'text': 'Missing Anthropic API key. Add it in the Connectors tab.'})
+                emit_fn({'type': 'error', 'text': f'Missing {_active_provider.title()} API key. Add it in the Connectors tab.'})
                 return
 
             try:

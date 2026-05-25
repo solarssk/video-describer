@@ -285,12 +285,14 @@ def start():
 
     if analyze_images:
         saved_cfg = config_loader.load_config()
+        _env_map = {'anthropic': 'ANTHROPIC_API_KEY', 'openai': 'OPENAI_API_KEY', 'gemini': 'GEMINI_API_KEY'}
+        _active_provider = saved_cfg.get('ai', {}).get('provider', 'anthropic')
         has_key = (
-            saved_cfg.get('connectors', {}).get('anthropic', {}).get('api_key', '').strip()
-            or os.environ.get('ANTHROPIC_API_KEY', '')
+            saved_cfg.get('connectors', {}).get(_active_provider, {}).get('api_key', '').strip()
+            or os.environ.get(_env_map.get(_active_provider, ''), '')
         )
         if not has_key:
-            return jsonify({'error': 'Anthropic API key required. Add it in the Connectors tab.'}), 400
+            return jsonify({'error': f'{_active_provider.title()} API key required. Add it in the Connectors tab.'}), 400
 
     with _start_lock:
         if is_processing:
@@ -395,6 +397,7 @@ def connectors_get():
     return jsonify({
         'anthropic': _status(conns.get('anthropic', {}).get('api_key', ''), 'ANTHROPIC_API_KEY'),
         'openai':    _status(conns.get('openai',    {}).get('api_key', ''), 'OPENAI_API_KEY'),
+        'gemini':    _status(conns.get('gemini',    {}).get('api_key', ''), 'GEMINI_API_KEY'),
     })
 
 
@@ -404,7 +407,7 @@ def connectors_save():
     body = request.json or {}
     provider = body.get('provider', '').strip()
     key = body.get('api_key', '').strip()
-    if provider not in ('anthropic', 'openai'):
+    if provider not in ('anthropic', 'openai', 'gemini'):
         return jsonify({'error': 'Unknown provider'}), 400
 
     cfg = config_loader.load_config()
@@ -429,7 +432,7 @@ def connectors_verify():
 
     if not key:
         # Try to load stored key
-        _env_map = {'anthropic': 'ANTHROPIC_API_KEY', 'openai': 'OPENAI_API_KEY'}
+        _env_map = {'anthropic': 'ANTHROPIC_API_KEY', 'openai': 'OPENAI_API_KEY', 'gemini': 'GEMINI_API_KEY'}
         cfg = config_loader.load_config()
         key = (
             cfg.get('connectors', {}).get(provider, {}).get('api_key', '').strip()
@@ -464,6 +467,20 @@ def connectors_verify():
         except Exception as e:
             msg = str(e)
             if 'authentication' in msg.lower() or '401' in msg or 'invalid' in msg.lower():
+                return jsonify({'ok': False, 'error': 'Invalid API key'}), 401
+            return jsonify({'ok': False, 'error': msg}), 500
+
+    if provider == 'gemini':
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=key)
+            list(genai.list_models())
+            cfg = config_loader.load_config()
+            model_name = cfg.get('ai', {}).get('gemini', {}).get('model', 'gemini-2.0-flash')
+            return jsonify({'ok': True, 'model': model_name})
+        except Exception as e:
+            msg = str(e)
+            if '401' in msg or 'api_key' in msg.lower() or 'invalid' in msg.lower():
                 return jsonify({'ok': False, 'error': 'Invalid API key'}), 401
             return jsonify({'ok': False, 'error': msg}), 500
 
@@ -668,6 +685,7 @@ def sysinfo():
     conns = cfg.get('connectors', {})
     anthropic_key = conns.get('anthropic', {}).get('api_key', '').strip() or os.environ.get('ANTHROPIC_API_KEY', '')
     openai_key    = conns.get('openai',    {}).get('api_key', '').strip() or os.environ.get('OPENAI_API_KEY', '')
+    gemini_key    = conns.get('gemini',    {}).get('api_key', '').strip() or os.environ.get('GEMINI_API_KEY', '')
 
     return jsonify({
         'platform': platform.system(),         # Darwin / Windows / Linux
@@ -681,6 +699,7 @@ def sysinfo():
         'faster_whisper_available': FASTER_WHISPER_AVAILABLE,
         'anthropic_connected': bool(anthropic_key),
         'openai_connected': bool(openai_key),
+        'gemini_connected': bool(gemini_key),
     })
 
 
@@ -877,10 +896,9 @@ def _preflight_startup() -> bool:
             tiers_str  = ' → '.join(w_tiers) if w_tiers else '—'
             _info('Model',    w_default,  GREEN if WHISPER_AVAILABLE else DIM)
             _info('Fallback', tiers_str,  DIM)
-        # Claude model
         ai_provider = cfg.get('ai', {}).get('provider', 'anthropic')
         ai_model    = cfg.get('ai', {}).get(ai_provider, {}).get('model', '?')
-        _info('Claude', ai_model, DIM)
+        _info(ai_provider.title(), ai_model, DIM)
 
     print()
 

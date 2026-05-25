@@ -1,12 +1,16 @@
-"""AI provider registry. Currently only Anthropic is implemented."""
+"""AI provider registry.
+
+Provider classes for openai and gemini are imported lazily so missing
+optional SDKs (openai, google-generativeai) don't break startup.
+"""
 
 from .anthropic_provider import AnthropicProvider
 from .base import AIProvider, ProviderResponse
 
 REGISTRY = {
     'anthropic': AnthropicProvider,
-    # 'openai':   OpenAIProvider,   # future
-    # 'gemini':   GeminiProvider,   # future
+    'openai':    'openai_provider.OpenAIProvider',   # lazy string sentinel
+    'gemini':    'gemini_provider.GeminiProvider',   # lazy string sentinel
 }
 
 
@@ -15,11 +19,23 @@ def make_provider(name: str, cfg: dict, api_key: str) -> AIProvider:
 
     Reads provider-specific options from cfg['ai'][<name>].
     Raises ValueError if name is unknown.
+    Raises RuntimeError if the provider SDK is not installed.
     """
-    cls = REGISTRY.get(name)
-    if not cls:
+    if name not in REGISTRY:
         available = ', '.join(REGISTRY.keys())
         raise ValueError(f"Unknown AI provider: '{name}'. Available: {available}")
+
+    cls = REGISTRY[name]
+    if isinstance(cls, str):
+        # Lazy import for optional-dependency providers
+        module_name, class_name = cls.split('.')
+        try:
+            import importlib
+            mod = importlib.import_module(f'.{module_name}', package=__package__)
+            cls = getattr(mod, class_name)
+        except ImportError as e:
+            sdk = {'openai_provider': 'openai', 'gemini_provider': 'google-generativeai'}.get(module_name, module_name)
+            raise RuntimeError(f"Install '{sdk}' to use the {name} provider: pip install {sdk}") from e
 
     provider_cfg = cfg['ai'].get(name)
     if not provider_cfg:
