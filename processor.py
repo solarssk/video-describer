@@ -451,7 +451,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             out_dir = Path(config['output_dir']) if config.get('output_dir') else file_path.parent
             if config.get('output_dir'):
                 out_dir.mkdir(parents=True, exist_ok=True)
-            output_path = out_dir / output_txt_path(file_path).name
+            output_path = output_txt_path(file_path, out_dir)
 
             abs_index = resume_from + i
             emit_fn({'type': 'progress', 'current': abs_index, 'total': total_media, 'file': file_path.name})

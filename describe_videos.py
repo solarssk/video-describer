@@ -990,7 +990,7 @@ def main():
         out_dir = Path(args.output_dir) if args.output_dir else file_path.parent
         if args.output_dir:
             out_dir.mkdir(parents=True, exist_ok=True)
-        output_path = out_dir / output_txt_path(file_path).name
+        output_path = output_txt_path(file_path, out_dir)
 
         label = 'video' if media_type == 'video' else 'photo'
         print(f"[{i}/{len(media)}] {file_path.name} ({label})")

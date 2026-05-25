@@ -4,9 +4,13 @@ from pathlib import Path
 from typing import Optional
 
 
-def output_txt_path(source_path: Path) -> Path:
-    """New format: video.mp4 → video.mp4.txt (avoids stem collision)."""
-    return source_path.with_name(source_path.name + ".txt")
+def output_txt_path(source_path: Path, out_dir: Optional[Path] = None) -> Path:
+    """New format: video.mp4 → video.mp4.txt (avoids stem collision).
+
+    If out_dir is given the result is placed there; otherwise alongside source_path.
+    """
+    base = out_dir if out_dir else source_path.parent
+    return base / (source_path.name + ".txt")
 
 
 def legacy_output_txt_path(source_path: Path) -> Path:
@@ -21,7 +25,7 @@ def legacy_output_txt_path(source_path: Path) -> Path:
 def find_existing_output(source_path: Path, out_dir: Optional[Path] = None) -> Optional[Path]:
     """Return existing output .txt for source_path, new format first then legacy fallback."""
     base = out_dir if out_dir else source_path.parent
-    new_path = base / output_txt_path(source_path).name
+    new_path = output_txt_path(source_path, out_dir)
     if new_path.exists():
         return new_path
     old_path = base / legacy_output_txt_path(source_path).name
