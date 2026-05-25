@@ -1258,7 +1258,7 @@ window.addEventListener('load', async () => {
   await setLang(detectInitialLang());
   checkSingleTab();
 
-  // 2. Load people defaults from server config
+  // 2. Load people defaults and active provider from server config
   try {
     const res = await fetch('/config');
     const data = await res.json();
@@ -1268,6 +1268,9 @@ window.addEventListener('load', async () => {
     } else {
       renderPeople(DEFAULT_PEOPLE_FALLBACK);
     }
+    // Set activeProviderName before first updateStartEnabled() so the Start
+    // button checks the right provider's connection status from the start
+    activeProviderName = data.config?.ai?.provider || 'anthropic';
   } catch {
     renderPeople(DEFAULT_PEOPLE_FALLBACK);
   }
