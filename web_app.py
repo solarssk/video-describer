@@ -12,8 +12,10 @@ import math
 import os
 import platform
 import queue
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -96,6 +98,9 @@ app_logger.addHandler(_console_handler)
 
 VERSION = config_loader.get_version()
 _PICKER_TIMEOUT_SECONDS = 300
+_PICKER_HELPER_SOURCE = Path(__file__).parent / 'tools' / 'macos_path_picker.swift'
+_PICKER_HELPER_BINARY = Path(tempfile.gettempdir()) / 'video-describer' / 'macos_path_picker'
+_picker_helper_lock = threading.Lock()
 _last_picker_dir = ''
 _last_picker_dir_lock = threading.Lock()
 
@@ -115,6 +120,90 @@ def _picker_default_dir() -> str:
         return ''
     except OSError:
         return ''
+
+
+def _picker_helper_path() -> str:
+    if not IS_MACOS or not _PICKER_HELPER_SOURCE.exists():
+        return ''
+    swiftc = shutil.which('swiftc')
+    if not swiftc:
+        return ''
+    xcrun = shutil.which('xcrun')
+    compiler = [xcrun, 'swiftc'] if xcrun else [swiftc]
+
+    try:
+        source_mtime = _PICKER_HELPER_SOURCE.stat().st_mtime
+        if _PICKER_HELPER_BINARY.exists() and _PICKER_HELPER_BINARY.stat().st_mtime >= source_mtime:
+            return str(_PICKER_HELPER_BINARY)
+    except OSError:
+        return ''
+
+    with _picker_helper_lock:
+        try:
+            source_mtime = _PICKER_HELPER_SOURCE.stat().st_mtime
+            if _PICKER_HELPER_BINARY.exists() and _PICKER_HELPER_BINARY.stat().st_mtime >= source_mtime:
+                return str(_PICKER_HELPER_BINARY)
+            _PICKER_HELPER_BINARY.parent.mkdir(parents=True, exist_ok=True)
+            build_env = os.environ.copy()
+            build_env.setdefault('CLANG_MODULE_CACHE_PATH', str(_PICKER_HELPER_BINARY.parent / 'clang-cache'))
+            build_env.setdefault('SWIFT_MODULE_CACHE_PATH', str(_PICKER_HELPER_BINARY.parent / 'swift-cache'))
+            r = subprocess.run(
+                compiler + [str(_PICKER_HELPER_SOURCE), '-O', '-o', str(_PICKER_HELPER_BINARY)],
+                capture_output=True, text=True, timeout=60, env=build_env,
+            )
+            if r.returncode != 0:
+                app_logger.warning('Swift picker helper build failed: %s', (r.stderr or '').strip())
+                return ''
+            return str(_PICKER_HELPER_BINARY)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            app_logger.warning('Swift picker helper unavailable: %s', e)
+            return ''
+
+
+def _remember_picked_dir(kind: str, picked_path: str) -> None:
+    global _last_picker_dir
+
+    next_default_dir = picked_path if kind == 'folder' else os.path.dirname(picked_path)
+    if next_default_dir and os.path.isdir(next_default_dir):
+        with _last_picker_dir_lock:
+            _last_picker_dir = next_default_dir
+
+
+def _run_swift_picker(kind: str, default_dir: str):
+    helper = _picker_helper_path()
+    if not helper:
+        return None
+
+    args = [helper, kind]
+    if default_dir:
+        args.append(default_dir)
+
+    try:
+        r = subprocess.run(args, capture_output=True, text=True, timeout=_PICKER_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        return {
+            'ok': False,
+            'cancelled': False,
+            'path': '',
+            'code': 'timeout',
+            'error': 'Picker timed out. Try again.',
+        }
+    except (FileNotFoundError, OSError):
+        return None
+
+    if r.returncode == 0:
+        picked_path = r.stdout.strip()
+        return {'ok': True, 'path': picked_path} if picked_path else {'ok': False, 'cancelled': True, 'path': ''}
+    if r.returncode == 2:
+        return {'ok': False, 'cancelled': True, 'path': ''}
+
+    return {
+        'ok': False,
+        'cancelled': False,
+        'path': '',
+        'code': 'picker_helper_error',
+        'error': (r.stderr or '').strip() or 'Picker failed.',
+    }
 
 
 def get_thermal_state() -> dict:
@@ -1020,15 +1109,19 @@ def stream():
 
 
 def _pick_path(kind: str) -> dict:
-    """Opens a native macOS folder/file picker via osascript."""
-    global _last_picker_dir
+    """Opens a native macOS folder/file picker."""
+    default_dir = _picker_default_dir()
+
+    helper_result = _run_swift_picker(kind, default_dir)
+    if helper_result is not None:
+        if helper_result.get('ok') and helper_result.get('path'):
+            _remember_picked_dir(kind, helper_result['path'])
+        return helper_result
 
     prompt = {
         'folder': 'Select a folder with recordings',
         'file': 'Select a video or photo file',
     }[kind]
-
-    default_dir = _picker_default_dir()
 
     picker_cmd = f'choose {kind} with prompt {_applescript_quote(prompt)}'
     if default_dir:
@@ -1083,10 +1176,7 @@ def _pick_path(kind: str) -> dict:
     if not picked_path:
         return {'ok': False, 'cancelled': True, 'path': ''}
 
-    next_default_dir = picked_path if kind == 'folder' else os.path.dirname(picked_path)
-    if next_default_dir and os.path.isdir(next_default_dir):
-        with _last_picker_dir_lock:
-            _last_picker_dir = next_default_dir
+    _remember_picked_dir(kind, picked_path)
 
     return {'ok': True, 'path': picked_path}
 
@@ -1399,6 +1489,9 @@ if __name__ == '__main__':
 
     if not _preflight_startup():
         sys.exit(1)
+
+    if IS_MACOS:
+        _picker_helper_path()
 
     print(f'  Open in browser: http://localhost:{port}\n')
     app_logger.info(f'=== video-describer started · port {port} · logs: {_LOG_DIR} ===')
