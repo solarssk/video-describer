@@ -225,12 +225,17 @@ def get_video_duration(video_path: str) -> float:
 
 def get_video_fps(video_path: str) -> float:
     """Return the frame rate of the first video stream, or 0.0 on failure."""
-    result = subprocess.run(
-        ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-         '-show_entries', 'stream=r_frame_rate',
-         '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
-        capture_output=True, text=True,
-    )
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+             '-show_entries', 'stream=r_frame_rate',
+             '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return 0.0
+    if result.returncode != 0:
+        return 0.0
     raw = result.stdout.strip()
     # r_frame_rate is returned as a fraction, e.g. "60000/1001" or "25/1"
     try:

@@ -56,9 +56,10 @@ def parse_timestamps(txt_content: str) -> list:
 
 def _timecode(time_s: float, fps: float) -> str:
     """Convert seconds to SMPTE non-drop timecode HH:MM:SS:FF."""
+    fps_base = max(1, int(round(fps)))   # 29.97 → 30, not 29
     total_frames = int(round(time_s * fps))
-    ff = total_frames % int(fps)
-    total_secs = total_frames // int(fps)
+    ff = total_frames % fps_base
+    total_secs = total_frames // fps_base
     ss = total_secs % 60
     mm = (total_secs // 60) % 60
     hh = total_secs // 3600
@@ -145,12 +146,15 @@ def write_fcp7xml(markers: list, clip_name: str, fps: float,
     Import via File > Import in Premiere Pro.
     """
     fps_int = int(round(fps))
+    # Fractional rates (29.97, 59.94 …) need ntsc=TRUE so Premiere maps frames
+    # to the correct timebase rather than treating it as true 30/60 fps.
+    is_ntsc = abs(fps - fps_int) > 0.01
     xmeml = ET.Element('xmeml', version='2')
     seq = ET.SubElement(xmeml, 'sequence')
     ET.SubElement(seq, 'name').text = Path(clip_name).stem
     rate_el = ET.SubElement(seq, 'rate')
     ET.SubElement(rate_el, 'timebase').text = str(fps_int)
-    ET.SubElement(rate_el, 'ntsc').text = 'FALSE'
+    ET.SubElement(rate_el, 'ntsc').text = 'TRUE' if is_ntsc else 'FALSE'
 
     for mk in markers:
         frame_in  = int(round(mk['time_s'] * fps))

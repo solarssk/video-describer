@@ -1,22 +1,17 @@
 """Tests for nle_export — timestamp parser and sidecar writers."""
 
-import re
 import tempfile
+import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import pytest
-
 from nle_export import (
+    export_sidecars,
     parse_timestamps,
-    write_fcpxml,
     write_edl,
     write_fcp7xml,
-    export_sidecars,
+    write_fcpxml,
 )
-
-
-# ── parse_timestamps ──────────────────────────────────────────────────────────
 
 TXT_SAMPLE = """\
 VID_20250829 — departure day
@@ -29,165 +24,189 @@ not a timestamp line
 """
 
 
-def test_parse_basic():
-    markers = parse_timestamps(TXT_SAMPLE)
-    assert len(markers) == 4
-
-
-def test_parse_times():
-    markers = parse_timestamps(TXT_SAMPLE)
-    assert markers[0]['time_s'] == 15
-    assert markers[1]['time_s'] == 150
-    assert markers[2]['time_s'] == 492
-    assert markers[3]['time_s'] == 4500   # 1:15:00
-
-
-def test_parse_key_flag():
-    markers = parse_timestamps(TXT_SAMPLE)
-    assert not markers[0]['is_key']
-    assert markers[1]['is_key']
-    assert not markers[2]['is_key']
-    assert markers[3]['is_key']
-
-
-def test_parse_star_stripped_from_text():
-    markers = parse_timestamps(TXT_SAMPLE)
-    assert not markers[1]['text'].startswith('★')
-    assert not markers[3]['text'].startswith('★')
-
-
-def test_parse_empty():
-    assert parse_timestamps('') == []
-    assert parse_timestamps('No timestamps here.\nJust prose.') == []
-
-
-# ── write_fcpxml ──────────────────────────────────────────────────────────────
-
-@pytest.fixture
-def markers():
+def _markers():
     return [
         {'time_s': 15,  'text': 'Filip buckles the roll bags', 'is_key': False},
         {'time_s': 150, 'text': 'they pull out',               'is_key': True},
     ]
 
 
-def test_fcpxml_valid_xml(tmp_path, markers):
-    out = tmp_path / 'test.fcpxml'
-    write_fcpxml(markers, 'test.mp4', 600.0, out)
-    tree = ET.parse(out)
-    root = tree.getroot()
-    assert root.tag == 'fcpxml'
-    assert root.attrib['version'] == '1.11'
+class TestParseTimestamps(unittest.TestCase):
+
+    def test_count(self):
+        self.assertEqual(len(parse_timestamps(TXT_SAMPLE)), 4)
+
+    def test_times(self):
+        m = parse_timestamps(TXT_SAMPLE)
+        self.assertEqual(m[0]['time_s'], 15)
+        self.assertEqual(m[1]['time_s'], 150)
+        self.assertEqual(m[2]['time_s'], 492)
+        self.assertEqual(m[3]['time_s'], 4500)  # 1:15:00
+
+    def test_key_flag(self):
+        m = parse_timestamps(TXT_SAMPLE)
+        self.assertFalse(m[0]['is_key'])
+        self.assertTrue(m[1]['is_key'])
+        self.assertFalse(m[2]['is_key'])
+        self.assertTrue(m[3]['is_key'])
+
+    def test_star_stripped_from_text(self):
+        m = parse_timestamps(TXT_SAMPLE)
+        self.assertFalse(m[1]['text'].startswith('★'))
+        self.assertFalse(m[3]['text'].startswith('★'))
+
+    def test_empty(self):
+        self.assertEqual(parse_timestamps(''), [])
+        self.assertEqual(parse_timestamps('No timestamps here.\nJust prose.'), [])
 
 
-def test_fcpxml_marker_count(tmp_path, markers):
-    out = tmp_path / 'test.fcpxml'
-    write_fcpxml(markers, 'test.mp4', 600.0, out)
-    tree = ET.parse(out)
-    clip = tree.find('.//asset-clip')
-    assert clip is not None
-    found = clip.findall('marker')
-    assert len(found) == 2
+class TestWriteFcpxml(unittest.TestCase):
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmpdir.name)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def test_valid_xml(self):
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out)
+        root = ET.parse(out).getroot()  # nosec B314
+        self.assertEqual(root.tag, 'fcpxml')
+        self.assertEqual(root.attrib['version'], '1.11')
+
+    def test_marker_count(self):
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out)
+        clip = ET.parse(out).find('.//asset-clip')  # nosec B314
+        self.assertIsNotNone(clip)
+        self.assertEqual(len(clip.findall('marker')), 2)
+
+    def test_key_marker_attribute(self):
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out)
+        clip = ET.parse(out).find('.//asset-clip')  # nosec B314
+        m_regular, m_key = clip.findall('marker')
+        self.assertNotIn('completed', m_regular.attrib)
+        self.assertEqual(m_key.attrib.get('completed'), '0')
 
 
-def test_fcpxml_key_marker_attribute(tmp_path, markers):
-    out = tmp_path / 'test.fcpxml'
-    write_fcpxml(markers, 'test.mp4', 600.0, out)
-    tree = ET.parse(out)
-    clip = tree.find('.//asset-clip')
-    m_regular = clip.findall('marker')[0]
-    m_key     = clip.findall('marker')[1]
-    assert 'completed' not in m_regular.attrib
-    assert m_key.attrib.get('completed') == '0'
+class TestWriteEdl(unittest.TestCase):
+
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmpdir.name)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def test_title(self):
+        out = self.tmp / 'test.edl'
+        write_edl(_markers(), 'test.mp4', 25.0, out)
+        self.assertIn('TITLE: test', out.read_text())
+
+    def test_marker_colors(self):
+        out = self.tmp / 'test.edl'
+        write_edl(_markers(), 'test.mp4', 25.0, out)
+        content = out.read_text()
+        self.assertIn('ResolveColorBlue', content)
+        self.assertIn('ResolveColorRed', content)
+
+    def test_timecode_format(self):
+        out = self.tmp / 'test.edl'
+        write_edl(_markers(), 'test.mp4', 25.0, out)
+        self.assertRegex(out.read_text(), r'\d{2}:\d{2}:\d{2}:\d{2}')
+
+    def test_fractional_fps_timecode(self):
+        """29.97 fps: base must be round(fps)=30, not int(fps)=29."""
+        out = self.tmp / 'test.edl'
+        write_edl([{'time_s': 1, 'text': 'x', 'is_key': False}], 'x.mp4', 29.97, out)
+        self.assertIn('00:00:01:00', out.read_text())
 
 
-# ── write_edl ─────────────────────────────────────────────────────────────────
+class TestWriteFcp7xml(unittest.TestCase):
 
-def test_edl_title(tmp_path, markers):
-    out = tmp_path / 'test.edl'
-    write_edl(markers, 'test.mp4', 25.0, out)
-    content = out.read_text()
-    assert 'TITLE: test' in content
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmpdir.name)
 
+    def tearDown(self):
+        self._tmpdir.cleanup()
 
-def test_edl_marker_colors(tmp_path, markers):
-    out = tmp_path / 'test.edl'
-    write_edl(markers, 'test.mp4', 25.0, out)
-    content = out.read_text()
-    assert 'ResolveColorBlue' in content
-    assert 'ResolveColorRed' in content
+    def test_valid_xml(self):
+        out = self.tmp / 'test.xmeml'
+        write_fcp7xml(_markers(), 'test.mp4', 25.0, out)
+        self.assertEqual(ET.parse(out).getroot().tag, 'xmeml')  # nosec B314
 
+    def test_frame_positions(self):
+        out = self.tmp / 'test.xmeml'
+        write_fcp7xml(_markers(), 'test.mp4', 25.0, out)
+        seq = ET.parse(out).find('sequence')  # nosec B314
+        first = seq.findall('marker')[0]
+        self.assertEqual(first.find('in').text, '375')   # 15s * 25fps
+        self.assertEqual(first.find('out').text, '376')
 
-def test_edl_timecode_format(tmp_path, markers):
-    out = tmp_path / 'test.edl'
-    write_edl(markers, 'test.mp4', 25.0, out)
-    content = out.read_text()
-    # Expect HH:MM:SS:FF pattern — e.g. 00:00:15:00
-    assert re.search(r'\d{2}:\d{2}:\d{2}:\d{2}', content)
+    def test_key_color(self):
+        out = self.tmp / 'test.xmeml'
+        write_fcp7xml(_markers(), 'test.mp4', 25.0, out)
+        seq = ET.parse(out).find('sequence')  # nosec B314
+        m_list = seq.findall('marker')
+        self.assertIsNone(m_list[0].find('color'))
+        self.assertEqual(m_list[1].find('color').text, 'red')
 
+    def test_ntsc_true_for_fractional_fps(self):
+        """29.97 fps must produce ntsc=TRUE."""
+        out = self.tmp / 'test.xmeml'
+        write_fcp7xml(_markers(), 'test.mp4', 29.97, out)
+        rate = ET.parse(out).find('sequence/rate')  # nosec B314
+        self.assertEqual(rate.find('ntsc').text, 'TRUE')
+        self.assertEqual(rate.find('timebase').text, '30')
 
-# ── write_fcp7xml ─────────────────────────────────────────────────────────────
-
-def test_fcp7xml_valid_xml(tmp_path, markers):
-    out = tmp_path / 'test.xmeml'
-    write_fcp7xml(markers, 'test.mp4', 25.0, out)
-    tree = ET.parse(out)
-    assert tree.getroot().tag == 'xmeml'
-
-
-def test_fcp7xml_frame_positions(tmp_path, markers):
-    out = tmp_path / 'test.xmeml'
-    write_fcp7xml(markers, 'test.mp4', 25.0, out)
-    tree = ET.parse(out)
-    seq = tree.find('sequence')
-    first = seq.findall('marker')[0]
-    assert first.find('in').text  == '375'   # 15s * 25fps
-    assert first.find('out').text == '376'
-
-
-def test_fcp7xml_key_color(tmp_path, markers):
-    out = tmp_path / 'test.xmeml'
-    write_fcp7xml(markers, 'test.mp4', 25.0, out)
-    tree = ET.parse(out)
-    seq = tree.find('sequence')
-    m_list = seq.findall('marker')
-    assert m_list[0].find('color') is None
-    assert m_list[1].find('color').text == 'red'
+    def test_ntsc_false_for_integer_fps(self):
+        """25 fps must produce ntsc=FALSE."""
+        out = self.tmp / 'test.xmeml'
+        write_fcp7xml(_markers(), 'test.mp4', 25.0, out)
+        rate = ET.parse(out).find('sequence/rate')  # nosec B314
+        self.assertEqual(rate.find('ntsc').text, 'FALSE')
 
 
-# ── export_sidecars dispatcher ────────────────────────────────────────────────
+class TestExportSidecars(unittest.TestCase):
 
-def test_export_sidecars_none_enabled(tmp_path, markers):
-    txt = tmp_path / 'clip.mp4.txt'
-    txt.write_text(TXT_SAMPLE, encoding='utf-8')
-    cfg = {'nle_export': {'fcpxml': False, 'edl': False, 'fcp7xml': False}}
-    result = export_sidecars(txt, 'clip.mp4', 600.0, 25.0, cfg)
-    assert result == []
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmpdir.name)
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def _txt(self, content=TXT_SAMPLE):
+        p = self.tmp / 'clip.mp4.txt'
+        p.write_text(content, encoding='utf-8')
+        return p
+
+    def test_none_enabled(self):
+        cfg = {'nle_export': {'fcpxml': False, 'edl': False, 'fcp7xml': False}}
+        self.assertEqual(export_sidecars(self._txt(), 'clip.mp4', 600.0, 25.0, cfg), [])
+
+    def test_fcpxml_only(self):
+        cfg = {'nle_export': {'fcpxml': True, 'edl': False, 'fcp7xml': False}}
+        result = export_sidecars(self._txt(), 'clip.mp4', 600.0, 25.0, cfg)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].suffix, '.fcpxml')
+        self.assertTrue(result[0].exists())
+
+    def test_all_enabled(self):
+        cfg = {'nle_export': {'fcpxml': True, 'edl': True, 'fcp7xml': True}}
+        result = export_sidecars(self._txt(), 'clip.mp4', 600.0, 25.0, cfg)
+        self.assertEqual(len(result), 3)
+        self.assertEqual({p.suffix for p in result}, {'.fcpxml', '.edl', '.xmeml'})
+
+    def test_no_timestamps(self):
+        cfg = {'nle_export': {'fcpxml': True, 'edl': True, 'fcp7xml': True}}
+        result = export_sidecars(self._txt('No timestamps.'), 'clip.mp4', 600.0, 25.0, cfg)
+        self.assertEqual(result, [])
 
 
-def test_export_sidecars_fcpxml_only(tmp_path):
-    txt = tmp_path / 'clip.mp4.txt'
-    txt.write_text(TXT_SAMPLE, encoding='utf-8')
-    cfg = {'nle_export': {'fcpxml': True, 'edl': False, 'fcp7xml': False}}
-    result = export_sidecars(txt, 'clip.mp4', 600.0, 25.0, cfg)
-    assert len(result) == 1
-    assert result[0].suffix == '.fcpxml'
-    assert result[0].exists()
-
-
-def test_export_sidecars_all_enabled(tmp_path):
-    txt = tmp_path / 'clip.mp4.txt'
-    txt.write_text(TXT_SAMPLE, encoding='utf-8')
-    cfg = {'nle_export': {'fcpxml': True, 'edl': True, 'fcp7xml': True}}
-    result = export_sidecars(txt, 'clip.mp4', 600.0, 25.0, cfg)
-    assert len(result) == 3
-    suffixes = {p.suffix for p in result}
-    assert suffixes == {'.fcpxml', '.edl', '.xmeml'}
-
-
-def test_export_sidecars_no_timestamps(tmp_path):
-    txt = tmp_path / 'clip.mp4.txt'
-    txt.write_text('No timestamps here.', encoding='utf-8')
-    cfg = {'nle_export': {'fcpxml': True, 'edl': True, 'fcp7xml': True}}
-    result = export_sidecars(txt, 'clip.mp4', 600.0, 25.0, cfg)
-    assert result == []
+if __name__ == '__main__':
+    unittest.main()
