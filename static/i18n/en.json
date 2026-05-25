@@ -105,7 +105,7 @@
     "video": "video",
     "photos": "photos",
     "more": "…and {{count}} more",
-    "picker_opening": "Opening macOS picker…",
+    "picker_opening": "Choose a file or folder in the macOS window…",
     "picker_timeout": "Picker timed out. Try again.",
     "picker_missing_osascript": "macOS osascript command was not found.",
     "picker_failed": "Could not open the file picker."

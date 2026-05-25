@@ -105,7 +105,7 @@
     "video": "wideo",
     "photos": "zdjęć",
     "more": "…i {{count}} więcej",
-    "picker_opening": "Otwieram systemowe okno wyboru…",
+    "picker_opening": "Wybierz plik lub folder w oknie macOS…",
     "picker_timeout": "Wybór pliku lub folderu przekroczył limit czasu. Spróbuj ponownie.",
     "picker_missing_osascript": "Nie znaleziono systemowego polecenia macOS osascript.",
     "picker_failed": "Nie udało się otworzyć wyboru pliku lub folderu."

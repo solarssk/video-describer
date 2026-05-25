@@ -382,7 +382,6 @@ async function runPicker(endpoint) {
   pickerBusy = true;
   const buttons = document.querySelectorAll('.btn-pick');
   const previousPathInfo = showPickerPending();
-  document.body.classList.add('picker-busy');
   buttons.forEach(b => b.disabled = true);
   try {
     const res = await fetch(endpoint);
@@ -401,7 +400,6 @@ async function runPicker(endpoint) {
     showPickerError(e.message || t('path_info.picker_failed'));
   } finally {
     pickerBusy = false;
-    document.body.classList.remove('picker-busy');
     buttons.forEach(b => b.disabled = false);
   }
 }
