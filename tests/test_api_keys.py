@@ -1,5 +1,6 @@
 import json
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -58,6 +59,39 @@ class ApiKeyHandlingTests(unittest.TestCase):
         self.assertNotIn('api_key', saved_config['ai']['anthropic'])
         self.assertNotIn('api_key', saved_config['connectors']['anthropic'])
         self.assertNotIn('api_key', saved_config['connectors']['openai'])
+
+    def test_start_rejects_second_request_while_worker_is_starting(self):
+        cfg = {
+            'connectors': {'anthropic': {'api_key': 'sk-ant-connector'}},
+            'ai': {'provider': 'anthropic', 'anthropic': {}},
+        }
+        release_worker = threading.Event()
+        worker_done = threading.Event()
+
+        def wait_for_release(*_args, **_kwargs):
+            release_worker.wait(timeout=2)
+            worker_done.set()
+
+        with tempfile.TemporaryDirectory() as media_dir, \
+                patch('web_app.config_loader.load_config', return_value=cfg), \
+                patch('web_app._run_processing', side_effect=wait_for_release):
+            client = web_app.app.test_client()
+            first = client.post('/start', json={
+                'path': media_dir,
+                'analyze_images': True,
+                'transcribe': False,
+            })
+            second = client.post('/start', json={
+                'path': media_dir,
+                'analyze_images': True,
+                'transcribe': False,
+            })
+            release_worker.set()
+            self.assertTrue(worker_done.wait(timeout=2))
+
+        self.assertEqual(200, first.status_code)
+        self.assertEqual(400, second.status_code)
+        self.assertEqual('Processing already in progress', second.get_json()['error'])
 
 
 if __name__ == '__main__':

@@ -272,10 +272,6 @@ def batch_state_discard():
 @app.route('/start', methods=['POST'])
 def start():
     global is_processing, log_buffer, results_buffer, total_files_global, progress_global
-    with _start_lock:
-        if is_processing:
-            return jsonify({'error': 'Processing already in progress'}), 400
-
     config = request.json or {}
     if not config.get('path'):
         return jsonify({'error': 'Please provide a folder or file path'}), 400
@@ -296,27 +292,37 @@ def start():
         if not has_key:
             return jsonify({'error': 'Anthropic API key required. Add it in the Connectors tab.'}), 400
 
-    # Reset stanu
-    log_buffer.clear()
-    results_buffer.clear()
-    total_files_global = 0
-    progress_global = {}
-    while not log_queue.empty():
-        try:
-            log_queue.get_nowait()
-        except queue.Empty:
-            break
+    with _start_lock:
+        if is_processing:
+            return jsonify({'error': 'Processing already in progress'}), 400
+
+        # Reset stanu
+        log_buffer.clear()
+        results_buffer.clear()
+        total_files_global = 0
+        progress_global = {}
+        while not log_queue.empty():
+            try:
+                log_queue.get_nowait()
+            except queue.Empty:
+                break
+        is_processing = True
 
     def _run_batch(cfg):
         global is_processing
-        is_processing = True
         try:
             _run_processing(cfg, emit, app_logger, stop_event, usage_global)
         finally:
-            is_processing = False
+            with _start_lock:
+                is_processing = False
 
-    thread = threading.Thread(target=_run_batch, args=(config,), daemon=True)
-    thread.start()
+    try:
+        thread = threading.Thread(target=_run_batch, args=(config,), daemon=True)
+        thread.start()
+    except Exception:
+        with _start_lock:
+            is_processing = False
+        raise
     return jsonify({'status': 'started'})
 
 
