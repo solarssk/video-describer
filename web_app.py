@@ -63,21 +63,35 @@ from describe_videos import (  # noqa: E402
 
 app = Flask(__name__)
 
-# ── Rotating log file ────────────────────────────────────────────────────────
-# app.log lives next to web_app.py (gitignored via *.log).
-# 2 MB × 3 backups = up to ~6 MB of history.
-_LOG_PATH = Path(__file__).parent / 'app.log'
+# ── Log folder + daily rotation ──────────────────────────────────────────────
+# logs/app.log — active file; rotated copies get a .YYYY-MM-DD suffix.
+# 30 days of history kept. Terminal also receives DEBUG messages (tokens, cost)
+# that never appear in the UI.
+_LOG_DIR = Path(__file__).parent / 'logs'
+try:
+    _LOG_DIR.mkdir(exist_ok=True)
+except OSError:
+    pass
+_LOG_PATH = _LOG_DIR / 'app.log'
+
+_LOG_FMT = logging.Formatter('%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
 app_logger = logging.getLogger('video_describer')
 app_logger.setLevel(logging.DEBUG)
 app_logger.propagate = False
+
 try:
-    _log_handler = logging.handlers.RotatingFileHandler(
-        _LOG_PATH, maxBytes=2 * 1024 * 1024, backupCount=3, encoding='utf-8',
+    _file_handler = logging.handlers.TimedRotatingFileHandler(
+        _LOG_PATH, when='midnight', backupCount=30, encoding='utf-8',
     )
-    _log_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
-    app_logger.addHandler(_log_handler)
+    _file_handler.setFormatter(_LOG_FMT)
+    app_logger.addHandler(_file_handler)
 except OSError:
     pass  # non-writable directory — skip file logging, app still starts
+
+_console_handler = logging.StreamHandler(sys.__stdout__)
+_console_handler.setFormatter(logging.Formatter('%(message)s'))
+app_logger.addHandler(_console_handler)
 
 
 VERSION = config_loader.get_version()
@@ -265,20 +279,17 @@ def emit(msg: dict):
 
 
 class QueueLogger:
-    """Redirects print() to emit() and the original stdout, and mirrors to app.log."""
-    def __init__(self):
-        self.orig = sys.__stdout__
-
+    """Redirects print() to UI (emit) and app_logger.
+    Terminal output is handled by app_logger's console handler — no double write.
+    """
     def write(self, text: str):
-        self.orig.write(text)
-        self.orig.flush()
         if text and text.strip():
             t = text.rstrip()
             app_logger.info(t)
             emit({'type': 'warn', 'text': t} if t.startswith('⚠') else {'type': 'log', 'text': t})
 
     def flush(self):
-        self.orig.flush()
+        sys.__stdout__.flush()
 
 
 def run_processing(config: dict):
@@ -435,6 +446,16 @@ def run_processing(config: dict):
         skipped   = int(config.get('resume_skipped',   0) or 0)
         errors    = int(config.get('resume_errors',    0) or 0)
 
+        _provider_key = cfg['ai'].get('provider', 'anthropic')
+        _model_label  = cfg['ai'].get(_provider_key, {}).get('model', '?')
+        _budget_dbg   = f'  budget=${budget_usd:.2f}' if budget_usd is not None else ''
+        app_logger.debug(
+            f'[batch]  path={config["path"]}  model={_model_label}  '
+            f'interval={config.get("interval", 5)}s  '
+            f'max_frames={cfg["frames"]["max_per_video"]}  '
+            f'files={total_media}{_budget_dbg}'
+        )
+
         # Heartbeat — emits 'step_status' every 2s (ephemeral, not logged)
         heartbeat_stop = threading.Event()
         file_start: list = [time.time()]
@@ -545,6 +566,7 @@ def run_processing(config: dict):
 
             if output_path.exists() and not config.get('overwrite'):
                 print(f"  Skipped — {file_path.stem}.txt already exists")
+                app_logger.debug(f'[skip:{file_path.name}]  .txt exists')
                 skipped += 1
                 emit({'type': 'skipped', 'file': file_path.name})
                 _save_batch_state(config, abs_index, total_media, processed, skipped, errors,
@@ -617,9 +639,15 @@ def run_processing(config: dict):
                 if ' - ' in first_line:
                     first_line = first_line.split(' - ', 1)[1]
                 summary_entries.append((file_path.name, first_line))
-                file_tokens = (usage_global['input'] - file_usage_before['input']) + \
-                              (usage_global['output'] - file_usage_before['output'])
-                file_cost = usage_global['cost_usd'] - file_usage_before['cost_usd']
+                file_in     = usage_global['input']   - file_usage_before['input']
+                file_out    = usage_global['output']  - file_usage_before['output']
+                file_tokens = file_in + file_out
+                file_cost   = usage_global['cost_usd'] - file_usage_before['cost_usd']
+                app_logger.debug(
+                    f'[file:{file_path.name}]  '
+                    f'in={file_in}  out={file_out}  '
+                    f'cost=${file_cost:.4f}  elapsed={completed_times[-1]:.1f}s'
+                )
                 emit({'type': 'done_file', 'file': file_path.name, 'output': str(output_path),
                       'preview': first_line, 'file_tokens': file_tokens, 'file_cost': file_cost})
                 _save_batch_state(config, abs_index, total_media, processed, skipped, errors,
@@ -677,6 +705,11 @@ def run_processing(config: dict):
             summary_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
             print(f"Summary saved: {summary_path.name}")
 
+        app_logger.debug(
+            f'[done]  processed={processed}  skipped={skipped}  errors={errors}  '
+            f'in_tok={usage_global["input"]}  out_tok={usage_global["output"]}  '
+            f'cost=${usage_global["cost_usd"]:.4f}'
+        )
         print(f"\n--- Done: processed {processed}, skipped {skipped}, errors {errors} ---")
         emit({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
 
@@ -1290,5 +1323,5 @@ if __name__ == '__main__':
         sys.exit(1)
 
     print(f'  Open in browser: http://localhost:{port}\n')
-    app_logger.info(f'=== video-describer started · port {port} · log: {_LOG_PATH} ===')
+    app_logger.info(f'=== video-describer started · port {port} · logs: {_LOG_DIR} ===')
     app.run(host='127.0.0.1', debug=False, port=port, threaded=True)

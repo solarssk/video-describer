@@ -28,6 +28,7 @@ env/
 
 # ── Temp / output files ──────────────────────────────────────────────────────
 *.log
+logs/
 tmp/
 temp/
 batch_state.json
