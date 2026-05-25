@@ -13,7 +13,9 @@ All notable changes to Video Describer are documented here.
 - **Folder summary** — `_summary.txt` written to the input folder after each batch: one line per file (filename + first-line description), plus totals (files, cost, model). Skipped and pre-resume files are included so the summary is always complete.
 - **File selection checkboxes** — deselect individual files from the list before starting; backend `/start` accepts an optional `files` filter.
 - **Frame interval warning** — when the interval is auto-adjusted to fit the `max_frames` cap, a yellow `⚠` log line says exactly what changed and why, instead of silently changing settings.
-- **Rotating log file** (`app.log`) — every print-to-UI line is also written to `app.log` (2 MB × 3 backups, gitignored). Each startup writes a banner with timestamp and port. Useful for post-mortem debugging: `grep ERROR app.log`.
+- **Rotating log file** — every print-to-UI line is also written to `logs/app.log` (daily rotation, 30 days retention, gitignored). Each startup writes a banner with timestamp and port. Per-API-call token and cost breakdown (`↳ 61,840 in / 287 out tok — $0.0891`) appears in the log and terminal immediately after each file completes.
+- **Waitress WSGI server** — replaces the Flask development server; no more "WARNING: This is a development server" on startup. SSE streaming and long-running batches work without timeout issues.
+- **Native macOS folder/file picker** — compiled Swift helper (`tools/macos_path_picker.swift`) opens the system-native panel with a title bar and Cancel button; compiled once on first use, cached for subsequent runs. Falls back to osascript when Swift compiler is unavailable. Remembers the last picked directory across sessions. Picker errors (timeout, missing toolchain, user cancel) are shown inline below the path field instead of silently failing.
 
 ### Fixed
 
