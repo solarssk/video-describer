@@ -534,9 +534,18 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
 
                 if media_type == 'video' and any(cfg.get('nle_export', {}).values()):
                     _dur, _fps = get_video_metadata(str(file_path))
-                    _sidecars = export_sidecars(output_path, file_path.name, _dur, _fps, cfg)
-                    for _sc in _sidecars:
-                        print(f"  NLE: {_sc.name}")
+                    try:
+                        _sidecars = export_sidecars(output_path, file_path.name, _dur, _fps, cfg)
+                        for _sc in _sidecars:
+                            print(f"  NLE: {_sc.name}")
+                        _err_flag = output_path.with_suffix('.sidecar_error')
+                        if _err_flag.exists():
+                            _err_flag.unlink()
+                    except Exception as _sidecar_err:
+                        _warn = str(_sidecar_err)
+                        output_path.with_suffix('.sidecar_error').write_text(_warn, encoding='utf-8')
+                        print(f"  ⚠ NLE export failed: {_warn}")
+                        emit_fn({'type': 'log', 'text': f'⚠ NLE export failed for {file_path.name}: {_warn}'})
                 processed += 1
                 first_line = desc.split('\n')[0] if desc else ''
                 if ' - ' in first_line:
