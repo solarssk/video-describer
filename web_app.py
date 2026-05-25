@@ -528,6 +528,8 @@ def run_processing(config: dict):
             }
             usage_global['cost_usd'] = resume_cost_offset + _calc_cost(
                 usage_global['input'], usage_global['output'], cfg)
+            call_cost = _calc_cost(input_tok, output_tok, cfg)
+            app_logger.debug(f'  ↳ {input_tok:,} in / {output_tok:,} out tok — ${call_cost:.4f}')
             emit({'type': 'usage', **usage_global})
 
         for i, (file_path, media_type) in enumerate(media, 1):
@@ -1324,4 +1326,5 @@ if __name__ == '__main__':
 
     print(f'  Open in browser: http://localhost:{port}\n')
     app_logger.info(f'=== video-describer started · port {port} · logs: {_LOG_DIR} ===')
-    app.run(host='127.0.0.1', debug=False, port=port, threaded=True)
+    from waitress import serve
+    serve(app, host='127.0.0.1', port=port, threads=4, channel_timeout=0)
