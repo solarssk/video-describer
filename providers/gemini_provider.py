@@ -37,12 +37,12 @@ class GeminiProvider(AIProvider):
                  max_tokens: int) -> ProviderResponse:
         parts = _translate_blocks(content_blocks)
         with _api_lock:
-            genai.configure(api_key=self._api_key)
-            model = genai.GenerativeModel(
-                model_name=self.model_name,
-                system_instruction=system_prompt,
-            )
             try:
+                genai.configure(api_key=self._api_key)
+                model = genai.GenerativeModel(
+                    model_name=self.model_name,
+                    system_instruction=system_prompt,
+                )
                 response = model.generate_content(
                     parts,
                     generation_config=genai.GenerationConfig(max_output_tokens=max_tokens),
