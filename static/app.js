@@ -840,7 +840,6 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   totalFiles = 0;
   activelyProcessing = true;
   claimTab();
-  setTabState('processing');
 
   $('btn-start').style.display = 'none';
   $('btn-stop').style.display = 'block';
@@ -859,6 +858,7 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
       return;
     }
     if (callbacks.onSuccess) callbacks.onSuccess();
+    setTabState('processing');
     connectStream();
   }).catch(err => {
     addLog(`Failed to start: ${err}`, 'err');
@@ -960,6 +960,9 @@ async function restoreState() {
       activelyProcessing = true;
       $('btn-start').style.display = 'none';
       $('btn-stop').style.display = 'block';
+      const progressLabel = state.progress?.current && state.progress?.total
+        ? `${state.progress.current}/${state.progress.total}` : null;
+      setTabState('processing', progressLabel);
       setStatus('running', state.progress?.file
         ? `[${state.progress.current}/${state.progress.total}] ${state.progress.file}`
         : t('status.processing'));
