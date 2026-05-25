@@ -900,7 +900,7 @@ def _preflight_startup() -> bool:
         if not isinstance(ai_provider, str):
             ai_provider = 'anthropic'
         ai_model    = cfg.get('ai', {}).get(ai_provider, {}).get('model', '?')
-        _info(ai_provider.title(), str(ai_model), DIM)
+        _info(ai_provider.title(), ai_model if isinstance(ai_model, str) else '?', DIM)
 
     print()
 
