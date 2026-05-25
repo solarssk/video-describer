@@ -1,5 +1,7 @@
 import unittest
+from unittest.mock import patch
 
+import config_loader
 from describe_videos import build_content, transcript_only_text
 
 
@@ -61,6 +63,26 @@ class OutputLanguageTests(unittest.TestCase):
 
         self.assertTrue(text.startswith('clip.mp4 - speech transcript'))
         self.assertIn('[00:01] Hello', text)
+
+    def test_set_output_language_normalizes_input(self):
+        saved = []
+
+        with patch('config_loader.load_config', return_value={'defaults': {}}), \
+                patch('config_loader.save_config', side_effect=saved.append):
+            cfg = config_loader.set_output_language(' EN ')
+
+        self.assertEqual('en', cfg['defaults']['output_language'])
+        self.assertEqual('en', saved[0]['defaults']['output_language'])
+
+    def test_set_output_language_falls_back_for_unknown_input(self):
+        saved = []
+
+        with patch('config_loader.load_config', return_value={'defaults': {}}), \
+                patch('config_loader.save_config', side_effect=saved.append):
+            cfg = config_loader.set_output_language('de')
+
+        self.assertEqual('pl', cfg['defaults']['output_language'])
+        self.assertEqual('pl', saved[0]['defaults']['output_language'])
 
 
 if __name__ == '__main__':

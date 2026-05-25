@@ -132,6 +132,7 @@ def reset_system_prompt(lang: str = DEFAULT_PROMPT_LANG) -> str:
 
 def set_output_language(lang: str) -> dict:
     """Stores the output language independently from UI language."""
+    lang = str(lang or '').strip().lower()
     if lang not in PROMPT_LANGUAGES:
         lang = DEFAULT_PROMPT_LANG
     cfg = load_config()
