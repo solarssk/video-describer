@@ -6,11 +6,15 @@ from .base import AIProvider, ProviderResponse
 
 
 class OpenAIProvider(AIProvider):
+    """AI provider backed by OpenAI chat completions (GPT-4o / GPT-4o-mini)."""
+
     def __init__(self, api_key: str, model: str, timeout: int = 600):
+        """Initialise with credentials and model name."""
         self.client = openai.OpenAI(api_key=api_key, timeout=timeout)
         self.model = model
 
     def verify(self) -> tuple:
+        """Check API key and model access via a minimal chat completion call."""
         try:
             # Validate model access, not just API key — mirrors AnthropicProvider.verify()
             self.client.chat.completions.create(
@@ -24,6 +28,7 @@ class OpenAIProvider(AIProvider):
 
     def describe(self, content_blocks: list, system_prompt: str,
                  max_tokens: int) -> ProviderResponse:
+        """Send multimodal content to OpenAI and return a normalised response."""
         messages = [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': _translate_blocks(content_blocks)},

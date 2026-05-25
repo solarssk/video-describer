@@ -13,12 +13,16 @@ _api_lock = threading.Lock()
 
 
 class GeminiProvider(AIProvider):
+    """AI provider backed by Google Gemini (gemini-2.0-flash / gemini-1.5-pro)."""
+
     def __init__(self, api_key: str, model: str, timeout: int = 600):
+        """Initialise with credentials and model name."""
         self._api_key = api_key
         self.model_name = model
         self.timeout = timeout
 
     def verify(self) -> tuple:
+        """Check API key and model access via a minimal generate call."""
         with _api_lock:
             try:
                 genai.configure(api_key=self._api_key)
@@ -35,6 +39,7 @@ class GeminiProvider(AIProvider):
 
     def describe(self, content_blocks: list, system_prompt: str,
                  max_tokens: int) -> ProviderResponse:
+        """Send multimodal content to Gemini and return a normalised response."""
         parts = _translate_blocks(content_blocks)
         with _api_lock:
             try:
