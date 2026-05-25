@@ -87,6 +87,33 @@ header .badge {
 }
 .multi-tab-banner button:hover { background: rgba(0,0,0,0.25); }
 
+.resume-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 999;
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.resume-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.resume-banner button {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+.resume-banner button:hover { background: rgba(255,255,255,0.35); }
+
 .narrow-warning { display: none; }
 
 /* ── Progressive metric hiding as header gets narrower ── */

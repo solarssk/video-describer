@@ -30,6 +30,8 @@ env/
 *.log
 tmp/
 temp/
+batch_state.json
+batch_state.json.tmp
 
 # ── Model cache (downloaded by mlx-whisper / faster-whisper) ─────────────────
 models/

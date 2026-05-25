@@ -402,10 +402,11 @@ def transcribe_audio_with_timeout(audio_path: str, model_name: str,
 
     Returns (segments, timed_out). On timeout, returns ([], True).
     """
-    # macOS/POSIX: fork avoids re-importing this module in the child process.
-    # That matters for mlx/Metal, which can crash during fresh spawn imports.
-    # Windows is not supported yet, but spawn keeps the helper portable enough.
-    ctx = mp.get_context('fork' if os.name != 'nt' else 'spawn')
+    # spawn: child starts a fresh interpreter, so ObjC/Metal init never races
+    # with Flask's threads (fork + ObjC threads → SIGABRT on macOS).
+    # mlx_whisper is imported lazily inside _MLXWhisperModel.__init__, so
+    # the parent never holds a Metal context that the child would inherit.
+    ctx = mp.get_context('spawn')
     result_queue = ctx.Queue()
     proc = ctx.Process(
         target=_transcribe_audio_worker,
@@ -444,7 +445,15 @@ def transcribe_audio_with_timeout(audio_path: str, model_name: str,
                 if not proc.is_alive():
                     proc.join(timeout=1)
                     if proc.exitcode not in (0, None):
-                        raise RuntimeError(f"Whisper process exited with code {proc.exitcode}")
+                        _SIG = {
+                            -6:  'SIGABRT (ObjC/Metal crash)',
+                            -9:  'SIGKILL (out of memory or killed)',
+                            -11: 'SIGSEGV (segfault)',
+                            -15: 'SIGTERM (terminated)',
+                        }
+                        code = proc.exitcode
+                        label = _SIG.get(code) or (f'signal {-code}' if code < 0 else f'exit {code}')
+                        raise RuntimeError(f"Whisper crashed ({label}) — transcription skipped for this file")
                 continue
 
             proc.join(timeout=3)

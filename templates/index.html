@@ -13,6 +13,14 @@
 </head>
 <body>
 
+<div id="resume-banner" style="display:none" class="resume-banner">
+  <span id="resume-banner-text"></span>
+  <div class="resume-banner-actions">
+    <button id="resume-btn" onclick="resumeBatch()" data-i18n="resume.btn_resume">Resume</button>
+    <button onclick="discardBatch()" data-i18n="resume.btn_discard">Discard</button>
+  </div>
+</div>
+
 <div id="multi-tab-banner" style="display:none" class="multi-tab-banner">
   <span data-i18n="multi_tab.warning">⚠ Another tab of this app is already open. Only one tab should be used at a time.</span>
   <button onclick="document.getElementById('multi-tab-banner').style.display='none'" data-i18n="multi_tab.dismiss">Dismiss</button>
