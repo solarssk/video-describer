@@ -484,23 +484,131 @@ def fmt_ts(seconds: float) -> str:
     return f"{mins:02d}:{secs:02d}"
 
 
-def build_content(frames: list, filename: str, people: str, context: str,
-                  transcript: str = None) -> list:
-    """Builds the content blocks list with interleaved timestamps and frames.
+def _output_language(cfg: dict = None) -> str:
+    cfg = cfg or _DEFAULT_CFG
+    lang = str(cfg.get('defaults', {}).get('output_language', 'pl')).lower()
+    return lang if lang in ('pl', 'en') else 'pl'
 
-    NOTE: the inline Polish prompt strings below are intentional — they
-    instruct Claude to respond in Polish (matching prompts/system.md).
-    """
+
+def _content_texts(lang: str) -> dict:
+    if lang == 'en':
+        return {
+            'video_intro': (
+                'Below are frames from the recording "{filename}", sampled every few dozen seconds.\n'
+                'Context: {context}\n'
+                'People who may appear: {people}\n\n'
+                'Each frame is preceded by its timestamp:'
+            ),
+            'transcript_label': (
+                '\n\nSpeech transcript from the recording '
+                '(automatic, may contain errors):\n{transcript}'
+            ),
+            'transcript_instruction': (
+                '- Include what people say in the recording (transcript above)\n'
+            ),
+            'video_instruction': (
+                '\n\nBased on the frames above{transcript_part}, write a description in this format:\n\n'
+                '{filename} - [overall description: what kind of recording this is, who, where, mood '
+                '- as many sentences as needed, one is fine]\n'
+                'MM:SS event description\n'
+                'MM:SS event description\n'
+                '...\n\n'
+                'Critical formatting rules:\n'
+                '- If this is simple riding b-roll with no events: the first line is enough; add no timestamps or 1-2 max\n'
+                '- If something happens: first line + timestamps for each important event\n'
+                '- Add a timestamp only when something truly changes, not mechanically every 30 seconds\n'
+                '{transcript_instruction}'
+                '- No headings or markdown\n'
+                '- The description length should be proportional to how much happens in the recording'
+            ),
+            'photo_intro': (
+                'Below is the photo "{filename}".\n'
+                'Context: {context}\n'
+                'People who may appear: {people}'
+            ),
+            'photo_instruction': (
+                'Describe this photo in one line in this format:\n\n'
+                '{filename} - [description: what is visible, who is in the photo, where, what is happening, mood]\n\n'
+                'Rules:\n'
+                '- One paragraph, no timestamps\n'
+                '- Be concrete: people, place, equipment, weather, emotions\n'
+                '- No headings or markdown'
+            ),
+        }
+    return {
+        'video_intro': (
+            'Poniżej klatki z nagrania "{filename}" robione co kilkadziesiąt sekund.\n'
+            'Kontekst: {context}\n'
+            'Osoby które mogą się pojawić: {people}\n\n'
+            'Każda klatka poprzedzona jest jej timestampem:'
+        ),
+        'transcript_label': (
+            '\n\nTranskrypcja mowy z nagrania '
+            '(automatyczna, może zawierać błędy):\n{transcript}'
+        ),
+        'transcript_instruction': (
+            '- Uwzględnij w opisie to co mówią ludzie na nagraniu (transkrypcja powyżej)\n'
+        ),
+        'video_instruction': (
+            '\n\nNa podstawie powyższych klatek{transcript_part} napisz opis w tym formacie:\n\n'
+            '{filename} - [ogólny opis: co to za nagranie, kto, gdzie, nastrój - tyle zdań ile potrzeba, może być jedno]\n'
+            'MM:SS opis zdarzenia\n'
+            'MM:SS opis zdarzenia\n'
+            '...\n\n'
+            'Krytyczne zasady formatowania:\n'
+            '- Jeśli to przebitka jazdy bez zdarzeń: pierwsza linia wystarczy, timestampów nie dodawaj lub dodaj 1-2 max\n'
+            '- Jeśli coś się dzieje: pierwsza linia + timestampy dla każdego istotnego zdarzenia\n'
+            '- Timestamp tylko gdy naprawdę coś się zmienia (nie co 30 sekund mechanicznie)\n'
+            '{transcript_instruction}'
+            '- Nie dodawaj nagłówków ani markdown\n'
+            '- Długość opisu powinna być proporcjonalna do tego ile się dzieje w nagraniu'
+        ),
+        'photo_intro': (
+            'Poniżej zdjęcie "{filename}".\n'
+            'Kontekst: {context}\n'
+            'Osoby które mogą się pojawić: {people}'
+        ),
+        'photo_instruction': (
+            'Opisz to zdjęcie w jednej linii w formacie:\n\n'
+            '{filename} - [opis: co widać, kto jest na zdjęciu, gdzie, co się dzieje, jaki nastrój]\n\n'
+            'Zasady:\n'
+            '- Jeden akapit, bez timestampów\n'
+            '- Opisuj konkretnie: osoby, miejsce, sprzęt, pogodę, emocje\n'
+            '- Nie dodawaj nagłówków ani markdown'
+        ),
+    }
+
+
+def transcript_only_text(filename: str, transcript: str, timed_out: bool = False,
+                         output_language: str = 'pl') -> str:
+    if output_language == 'en':
+        header = f"{filename} - speech transcript (no image analysis)"
+        body = transcript or (
+            "Transcription did not finish (timeout)."
+            if timed_out else
+            "No speech detected in the recording."
+        )
+        return f"{header}\n\n{body}"
+    header = f"{filename} - transkrypcja mowy (bez analizy obrazu)"
+    body = transcript or (
+        "Transkrypcja nie została ukończona (timeout)."
+        if timed_out else
+        "Brak mowy w nagraniu."
+    )
+    return f"{header}\n\n{body}"
+
+
+def build_content(frames: list, filename: str, people: str, context: str,
+                  transcript: str = None, output_language: str = 'pl') -> list:
+    """Builds the content blocks list with interleaved timestamps and frames."""
     has_transcript = bool(transcript and transcript.strip())
+    texts = _content_texts(output_language)
 
     content = [
         {
             "type": "text",
-            "text": (
-                f'Poniżej klatki z nagrania "{filename}" robione co kilkadziesiąt sekund.\n'
-                f"Kontekst: {context}\n"
-                f"Osoby które mogą się pojawić: {people}\n\n"
-                f"Każda klatka poprzedzona jest jej timestampem:"
+            "text": texts['video_intro'].format(
+                filename=filename, context=context, people=people,
             )
         }
     ]
@@ -518,32 +626,26 @@ def build_content(frames: list, filename: str, people: str, context: str,
     if has_transcript:
         content.append({
             "type": "text",
-            "text": f"\n\nTranskrypcja mowy z nagrania (automatyczna, może zawierać błędy):\n{transcript}"
+            "text": texts['transcript_label'].format(transcript=transcript)
         })
 
     instruction_extra = (
-        "- Uwzględnij w opisie to co mówią ludzie na nagraniu (transkrypcja powyżej)\n"
+        texts['transcript_instruction']
         if has_transcript else ""
     )
 
     content.append({
         "type": "text",
-        "text": (
-            f"\n\nNa podstawie powyższych klatek"
-            f"{' i transkrypcji mowy' if has_transcript else ''}"
-            f" napisz opis w tym formacie:\n\n"
-            f"{filename} - [ogólny opis: co to za nagranie, kto, gdzie, nastrój — tyle zdań ile potrzeba, może być jedno]\n"
-            f"MM:SS opis zdarzenia\n"
-            f"MM:SS opis zdarzenia\n"
-            f"...\n\n"
-            f"Krytyczne zasady formatowania:\n"
-            f"- Jeśli to przebitka jazdy bez zdarzeń: pierwsza linia wystarczy, timestampów nie dodawaj lub dodaj 1-2 max\n"
-            f"- Jeśli coś się dzieje: pierwsza linia + timestampy dla każdego istotnego zdarzenia\n"
-            f"- Timestamp tylko gdy naprawdę coś się zmienia (nie co 30 sekund mechanicznie)\n"
-            f"{instruction_extra}"
-            f"- Pisz po polsku, naturalnie, bez owijania w bawełnę\n"
-            f"- Nie dodawaj nagłówków ani markdown\n"
-            f"- Długość opisu powinna być proporcjonalna do tego ile się dzieje w nagraniu"
+        "text": texts['video_instruction'].format(
+            filename=filename,
+            transcript_part=(
+                ' and the speech transcript'
+                if output_language == 'en' and has_transcript else
+                ' i transkrypcji mowy'
+                if has_transcript else
+                ''
+            ),
+            transcript_instruction=instruction_extra,
         )
     })
 
@@ -561,6 +663,7 @@ def describe_video(video_path: str, provider: AIProvider,
     cfg = cfg or _DEFAULT_CFG
     system_prompt = system_prompt or SYSTEM_PROMPT
     provider_name = cfg['ai']['provider']
+    output_language = _output_language(cfg)
     max_tokens = cfg['ai'][provider_name]['max_tokens_video']
 
     filename = Path(video_path).name
@@ -644,7 +747,10 @@ def describe_video(video_path: str, provider: AIProvider,
         t0 = time.time()
         _step(f'sending to {provider_name}')
         print(f"  Sending {len(frames)} frames to {provider_name}...")
-        content = build_content(frames, filename, people, context, transcript)
+        content = build_content(
+            frames, filename, people, context, transcript,
+            output_language=output_language,
+        )
 
         response = provider.describe(content, system_prompt, max_tokens)
         print(f"  ✓ Description ready ({time.time()-t0:.0f}s)")
@@ -662,6 +768,7 @@ def describe_photo(photo_path: str, provider: AIProvider,
     system_prompt = system_prompt or SYSTEM_PROMPT
     photo_width = cfg['frames']['photo_width_px']
     provider_name = cfg['ai']['provider']
+    output_language = _output_language(cfg)
     max_tokens = cfg['ai'][provider_name]['max_tokens_photo']
 
     filename = Path(photo_path).name
@@ -679,13 +786,12 @@ def describe_photo(photo_path: str, provider: AIProvider,
         with open(resized, 'rb') as f:
             data = base64.standard_b64encode(f.read()).decode('utf-8')
 
+    texts = _content_texts(output_language)
     content = [
         {
             "type": "text",
-            "text": (
-                f'Poniżej zdjęcie "{filename}".\n'
-                f"Kontekst: {context}\n"
-                f"Osoby które mogą się pojawić: {people}"
+            "text": texts['photo_intro'].format(
+                filename=filename, context=context, people=people,
             )
         },
         {
@@ -694,15 +800,7 @@ def describe_photo(photo_path: str, provider: AIProvider,
         },
         {
             "type": "text",
-            "text": (
-                f"Opisz to zdjęcie w jednej linii w formacie:\n\n"
-                f"{filename} - [opis: co widać, kto jest na zdjęciu, gdzie, co się dzieje, jaki nastrój]\n\n"
-                f"Zasady:\n"
-                f"- Jeden akapit, bez timestampów\n"
-                f"- Opisuj konkretnie: osoby, miejsce, sprzęt, pogodę, emocje\n"
-                f"- Pisz po polsku, naturalnie\n"
-                f"- Nie dodawaj nagłówków ani markdown"
-            )
+            "text": texts['photo_instruction'].format(filename=filename)
         }
     ]
 
@@ -723,6 +821,7 @@ def transcribe_only_video(video_path: str, whisper_model_name: str,
     """Audio-only mode: extract audio, run Whisper, return formatted transcript.
     No Claude call, no API key needed. Used when 'analyze_images' is OFF."""
     cfg = cfg or _DEFAULT_CFG
+    output_language = _output_language(cfg)
     filename = Path(video_path).name
 
     def _step(name: str):
@@ -782,16 +881,7 @@ def transcribe_only_video(video_path: str, whisper_model_name: str,
 
         _step('')
 
-        # Output: "<filename> - <opis trybu>\n\n<transkrypcja>"
-        # Per-language description label could be i18n-driven later; for now Polish
-        # matches the default prompt language.
-        header = f"{filename} - transkrypcja mowy (bez analizy obrazu)"
-        body = transcript or (
-            "Transkrypcja nie została ukończona (timeout)."
-            if timed_out else
-            "Brak mowy w nagraniu."
-        )
-        return f"{header}\n\n{body}"
+        return transcript_only_text(filename, transcript, timed_out, output_language)
 
 
 def find_media(paths: list, file_filter: list = None) -> list:

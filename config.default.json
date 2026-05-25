@@ -21,6 +21,7 @@
     "max_per_video": 100
   },
   "defaults": {
+    "output_language": "pl",
     "people": [
       {"name": "Filip", "desc": "mężczyzna, kierowca motocykla"},
       {"name": "Jadzia", "desc": "kobieta, pasażerka"}
