@@ -115,7 +115,7 @@
   },
   "tooltip": {
     "start_no_path": "Select a folder or file first",
-    "start_no_key": "API key required (paste it above or set ANTHROPIC_API_KEY in env)",
+    "start_no_key": "API key required — configure it in Connectors or set the env variable",
     "start_no_features": "Enable at least one: AI image analysis or speech transcription"
   },
   "lock": {
@@ -201,19 +201,19 @@
     "anthropic_name": "Anthropic",
     "anthropic_desc": "Claude · AI description of video & photos",
     "from_env_hint": "API key is configured on this computer. Paste a new key above to replace it.",
-    "from_env_hint_openai": "API key is configured on this computer.",
+    "from_env_hint_openai": "API key is configured on this computer. Paste a new key above to replace it.",
     "openai_name": "OpenAI",
     "openai_key_label": "OpenAI API Key",
     "openai_desc": "Whisper API · cloud transcription ($0.006/min) · fallback if no local model",
     "gemini_name": "Google Gemini",
-    "gemini_desc": "Alternative AI provider for video descriptions (gemini-2.0-flash)",
+    "gemini_desc": "Alternative AI provider for video descriptions",
     "gemini_key_label": "Gemini API Key",
-    "from_env_hint_gemini": "API key is configured on this computer.",
+    "from_env_hint_gemini": "API key is configured on this computer. Paste a new key above to replace it.",
     "assemblyai_name": "AssemblyAI",
     "assemblyai_desc": "Cloud transcription with speaker diarization",
     "verify_ok_anthropic": "✓ Connected ({{model}})",
     "verify_ok_openai": "✓ Connected — Whisper available",
-    "verify_ok_gemini": "✓ Connected",
+    "verify_ok_gemini": "✓ Connected ({{model}})",
     "verify_fail": "✗ {{error}}",
     "no_key_warning": "⚠ Anthropic key missing — configure in Connectors"
   },

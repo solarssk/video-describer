@@ -365,7 +365,7 @@ async function verifyConnector(provider) {
       if (provider === 'anthropic') {
         statusEl.textContent = t('connectors.verify_ok_anthropic', { model: data.model });
       } else if (provider === 'gemini') {
-        statusEl.textContent = t('connectors.verify_ok_gemini');
+        statusEl.textContent = t('connectors.verify_ok_gemini', { model: data.model });
       } else {
         statusEl.textContent = t('connectors.verify_ok_openai');
       }
@@ -1113,7 +1113,7 @@ function onProviderChange(name) {
   activeProviderName = name;
   updateStartEnabled();
   const p = _cachedSettingsCfg.ai[name] || {};
-  $('cfg-model').value = p.model || '';
+  $('cfg-model').value = p.model ?? '';
   $('cfg-max-video').value = p.max_tokens_video ?? '';
   $('cfg-max-photo').value = p.max_tokens_photo ?? '';
   $('cfg-price-in').value = p.price_input_per_mtok_usd ?? '';

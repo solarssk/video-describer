@@ -475,7 +475,9 @@ def connectors_verify():
             import google.generativeai as genai
             genai.configure(api_key=key)
             list(genai.list_models())
-            return jsonify({'ok': True})
+            cfg = config_loader.load_config()
+            model_name = cfg.get('ai', {}).get('gemini', {}).get('model', 'gemini-2.0-flash')
+            return jsonify({'ok': True, 'model': model_name})
         except Exception as e:
             msg = str(e)
             if '401' in msg or 'api_key' in msg.lower() or 'invalid' in msg.lower():
