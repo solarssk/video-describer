@@ -54,6 +54,14 @@ class FindExistingOutputTests(unittest.TestCase):
             txt.write_text("desc")
             self.assertEqual(find_existing_output(src, tmp_path), txt)
 
+    def test_respects_out_dir_legacy_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            src = Path("/original/path/video.mp4")
+            legacy = tmp_path / "video.txt"
+            legacy.write_text("legacy desc")
+            self.assertEqual(find_existing_output(src, tmp_path), legacy)
+
     def test_mp4_and_jpg_with_same_stem_get_different_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)

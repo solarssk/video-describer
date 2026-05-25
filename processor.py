@@ -449,7 +449,8 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                         print(f"✓ Next transcription will use '{new_name}' via {WHISPER_BACKEND or 'openai-api'}")
 
             out_dir = Path(config['output_dir']) if config.get('output_dir') else file_path.parent
-            out_dir.mkdir(parents=True, exist_ok=True)
+            if config.get('output_dir'):
+                out_dir.mkdir(parents=True, exist_ok=True)
             output_path = out_dir / output_txt_path(file_path).name
 
             abs_index = resume_from + i

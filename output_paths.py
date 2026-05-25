@@ -10,7 +10,11 @@ def output_txt_path(source_path: Path) -> Path:
 
 
 def legacy_output_txt_path(source_path: Path) -> Path:
-    """Old format: video.mp4 → video.txt (stem only, kept for backwards compat)."""
+    """Old format: video.mp4 → video.txt (stem only, kept for backwards compat).
+
+    WARNING: ambiguous in mixed directories — video.mp4 and video.jpg both map
+    to video.txt. Use only for reading pre-existing files, never for new output.
+    """
     return source_path.with_suffix(".txt")
 
 
