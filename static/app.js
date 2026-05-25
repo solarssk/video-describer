@@ -1105,6 +1105,11 @@ function fillSettingsForm(cfg, prompt) {
   $('cfg-default-context').value = cfg.defaults.context;
   $('cfg-default-interval').value = cfg.defaults.interval_sec;
 
+  const nle = cfg.nle_export || {};
+  $('cfg-nle-fcpxml').checked  = !!nle.fcpxml;
+  $('cfg-nle-edl').checked     = !!nle.edl;
+  $('cfg-nle-fcp7xml').checked = !!nle.fcp7xml;
+
   $('cfg-prompt').value = prompt;
 }
 
@@ -1154,6 +1159,11 @@ function readSettingsForm() {
         people: [],
         context: $('cfg-default-context').value,
         interval_sec: parseInt($('cfg-default-interval').value),
+      },
+      nle_export: {
+        fcpxml:  $('cfg-nle-fcpxml').checked,
+        edl:     $('cfg-nle-edl').checked,
+        fcp7xml: $('cfg-nle-fcp7xml').checked,
       },
       server: { port: 5555, log_buffer_max: 500, heartbeat_sec: 2 },
     },

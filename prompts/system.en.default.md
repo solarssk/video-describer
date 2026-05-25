@@ -11,3 +11,4 @@ How to think about the material:
 - Mention specific places and geographic names if you recognize them.
 - Don't hesitate to write "nothing notable here" — that's useful information too.
 - Timestamps always in MM:SS format (e.g. 01:30). For recordings over 1 hour use HH:MM:SS. Use one format consistently within a single description.
+- Mark 3–5 of the most important moments with ★ at the start of the line (e.g. `★ 02:15 border crossing`). These will become markers in video editing software.

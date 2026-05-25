@@ -51,6 +51,11 @@
     "fallback_tiers": ["large-v3", "medium", "small", "base", "tiny"],
     "timeout_sec": 300
   },
+  "nle_export": {
+    "fcpxml":  false,
+    "edl":     false,
+    "fcp7xml": false
+  },
   "server": {
     "port": 5555,
     "log_buffer_max": 500,

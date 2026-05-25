@@ -24,8 +24,9 @@ import config_loader
 from describe_videos import (
     WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
     describe_photo, describe_video, find_media, transcribe_only_video,
-    get_video_duration, get_video_stream_count,
+    get_video_duration, get_video_metadata, get_video_stream_count,
 )
+from nle_export import export_sidecars
 from providers import make_provider
 
 IS_MACOS = platform.system() == 'Darwin'
@@ -36,6 +37,7 @@ BATCH_STATE_PATH = Path(__file__).parent / 'batch_state.json'
 # ── Thermal state ─────────────────────────────────────────────────────────────
 
 def get_thermal_state() -> dict:
+    """Return current CPU, RAM, and load metrics for thermal throttle decisions."""
     cpu = psutil.cpu_percent(interval=None)
     ram = psutil.virtual_memory().percent
     try:
@@ -530,6 +532,25 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 completed_times.append(time.time() - file_start[0])
                 output_path.write_text(desc + '\n', encoding='utf-8')
                 print(f"  Saved: {output_path.name}")
+
+                if media_type == 'video' and any(cfg.get('nle_export', {}).values()):
+                    _dur, _fps = get_video_metadata(str(file_path))
+                    try:
+                        _sidecars = export_sidecars(output_path, file_path.name, _dur, _fps, cfg)
+                        for _sc in _sidecars:
+                            print(f"  NLE: {_sc.name}")
+                        _err_flag = output_path.with_suffix('.sidecar_error')
+                        if _err_flag.exists():
+                            _err_flag.unlink()
+                    except Exception as _sidecar_err:
+                        _warn = str(_sidecar_err)
+                        try:
+                            output_path.with_suffix('.sidecar_error').write_text(_warn, encoding='utf-8')
+                        except OSError as _flag_err:
+                            logger.warning("Could not write sidecar error flag for %s: %s",
+                                           file_path.name, _flag_err)
+                        print(f"  ⚠ NLE export failed: {_warn}")
+                        emit_fn({'type': 'log', 'text': f'⚠ NLE export failed for {file_path.name}: {_warn}'})
                 processed += 1
                 first_line = desc.split('\n')[0] if desc else ''
                 if ' - ' in first_line:
