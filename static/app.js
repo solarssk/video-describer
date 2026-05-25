@@ -24,6 +24,35 @@ function checkSingleTab() {
 }
 window.addEventListener('beforeunload', releaseTab);
 
+// ── Tab title + favicon state ─────────────────────────────
+const _APP_TITLE = 'Video Describer';
+
+function _faviconHref(bgColor) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="${bgColor}"/><rect x="4" y="7" width="24" height="5" rx="1.5" fill="#f0f0f0"/><polygon points="8,7 11,7 8.8,12 5.8,12" fill="${bgColor}"/><polygon points="13,7 16,7 13.8,12 10.8,12" fill="${bgColor}"/><polygon points="18,7 21,7 18.8,12 15.8,12" fill="${bgColor}"/><polygon points="23,7 26,7 23.8,12 20.8,12" fill="${bgColor}"/><rect x="4" y="13" width="24" height="13" rx="2" fill="#f0f0f0"/><rect x="7" y="18" width="18" height="1.2" rx="0.6" fill="#c0c0c0"/><rect x="7" y="22" width="18" height="1.2" rx="0.6" fill="#c0c0c0"/></svg>`;
+  return 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+
+function setTabState(state, label) {
+  const link = document.querySelector('link[rel~="icon"][type="image/svg+xml"]');
+  switch (state) {
+    case 'processing':
+      if (link) link.href = _faviconHref('#ff9f0a');
+      document.title = label ? `[${label}] ${_APP_TITLE}` : _APP_TITLE;
+      break;
+    case 'done':
+      if (link) link.href = _faviconHref('#34c759');
+      document.title = `✓ ${_APP_TITLE}`;
+      break;
+    case 'error':
+      if (link) link.href = _faviconHref('#ff3b30');
+      document.title = `✗ ${_APP_TITLE}`;
+      break;
+    default:
+      if (link) link.href = '/static/icons/favicon.svg';
+      document.title = _APP_TITLE;
+  }
+}
+
 // ── i18n ──────────────────────────────────────────────────
 let I18N = {};                  // current dictionary
 let CURRENT_LANG = 'en';
@@ -746,6 +775,7 @@ function handleMsg(msg) {
     const pct = Math.round((msg.current / msg.total) * 100);
     $('progress-bar').style.width = pct + '%';
     setStatus('running', `[${msg.current}/${msg.total}] ${msg.file}`);
+    setTabState('processing', `${msg.current}/${msg.total}`);
     hideStepStatus();
   } else if (msg.type === 'done_file') {
     setWhisperActive(false);
@@ -763,6 +793,7 @@ function handleMsg(msg) {
     setWhisperActive(false);
     addLog(msg.text, 'err');
     setStatus('error', t('status.error'), 'status.error');
+    setTabState('error');
     activelyProcessing = false;
     hideStepStatus();
     resetUI();
@@ -771,6 +802,7 @@ function handleMsg(msg) {
     $('progress-bar').style.width = '100%';
     setStatus('done', t('status.done_summary', msg));
     addLog(t('status.finished_summary', msg), 'ok');
+    setTabState('done');
     activelyProcessing = false;
     hideStepStatus();
     resetUI();
@@ -808,6 +840,7 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   totalFiles = 0;
   activelyProcessing = true;
   claimTab();
+  setTabState('processing');
 
   $('btn-start').style.display = 'none';
   $('btn-stop').style.display = 'block';
