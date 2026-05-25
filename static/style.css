@@ -38,6 +38,7 @@ header {
   flex-wrap: nowrap;
   gap: 8px 12px;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 header h1 {
@@ -343,6 +344,7 @@ header .badge {
   border-right: 1px solid var(--border);
   padding: 20px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -667,13 +669,22 @@ input.masked.unmasked {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 20px;
+  padding: 0 20px;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid transparent;
   font-family: var(--mono);
   font-size: 12px;
   color: var(--text);
-  overflow: hidden;   /* never let content bleed outside the bar */
+  overflow: hidden;
+  /* Smooth show/hide — no instant layout jump */
+  max-height: 0;
+  transition: max-height 0.15s ease, padding-top 0.15s ease, padding-bottom 0.15s ease, border-bottom-color 0.15s ease;
+}
+.step-status.active {
+  max-height: 60px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-bottom-color: var(--border);
 }
 .step-icon { font-size: 13px; flex-shrink: 0; }
 .step-name {
@@ -731,6 +742,7 @@ input.masked.unmasked {
 .log {
   flex: 1;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 16px 20px;
   font-family: var(--mono);
   font-size: 12.5px;
@@ -749,6 +761,7 @@ input.masked.unmasked {
   border-top: 1px solid var(--border);
   max-height: 35vh;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 12px 20px;
   display: flex;
   flex-direction: column;
