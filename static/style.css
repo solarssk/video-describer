@@ -350,12 +350,19 @@ header .badge {
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 
-label {
+label, .field-label {
   font-size: 12px;
   font-weight: 500;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+h2 label {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
 }
 
 input[type="text"], input[type="password"], input[type="number"], select, textarea {

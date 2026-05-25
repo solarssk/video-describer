@@ -449,17 +449,18 @@ async function loadPathInfo() {
       if (data.photos > 0) parts.push(`${data.photos} ${t('path_info.photos')}`);
       const summary = parts.join(', ') || t('path_info.no_supported');
       let html = `<div class="path-info-header">📁 <b>${escHtml(data.name)}</b> — ${escHtml(summary)}</div>`;
-      if (data.count > 0) {
-        html += '<ul class="path-info-files" id="path-file-list">';
-        for (const f of data.files) {
-          const icon = f.type === 'video' ? '🎬' : '📷';
-          const safeName = escHtml(f.name);
-          html += `<li data-filename="${safeName}">` +
-            `<input type="checkbox" checked onchange="onFileToggle(this)">` +
-            `<span class="file-name">${icon} ${safeName}</span>` +
-            `<span class="file-size">${escHtml(f.size)}</span>` +
-            `</li>`;
-        }
+    if (data.count > 0) {
+      html += '<ul class="path-info-files" id="path-file-list">';
+      data.files.forEach((f, idx) => {
+        const icon = f.type === 'video' ? '🎬' : '📷';
+        const safeName = escHtml(f.name);
+        const inputId = `path-file-${idx}`;
+        html += `<li data-filename="${safeName}">` +
+          `<input type="checkbox" id="${inputId}" name="selected_files" checked onchange="onFileToggle(this)">` +
+          `<label class="file-name" for="${inputId}">${icon} ${safeName}</label>` +
+          `<span class="file-size">${escHtml(f.size)}</span>` +
+          `</li>`;
+      });
         if (data.has_more) {
           const more = t('path_info.more', { count: data.count - data.files.length });
           html += `<li class="muted" style="list-style:none;padding:2px 0 0 19px">${escHtml(more)}</li>`;
@@ -480,6 +481,7 @@ const DEFAULT_PEOPLE_FALLBACK = [
   { name: 'Filip', desc: 'mężczyzna, kierowca motocykla' },
   { name: 'Jadzia', desc: 'kobieta, pasażerka' },
 ];
+let personRowId = 0;
 
 function renderPeople(people) {
   const list = $('people-list');
@@ -495,12 +497,13 @@ function addPersonRow(name, desc) {
   const list = $('people-list');
   const row = document.createElement('div');
   row.className = 'person-row';
+  const index = personRowId++;
   const namePh = t('form.people.name_placeholder');
   const descPh = t('form.people.desc_placeholder');
   const removeTitle = t('form.people.remove_title');
   row.innerHTML = `
-    <input type="text" class="person-name" placeholder="${escHtml(namePh)}" value="${escHtml(name)}">
-    <input type="text" class="person-desc" placeholder="${escHtml(descPh)}" value="${escHtml(desc)}">
+    <input type="text" id="person-name-${index}" name="person_name[]" class="person-name" placeholder="${escHtml(namePh)}" value="${escHtml(name)}" aria-label="${escHtml(namePh)}">
+    <input type="text" id="person-desc-${index}" name="person_desc[]" class="person-desc" placeholder="${escHtml(descPh)}" value="${escHtml(desc)}" aria-label="${escHtml(descPh)}">
     <button class="btn-mini btn-remove" onclick="removePerson(this)" title="${escHtml(removeTitle)}">−</button>
   `;
   list.appendChild(row);
