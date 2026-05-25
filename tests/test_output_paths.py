@@ -46,6 +46,11 @@ class FindExistingOutputTests(unittest.TestCase):
             src = Path(tmp) / "video.mp4"
             self.assertIsNone(find_existing_output(src))
 
+    def test_returns_none_with_out_dir_when_neither_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path("/original/path/video.mp4")
+            self.assertIsNone(find_existing_output(src, Path(tmp)))
+
     def test_respects_out_dir(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)

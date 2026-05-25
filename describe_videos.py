@@ -986,10 +986,11 @@ def main():
 
     processed = skipped = errors = 0
 
+    out_dir = Path(args.output_dir) if args.output_dir else None
+    if out_dir:
+        out_dir.mkdir(parents=True, exist_ok=True)
+
     for i, (file_path, media_type) in enumerate(media, 1):
-        out_dir = Path(args.output_dir) if args.output_dir else file_path.parent
-        if args.output_dir:
-            out_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_txt_path(file_path, out_dir)
 
         label = 'video' if media_type == 'video' else 'photo'
