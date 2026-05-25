@@ -1,27 +1,42 @@
 """Google Gemini provider — image analysis via google-generativeai SDK."""
 
 import base64
+import threading
 
 import google.generativeai as genai
 
 from .base import AIProvider, ProviderResponse
 
+# genai.configure() sets global state — serialize to avoid races in threaded servers.
+_configure_lock = threading.Lock()
+
 
 class GeminiProvider(AIProvider):
     def __init__(self, api_key: str, model: str, timeout: int = 600):
-        genai.configure(api_key=api_key)
+        self._api_key = api_key
         self.model_name = model
         self.timeout = timeout
 
+    def _configure(self) -> None:
+        with _configure_lock:
+            genai.configure(api_key=self._api_key)
+
     def verify(self) -> tuple:
+        self._configure()
         try:
-            list(genai.list_models())
+            # Validate model access, not just API key — mirrors AnthropicProvider.verify()
+            model = genai.GenerativeModel(model_name=self.model_name)
+            model.generate_content(
+                'hi',
+                generation_config=genai.GenerationConfig(max_output_tokens=1),
+            )
             return True, ''
         except Exception as e:
             return False, str(e)
 
     def describe(self, content_blocks: list, system_prompt: str,
                  max_tokens: int) -> ProviderResponse:
+        self._configure()
         model = genai.GenerativeModel(
             model_name=self.model_name,
             system_instruction=system_prompt,
@@ -40,8 +55,8 @@ class GeminiProvider(AIProvider):
         return ProviderResponse(
             text=response.text,
             model=self.model_name,
-            input_tokens=usage.prompt_token_count,
-            output_tokens=usage.candidates_token_count,
+            input_tokens=usage.prompt_token_count or 0,
+            output_tokens=usage.candidates_token_count or 0,
         )
 
 

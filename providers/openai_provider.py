@@ -12,7 +12,12 @@ class OpenAIProvider(AIProvider):
 
     def verify(self) -> tuple:
         try:
-            self.client.models.list()
+            # Validate model access, not just API key — mirrors AnthropicProvider.verify()
+            self.client.chat.completions.create(
+                model=self.model,
+                max_tokens=1,
+                messages=[{'role': 'user', 'content': 'hi'}],
+            )
             return True, ''
         except Exception as e:
             return False, str(e)

@@ -18,7 +18,8 @@ def make_provider(name: str, cfg: dict, api_key: str) -> AIProvider:
     """Instantiates the requested provider with config + api_key.
 
     Reads provider-specific options from cfg['ai'][<name>].
-    Raises ValueError if name is unknown or its SDK is not installed.
+    Raises ValueError if name is unknown.
+    Raises RuntimeError if the provider SDK is not installed.
     """
     if name not in REGISTRY:
         available = ', '.join(REGISTRY.keys())

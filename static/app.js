@@ -1108,11 +1108,11 @@ function onProviderChange(name) {
   activeProviderName = name;
   const p = _cachedSettingsCfg.ai[name] || {};
   $('cfg-model').value = p.model || '';
-  $('cfg-max-video').value = p.max_tokens_video || '';
-  $('cfg-max-photo').value = p.max_tokens_photo || '';
-  $('cfg-price-in').value = p.price_input_per_mtok_usd || '';
-  $('cfg-price-out').value = p.price_output_per_mtok_usd || '';
-  $('cfg-timeout').value = p.timeout_sec || '';
+  $('cfg-max-video').value = p.max_tokens_video ?? '';
+  $('cfg-max-photo').value = p.max_tokens_photo ?? '';
+  $('cfg-price-in').value = p.price_input_per_mtok_usd ?? '';
+  $('cfg-price-out').value = p.price_output_per_mtok_usd ?? '';
+  $('cfg-timeout').value = p.timeout_sec ?? '';
 }
 
 function readSettingsForm() {
