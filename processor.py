@@ -37,6 +37,7 @@ BATCH_STATE_PATH = Path(__file__).parent / 'batch_state.json'
 # ── Thermal state ─────────────────────────────────────────────────────────────
 
 def get_thermal_state() -> dict:
+    """Return current CPU, RAM, and load metrics for thermal throttle decisions."""
     cpu = psutil.cpu_percent(interval=None)
     ram = psutil.virtual_memory().percent
     try:

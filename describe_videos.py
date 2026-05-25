@@ -202,6 +202,7 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 def get_video_stream_count(video_path: str) -> int:
+    """Return the number of video streams in the file (minimum 1)."""
     result = subprocess.run(
         ['ffprobe', '-v', 'error', '-select_streams', 'v',
          '-show_entries', 'stream=index', '-of', 'csv=p=0', video_path],
@@ -212,6 +213,7 @@ def get_video_stream_count(video_path: str) -> int:
 
 
 def get_video_duration(video_path: str) -> float:
+    """Return clip duration in seconds via ffprobe, or 0.0 on failure."""
     result = subprocess.run(
         ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
          '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
@@ -545,6 +547,7 @@ def transcribe_audio_with_timeout(audio_path: str, model_name: str,
 
 
 def format_transcript(segments: list) -> str:
+    """Convert a list of transcript segments to timestamped lines."""
     lines = []
     for seg in segments:
         text = seg.text.strip()
@@ -650,6 +653,7 @@ def _content_texts(lang: str) -> dict:
 
 def transcript_only_text(filename: str, transcript: str, timed_out: bool = False,
                          output_language: str = 'pl') -> str:
+    """Build a description string when only speech transcript is available (no image analysis)."""
     if output_language == 'en':
         header = f"{filename} - speech transcript (no image analysis)"
         body = transcript or (
@@ -729,6 +733,7 @@ def describe_video(video_path: str, provider: AIProvider,
                    stop_event=None,
                    step_cb=None, progress_cb=None, usage_cb=None,
                    cfg: dict = None, system_prompt: str = None) -> str:
+    """Extract frames and optional transcript, then generate a text description via AI."""
     cfg = cfg or _DEFAULT_CFG
     system_prompt = system_prompt or SYSTEM_PROMPT
     provider_name = cfg['ai']['provider']
@@ -833,6 +838,7 @@ def describe_video(video_path: str, provider: AIProvider,
 def describe_photo(photo_path: str, provider: AIProvider,
                    people: str, context: str, usage_cb=None,
                    cfg: dict = None, system_prompt: str = None) -> str:
+    """Resize and send a photo to the AI provider and return the description."""
     cfg = cfg or _DEFAULT_CFG
     system_prompt = system_prompt or SYSTEM_PROMPT
     photo_width = cfg['frames']['photo_width_px']
@@ -991,6 +997,7 @@ def find_media(paths: list, file_filter: list = None) -> list:
 
 
 def main():
+    """CLI entry point for batch-describing videos and photos without the web UI."""
     parser = argparse.ArgumentParser(
         description='Automatically describes GoPro / Insta360 recordings using Claude AI',
         formatter_class=argparse.RawDescriptionHelpFormatter,
