@@ -119,10 +119,12 @@ class TestWriteEdl(unittest.TestCase):
         self.assertRegex(out.read_text(), r'\d{2}:\d{2}:\d{2}:\d{2}')
 
     def test_fractional_fps_timecode(self):
-        """29.97 fps: base must be round(fps)=30, not int(fps)=29."""
+        """29.97 fps: base=round(fps)=30; 1s in=00:00:01:00, out=00:00:01:01 (one frame)."""
         out = self.tmp / 'test.edl'
         write_edl([{'time_s': 1, 'text': 'x', 'is_key': False}], 'x.mp4', 29.97, out)
-        self.assertIn('00:00:01:00', out.read_text())
+        content = out.read_text()
+        self.assertIn('00:00:01:00', content)
+        self.assertIn('00:00:01:01', content)
 
 
 class TestWriteFcp7xml(unittest.TestCase):

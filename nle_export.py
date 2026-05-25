@@ -124,8 +124,8 @@ def write_edl(markers: list, clip_name: str, fps: float, out_path: Path) -> None
     title = Path(clip_name).stem
     lines = [f'TITLE: {title}', 'FCM: NON-DROP FRAME', '']
     for idx, mk in enumerate(markers, start=1):
-        tc_in  = _timecode(mk['time_s'],       fps)
-        tc_out = _timecode(mk['time_s'] + 1.0, fps)
+        tc_in  = _timecode(mk['time_s'],             fps)
+        tc_out = _timecode(mk['time_s'] + 1.0 / fps, fps)
         color = 'ResolveColorRed' if mk['is_key'] else 'ResolveColorBlue'
         lines.append(
             f'{idx:03d}  AX  V  C  {tc_in} {tc_out} {tc_in} {tc_out}'
