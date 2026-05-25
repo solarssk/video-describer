@@ -24,7 +24,7 @@ import config_loader
 from describe_videos import (
     WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
     describe_photo, describe_video, find_media, transcribe_only_video,
-    get_video_duration, get_video_fps, get_video_stream_count,
+    get_video_duration, get_video_metadata, get_video_stream_count,
 )
 from nle_export import export_sidecars
 from providers import make_provider
@@ -533,8 +533,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 print(f"  Saved: {output_path.name}")
 
                 if media_type == 'video' and any(cfg.get('nle_export', {}).values()):
-                    _dur = get_video_duration(str(file_path))
-                    _fps = get_video_fps(str(file_path))
+                    _dur, _fps = get_video_metadata(str(file_path))
                     _sidecars = export_sidecars(output_path, file_path.name, _dur, _fps, cfg)
                     for _sc in _sidecars:
                         print(f"  NLE: {_sc.name}")

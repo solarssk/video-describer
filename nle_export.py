@@ -74,36 +74,44 @@ def _truncate(text: str, max_len: int = 100) -> str:
 # ── FCPXML 1.11 (Final Cut Pro) ───────────────────────────────────────────────
 
 def write_fcpxml(markers: list, clip_name: str, duration_s: float,
-                 out_path: Path) -> None:
+                 out_path: Path, fps: float = 25.0) -> None:
     """Write an FCPXML 1.11 sidecar file with clip markers.
 
-    Time values are expressed in seconds (rational format n/1s).
-    No FPS required — FCP resolves frame positions itself.
-    Key moments get the 'chapter' marker role (shown in red in FCP).
+    Key moments (is_key=True) become <chapter-marker> elements (orange in FCP).
+    Regular moments become <marker> elements (blue).
+    frameDuration and clip duration are derived from fps for correct timebase.
     """
+    fps_base = max(1, int(round(fps)))
+    is_ntsc = abs(fps - fps_base) > 0.01
+    frame_dur = f'1001/{fps_base * 1000}s' if is_ntsc else f'1/{fps_base}s'
+    duration_frames = int(round(duration_s * fps_base))
+    duration_str = f'{duration_frames}/{fps_base}s'
+
     root = ET.Element('fcpxml', version='1.11')
     resources = ET.SubElement(root, 'resources')
-    fmt = ET.SubElement(resources, 'format', id='r1', name='FFVideoFormat1080p25',
-                        frameDuration='100/2500s', width='1920', height='1080')
-    _ = fmt  # silence unused-var warning
+    ET.SubElement(resources, 'format', id='r1', frameDuration=frame_dur)
 
     library = ET.SubElement(root, 'library')
     event = ET.SubElement(library, 'event', name=Path(clip_name).stem)
     clip = ET.SubElement(event, 'asset-clip',
                          name=clip_name,
-                         duration=f'{int(duration_s)}/1s',
+                         duration=duration_str,
                          format='r1',
                          tcFormat='NDF')
 
     for mk in markers:
-        attrs = {
-            'start':    f'{mk["time_s"]}/1s',
-            'duration': '1/1s',
-            'value':    _truncate(mk['text']),
-        }
+        start = f'{int(round(mk["time_s"] * fps_base))}/{fps_base}s'
         if mk['is_key']:
-            attrs['completed'] = '0'  # FCP shows uncompleted chapter markers in red
-        ET.SubElement(clip, 'marker', **attrs)
+            ET.SubElement(clip, 'chapter-marker',
+                          start=start,
+                          duration=frame_dur,
+                          value=_truncate(mk['text']),
+                          posterOffset='0/1s')
+        else:
+            ET.SubElement(clip, 'marker',
+                          start=start,
+                          duration=frame_dur,
+                          value=_truncate(mk['text']))
 
     tree = ET.ElementTree(root)
     ET.indent(tree, space='  ')
@@ -198,7 +206,7 @@ def export_sidecars(txt_path: Path, clip_name: str, duration_s: float,
 
     if nle_cfg.get('fcpxml'):
         p = base.with_suffix('.fcpxml')
-        write_fcpxml(markers, clip_name, duration_s, p)
+        write_fcpxml(markers, clip_name, duration_s, p, fps=fps)
         written.append(p)
 
     if nle_cfg.get('edl') and fps and fps > 0:

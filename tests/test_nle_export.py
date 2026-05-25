@@ -71,25 +71,38 @@ class TestWriteFcpxml(unittest.TestCase):
 
     def test_valid_xml(self):
         out = self.tmp / 'test.fcpxml'
-        write_fcpxml(_markers(), 'test.mp4', 600.0, out)
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=25.0)
         root = ET.parse(out).getroot()  # nosec B314
         self.assertEqual(root.tag, 'fcpxml')
         self.assertEqual(root.attrib['version'], '1.11')
 
     def test_marker_count(self):
         out = self.tmp / 'test.fcpxml'
-        write_fcpxml(_markers(), 'test.mp4', 600.0, out)
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=25.0)
         clip = ET.parse(out).find('.//asset-clip')  # nosec B314
         self.assertIsNotNone(clip)
-        self.assertEqual(len(clip.findall('marker')), 2)
+        total = len(clip.findall('marker')) + len(clip.findall('chapter-marker'))
+        self.assertEqual(total, 2)
 
-    def test_key_marker_attribute(self):
+    def test_key_moment_uses_chapter_marker(self):
+        """Key moments must be <chapter-marker>, regular moments <marker>."""
         out = self.tmp / 'test.fcpxml'
-        write_fcpxml(_markers(), 'test.mp4', 600.0, out)
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=25.0)
         clip = ET.parse(out).find('.//asset-clip')  # nosec B314
-        m_regular, m_key = clip.findall('marker')
-        self.assertNotIn('completed', m_regular.attrib)
-        self.assertEqual(m_key.attrib.get('completed'), '0')
+        self.assertEqual(len(clip.findall('marker')), 1)
+        self.assertEqual(len(clip.findall('chapter-marker')), 1)
+
+    def test_frame_duration_integer_fps(self):
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=25.0)
+        fmt = ET.parse(out).find('.//format')  # nosec B314
+        self.assertEqual(fmt.attrib['frameDuration'], '1/25s')
+
+    def test_frame_duration_ntsc_fps(self):
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=29.97)
+        fmt = ET.parse(out).find('.//format')  # nosec B314
+        self.assertEqual(fmt.attrib['frameDuration'], '1001/30000s')
 
 
 class TestWriteEdl(unittest.TestCase):

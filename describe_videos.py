@@ -223,12 +223,31 @@ def get_video_duration(video_path: str) -> float:
         return 0.0
 
 
+def _parse_fps(raw: str) -> float:
+    """Parse an ffprobe fps string (fraction or decimal) with sanity bounds."""
+    raw = raw.strip()
+    try:
+        if '/' in raw:
+            num, den = raw.split('/')
+            v = float(num) / float(den) if float(den) else 0.0
+        else:
+            v = float(raw)
+        return v if 1.0 <= v <= 240.0 else 0.0
+    except (ValueError, ZeroDivisionError):
+        return 0.0
+
+
 def get_video_fps(video_path: str) -> float:
-    """Return the frame rate of the first video stream, or 0.0 on failure."""
+    """Return avg_frame_rate of the first video stream, or 0.0 on failure.
+
+    Uses avg_frame_rate (actual playback FPS) rather than r_frame_rate, which
+    can return extreme codec timebases (e.g. 90000/1) for VFR and some H.264
+    sources.
+    """
     try:
         result = subprocess.run(
             ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-             '-show_entries', 'stream=r_frame_rate',
+             '-show_entries', 'stream=avg_frame_rate',
              '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
             capture_output=True, text=True, timeout=5,
         )
@@ -236,15 +255,44 @@ def get_video_fps(video_path: str) -> float:
         return 0.0
     if result.returncode != 0:
         return 0.0
-    raw = result.stdout.strip()
-    # r_frame_rate is returned as a fraction, e.g. "60000/1001" or "25/1"
+    return _parse_fps(result.stdout)
+
+
+def get_video_metadata(video_path: str) -> tuple:
+    """Return (duration_s, fps) from a single ffprobe call.
+
+    Combines get_video_duration + get_video_fps to avoid two subprocess calls
+    when both values are needed (e.g. NLE sidecar export).
+    """
     try:
-        if '/' in raw:
-            num, den = raw.split('/')
-            return float(num) / float(den) if float(den) else 0.0
-        return float(raw)
-    except (ValueError, ZeroDivisionError, AttributeError):
-        return 0.0
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+             '-show_entries', 'format=duration:stream=avg_frame_rate',
+             '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return 0.0, 0.0
+    if result.returncode != 0:
+        return 0.0, 0.0
+    duration = 0.0
+    fps = 0.0
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if '/' in line:
+            v = _parse_fps(line)
+            if v > 0:
+                fps = v
+        else:
+            try:
+                v = float(line)
+                if v > 0 and duration == 0.0:
+                    duration = v
+            except ValueError:
+                pass
+    return duration, fps
 
 
 def _run_ffmpeg(cmd: list, stop_event=None, duration_sec: float = None,
