@@ -107,11 +107,15 @@ function rerenderDynamicLabels() {
   // Refresh Start button tooltip (translated)
   updateStartEnabled();
   // Update person row placeholders (baked in at creation time, need manual refresh)
+  const namePh = t('form.people.name_placeholder');
+  const descPh = t('form.people.desc_placeholder');
   document.querySelectorAll('.person-name').forEach(el => {
-    el.placeholder = t('form.people.name_placeholder');
+    el.placeholder = namePh;
+    el.setAttribute('aria-label', namePh);
   });
   document.querySelectorAll('.person-desc').forEach(el => {
-    el.placeholder = t('form.people.desc_placeholder');
+    el.placeholder = descPh;
+    el.setAttribute('aria-label', descPh);
   });
   renderSyscheck(lastSysinfo);
 }

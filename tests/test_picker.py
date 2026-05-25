@@ -48,6 +48,20 @@ class PickerTests(unittest.TestCase):
         self.assertIn('default location POSIX file', script)
         self.assertIn(picked_dir, script)
 
+    def test_pick_path_skips_inaccessible_last_directory(self):
+        with tempfile.TemporaryDirectory() as picked_dir:
+            with web_app._last_picker_dir_lock:
+                web_app._last_picker_dir = picked_dir
+
+            with patch('web_app.os.access', return_value=False), \
+                    patch('web_app.subprocess.run') as run:
+                run.return_value = SimpleNamespace(returncode=0, stdout=picked_dir + '\n', stderr='')
+
+                web_app._pick_path('folder')
+
+        script = run.call_args.args[0][2]
+        self.assertNotIn('default location POSIX file', script)
+
     def test_pick_path_distinguishes_user_cancel(self):
         with patch('web_app.subprocess.run') as run:
             run.return_value = SimpleNamespace(returncode=1, stdout='', stderr='User canceled. (-128)')

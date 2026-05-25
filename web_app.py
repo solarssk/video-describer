@@ -110,7 +110,9 @@ def _picker_default_dir() -> str:
     if not default_dir:
         return ''
     try:
-        return default_dir if os.path.isdir(default_dir) else ''
+        if os.path.isdir(default_dir) and os.access(default_dir, os.R_OK | os.X_OK):
+            return default_dir
+        return ''
     except OSError:
         return ''
 

@@ -201,6 +201,7 @@
     "from_env_hint": "Klucz API jest skonfigurowany na tym komputerze. Wklej nowy klucz powyżej, żeby go zastąpić.",
     "from_env_hint_openai": "Klucz API jest skonfigurowany na tym komputerze.",
     "openai_name": "OpenAI",
+    "openai_key_label": "Klucz API OpenAI",
     "openai_desc": "Whisper API · transkrypcja w chmurze (0,006 $/min) · fallback gdy brak lokalnego modelu",
     "gemini_name": "Google Gemini",
     "gemini_desc": "Alternatywny model AI do opisu wideo",

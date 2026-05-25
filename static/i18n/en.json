@@ -201,6 +201,7 @@
     "from_env_hint": "API key is configured on this computer. Paste a new key above to replace it.",
     "from_env_hint_openai": "API key is configured on this computer.",
     "openai_name": "OpenAI",
+    "openai_key_label": "OpenAI API Key",
     "openai_desc": "Whisper API · cloud transcription ($0.006/min) · fallback if no local model",
     "gemini_name": "Google Gemini",
     "gemini_desc": "Alternative AI provider for video descriptions",
