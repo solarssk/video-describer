@@ -424,6 +424,10 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             logger.debug(f'  ↳ {input_tok:,} in / {output_tok:,} out tok — ${call_cost:.4f}')
             emit_fn({'type': 'usage', **usage})
 
+        out_dir = Path(config['output_dir']) if config.get('output_dir') else None
+        if out_dir:
+            out_dir.mkdir(parents=True, exist_ok=True)
+
         for i, (file_path, media_type) in enumerate(media, 1):
             if stop_event.is_set():
                 print("Stopped by user.")
@@ -448,9 +452,6 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                         whisper_model_name = new_name
                         print(f"✓ Next transcription will use '{new_name}' via {WHISPER_BACKEND or 'openai-api'}")
 
-            out_dir = Path(config['output_dir']) if config.get('output_dir') else file_path.parent
-            if config.get('output_dir'):
-                out_dir.mkdir(parents=True, exist_ok=True)
             output_path = output_txt_path(file_path, out_dir)
 
             abs_index = resume_from + i
@@ -557,6 +558,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 print(f"  ERROR: {err_msg}")
                 errors += 1
                 emit_fn({'type': 'error_file', 'file': file_path.name, 'error': err_msg})
+                # abs_index - 1 so resume retries the failed file on next run
                 _save_batch_state(config, abs_index - 1, total_media, processed, skipped, errors, usage,
                                   next_filename=str(file_path))
                 if _is_fatal_api_error(err_msg):

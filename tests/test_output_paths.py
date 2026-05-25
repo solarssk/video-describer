@@ -15,9 +15,21 @@ class OutputTxtPathTests(unittest.TestCase):
         jpg = output_txt_path(Path("/x/test.jpg")).name
         self.assertNotEqual(mp4, jpg)
 
+    def test_out_dir_places_result_in_out_dir(self):
+        self.assertEqual(
+            output_txt_path(Path("/src/video.mp4"), Path("/out")),
+            Path("/out/video.mp4.txt"),
+        )
+
     def test_legacy_uses_stem(self):
         self.assertEqual(legacy_output_txt_path(Path("/x/video.mp4")).name, "video.txt")
         self.assertEqual(legacy_output_txt_path(Path("/x/video.jpg")).name, "video.txt")
+
+    def test_legacy_out_dir_places_result_in_out_dir(self):
+        self.assertEqual(
+            legacy_output_txt_path(Path("/src/video.mp4"), Path("/out")),
+            Path("/out/video.txt"),
+        )
 
 
 class FindExistingOutputTests(unittest.TestCase):
@@ -70,15 +82,13 @@ class FindExistingOutputTests(unittest.TestCase):
     def test_mp4_and_jpg_with_same_stem_get_different_outputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            mp4 = tmp_path / "clip.mp4"
-            jpg = tmp_path / "clip.jpg"
-            mp4.write_text("")
-            jpg.write_text("")
+            mp4_src = Path("/vol/clip.mp4")
+            jpg_src = Path("/vol/clip.jpg")
             (tmp_path / "clip.mp4.txt").write_text("video desc")
             (tmp_path / "clip.jpg.txt").write_text("photo desc")
-            self.assertNotEqual(find_existing_output(mp4), find_existing_output(jpg))
-            self.assertEqual(find_existing_output(mp4).read_text(), "video desc")
-            self.assertEqual(find_existing_output(jpg).read_text(), "photo desc")
+            self.assertNotEqual(find_existing_output(mp4_src, tmp_path), find_existing_output(jpg_src, tmp_path))
+            self.assertEqual(find_existing_output(mp4_src, tmp_path).read_text(), "video desc")
+            self.assertEqual(find_existing_output(jpg_src, tmp_path).read_text(), "photo desc")
 
 
 if __name__ == '__main__':
