@@ -11,3 +11,4 @@ Zasady myślenia o materiale:
 - Konkretne miejsca i nazwy geograficzne podawaj jeśli je rozpoznasz.
 - Nie bój się napisać "nic szczególnego się tu nie dzieje" — to też jest użyteczna informacja.
 - Timestampy zawsze w formacie MM:SS (np. 01:30). Dla nagrań powyżej 1 godziny używaj HH:MM:SS. Trzymaj jeden format w całym opisie.
+- Oznacz 3–5 najważniejszych momentów nagrania znakiem ★ na początku linii (np. `★ 02:15 przekroczenie granicy`). To będą markery w programach montażowych.

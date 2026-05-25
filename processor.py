@@ -24,8 +24,9 @@ import config_loader
 from describe_videos import (
     WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
     describe_photo, describe_video, find_media, transcribe_only_video,
-    get_video_duration, get_video_stream_count,
+    get_video_duration, get_video_fps, get_video_stream_count,
 )
+from nle_export import export_sidecars
 from providers import make_provider
 
 IS_MACOS = platform.system() == 'Darwin'
@@ -530,6 +531,13 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 completed_times.append(time.time() - file_start[0])
                 output_path.write_text(desc + '\n', encoding='utf-8')
                 print(f"  Saved: {output_path.name}")
+
+                if media_type == 'video' and any(cfg.get('nle_export', {}).values()):
+                    _dur = get_video_duration(str(file_path))
+                    _fps = get_video_fps(str(file_path))
+                    _sidecars = export_sidecars(output_path, file_path.name, _dur, _fps, cfg)
+                    for _sc in _sidecars:
+                        print(f"  NLE: {_sc.name}")
                 processed += 1
                 first_line = desc.split('\n')[0] if desc else ''
                 if ' - ' in first_line:

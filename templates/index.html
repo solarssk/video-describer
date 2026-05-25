@@ -330,6 +330,32 @@
     </section>
 
     <section>
+      <h2 data-i18n="settings.nle_title">NLE Export</h2>
+      <p class="muted small" data-i18n="settings.nle_help">Generate marker sidecar files next to each .txt after processing.</p>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label" data-i18n="settings.nle_fcpxml_label">FCPXML (Final Cut Pro)</div>
+          <div class="toggle-sub" data-i18n="settings.nle_fcpxml_sub">video.mp4.fcpxml — no FPS required</div>
+        </div>
+        <input type="checkbox" id="cfg-nle-fcpxml" name="cfg-nle-fcpxml" aria-label="FCPXML export">
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label" data-i18n="settings.nle_edl_label">EDL (DaVinci Resolve)</div>
+          <div class="toggle-sub" data-i18n="settings.nle_edl_sub">video.mp4.edl — requires FPS from ffprobe</div>
+        </div>
+        <input type="checkbox" id="cfg-nle-edl" name="cfg-nle-edl" aria-label="EDL export">
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label" data-i18n="settings.nle_fcp7xml_label">FCP7 XML (Adobe Premiere)</div>
+          <div class="toggle-sub" data-i18n="settings.nle_fcp7xml_sub">video.mp4.xmeml — requires FPS from ffprobe</div>
+        </div>
+        <input type="checkbox" id="cfg-nle-fcp7xml" name="cfg-nle-fcp7xml" aria-label="FCP7 XML export">
+      </div>
+    </section>
+
+    <section>
       <h2 data-i18n="settings.defaults_title">Form defaults</h2>
       <div class="field">
         <label for="cfg-default-context" data-i18n="settings.default_context_label">Default context</label>

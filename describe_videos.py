@@ -223,6 +223,25 @@ def get_video_duration(video_path: str) -> float:
         return 0.0
 
 
+def get_video_fps(video_path: str) -> float:
+    """Return the frame rate of the first video stream, or 0.0 on failure."""
+    result = subprocess.run(
+        ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+         '-show_entries', 'stream=r_frame_rate',
+         '-of', 'default=noprint_wrappers=1:nokey=1', video_path],
+        capture_output=True, text=True,
+    )
+    raw = result.stdout.strip()
+    # r_frame_rate is returned as a fraction, e.g. "60000/1001" or "25/1"
+    try:
+        if '/' in raw:
+            num, den = raw.split('/')
+            return float(num) / float(den) if float(den) else 0.0
+        return float(raw)
+    except (ValueError, ZeroDivisionError, AttributeError):
+        return 0.0
+
+
 def _run_ffmpeg(cmd: list, stop_event=None, duration_sec: float = None,
                 progress_cb=None) -> None:
     """Runs ffmpeg via Popen. Killable via stop_event.
