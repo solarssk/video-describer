@@ -80,9 +80,9 @@
   <div class="panel-left">
 
     <div class="field">
-      <label data-i18n="form.path.label">Folder or file</label>
+      <label for="path" data-i18n="form.path.label">Folder or file</label>
       <div class="input-with-btn">
-        <input type="text" id="path" data-i18n-attr-placeholder="form.path.placeholder" placeholder="Select folder or file..." oninput="onPathChange()">
+        <input type="text" id="path" name="path" data-i18n-attr-placeholder="form.path.placeholder" placeholder="Select folder or file..." oninput="onPathChange()">
         <button class="btn-pick" onclick="pickFolder()" data-i18n-attr-title="form.path.folder_title" data-i18n="form.path.folder_btn" title="Pick folder">📁 Folder</button>
         <button class="btn-pick" onclick="pickFile()" data-i18n-attr-title="form.path.file_title" data-i18n="form.path.file_btn" title="Pick file">🎬 File</button>
       </div>
@@ -91,51 +91,51 @@
 
     <div class="field">
       <div class="label-row">
-        <label data-i18n="form.people.label">People in recording</label>
+        <span class="field-label" data-i18n="form.people.label">People in recording</span>
         <button class="btn-mini" onclick="addPerson()" data-i18n-attr-title="form.people.add_title" data-i18n="form.people.add_btn" title="Add person">+ Add</button>
       </div>
       <div id="people-list"></div>
     </div>
 
     <div class="field">
-      <label data-i18n="form.context.label">Recording context</label>
-      <textarea id="context" rows="2"
+      <label for="context" data-i18n="form.context.label">Recording context</label>
+      <textarea id="context" name="context" rows="2"
         data-i18n-attr-placeholder="form.context.placeholder"
         placeholder="motorcycle trip Poland → Slovakia → Hungary → Serbia"></textarea>
     </div>
 
     <div class="field">
-      <label data-i18n="form.interval.label">Frame interval (s)</label>
-      <input type="number" id="interval" value="5" min="1" max="120">
+      <label for="interval" data-i18n="form.interval.label">Frame interval (s)</label>
+      <input type="number" id="interval" name="interval" value="5" min="1" max="120">
     </div>
 
     <div class="divider"></div>
 
     <div class="toggle-row">
       <div>
-        <div class="toggle-label" data-i18n="form.analyze_images.label">AI image analysis</div>
+        <div class="toggle-label" id="label-analyze-images" data-i18n="form.analyze_images.label">AI image analysis</div>
         <div class="toggle-sub" data-i18n="form.analyze_images.sub">Send frames to Claude for description (requires API key)</div>
       </div>
       <label class="switch">
-        <input type="checkbox" id="analyze_images" checked onchange="updateStartEnabled()">
+        <input type="checkbox" id="analyze_images" name="analyze_images" aria-labelledby="label-analyze-images" checked onchange="updateStartEnabled()">
         <span class="slider"></span>
       </label>
     </div>
 
     <div class="toggle-row">
       <div>
-        <div class="toggle-label" data-i18n="form.transcribe.label">Speech transcription</div>
+        <div class="toggle-label" id="label-transcribe" data-i18n="form.transcribe.label">Speech transcription</div>
         <div class="toggle-sub" data-i18n="form.transcribe.sub">Whisper analyzes audio and merges with frames</div>
       </div>
       <label class="switch">
-        <input type="checkbox" id="transcribe" onchange="onTranscribeChange()">
+        <input type="checkbox" id="transcribe" name="transcribe" aria-labelledby="label-transcribe" onchange="onTranscribeChange()">
         <span class="slider"></span>
       </label>
     </div>
 
     <div class="whisper-model-row" id="whisper-row">
-      <label data-i18n="form.transcribe.model">Model:</label>
-      <select id="whisper_model">
+      <label for="whisper_model" data-i18n="form.transcribe.model">Model:</label>
+      <select id="whisper_model" name="whisper_model">
         <option value="tiny"     data-i18n="whisper.tiny">tiny — fastest, less accurate</option>
         <option value="base"     data-i18n="whisper.base">base</option>
         <option value="small"    data-i18n="whisper.small">small</option>
@@ -146,22 +146,22 @@
 
     <div class="toggle-row">
       <div>
-        <div class="toggle-label" data-i18n="form.overwrite.label">Overwrite existing descriptions</div>
+        <div class="toggle-label" id="label-overwrite" data-i18n="form.overwrite.label">Overwrite existing descriptions</div>
         <div class="toggle-sub" data-i18n="form.overwrite.sub">.txt files that already exist will be replaced</div>
       </div>
       <label class="switch">
-        <input type="checkbox" id="overwrite">
+        <input type="checkbox" id="overwrite" name="overwrite" aria-labelledby="label-overwrite">
         <span class="slider"></span>
       </label>
     </div>
 
     <div class="toggle-row">
       <div>
-        <div class="toggle-label" data-i18n="form.summary.label">Generate folder summary</div>
+        <div class="toggle-label" id="label-generate-summary" data-i18n="form.summary.label">Generate folder summary</div>
         <div class="toggle-sub" data-i18n="form.summary.sub">Saves _summary.txt with one-line descriptions of all processed files</div>
       </div>
       <label class="switch">
-        <input type="checkbox" id="generate_summary" checked>
+        <input type="checkbox" id="generate_summary" name="generate_summary" aria-labelledby="label-generate-summary" checked>
         <span class="slider"></span>
       </label>
     </div>
@@ -169,7 +169,7 @@
     <div class="form-actions" style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
       <div class="budget-row">
         <label class="budget-label" for="budget_usd" data-i18n="form.budget.label">Budget limit (USD)</label>
-        <input type="number" id="budget_usd" class="budget-input" min="0" step="0.01"
+        <input type="number" id="budget_usd" name="budget_usd" class="budget-input" min="0" step="0.01"
                placeholder="—" data-i18n-attr-placeholder="form.budget.placeholder">
       </div>
       <button class="btn btn-start" id="btn-start" onclick="startProcessing()" data-i18n="form.start">Start</button>
@@ -236,32 +236,32 @@
     <section>
       <h2 data-i18n="settings.claude_title">Claude AI</h2>
       <div class="field">
-        <label data-i18n="settings.model_label">Model</label>
-        <input type="text" id="cfg-model" placeholder="claude-sonnet-4-6">
+        <label for="cfg-model" data-i18n="settings.model_label">Model</label>
+        <input type="text" id="cfg-model" name="cfg-model" placeholder="claude-sonnet-4-6">
       </div>
       <div class="row">
         <div class="field">
-          <label data-i18n="settings.max_video_label">Max tokens (video)</label>
-          <input type="number" id="cfg-max-video" min="100" max="8000">
+          <label for="cfg-max-video" data-i18n="settings.max_video_label">Max tokens (video)</label>
+          <input type="number" id="cfg-max-video" name="cfg-max-video" min="100" max="8000">
         </div>
         <div class="field">
-          <label data-i18n="settings.max_photo_label">Max tokens (photo)</label>
-          <input type="number" id="cfg-max-photo" min="50" max="2000">
+          <label for="cfg-max-photo" data-i18n="settings.max_photo_label">Max tokens (photo)</label>
+          <input type="number" id="cfg-max-photo" name="cfg-max-photo" min="50" max="2000">
         </div>
       </div>
       <div class="row">
         <div class="field">
-          <label data-i18n="settings.price_in_label">Input price (USD / MTok)</label>
-          <input type="number" id="cfg-price-in" step="0.01" min="0">
+          <label for="cfg-price-in" data-i18n="settings.price_in_label">Input price (USD / MTok)</label>
+          <input type="number" id="cfg-price-in" name="cfg-price-in" step="0.01" min="0">
         </div>
         <div class="field">
-          <label data-i18n="settings.price_out_label">Output price (USD / MTok)</label>
-          <input type="number" id="cfg-price-out" step="0.01" min="0">
+          <label for="cfg-price-out" data-i18n="settings.price_out_label">Output price (USD / MTok)</label>
+          <input type="number" id="cfg-price-out" name="cfg-price-out" step="0.01" min="0">
         </div>
       </div>
       <div class="field">
-        <label data-i18n="settings.timeout_label">Timeout (s)</label>
-        <input type="number" id="cfg-timeout" min="30" max="3600">
+        <label for="cfg-timeout" data-i18n="settings.timeout_label">Timeout (s)</label>
+        <input type="number" id="cfg-timeout" name="cfg-timeout" min="30" max="3600">
       </div>
     </section>
 
@@ -269,22 +269,22 @@
       <h2 data-i18n="settings.frames_title">Video / photo frames</h2>
       <div class="row">
         <div class="field">
-          <label data-i18n="settings.video_width_label">Video frame width (px)</label>
-          <input type="number" id="cfg-video-width" min="240" max="1920">
+          <label for="cfg-video-width" data-i18n="settings.video_width_label">Video frame width (px)</label>
+          <input type="number" id="cfg-video-width" name="cfg-video-width" min="240" max="1920">
         </div>
         <div class="field">
-          <label data-i18n="settings.photo_width_label">Photo width (px)</label>
-          <input type="number" id="cfg-photo-width" min="480" max="2560">
+          <label for="cfg-photo-width" data-i18n="settings.photo_width_label">Photo width (px)</label>
+          <input type="number" id="cfg-photo-width" name="cfg-photo-width" min="480" max="2560">
         </div>
       </div>
       <div class="row">
         <div class="field">
-          <label data-i18n="settings.jpeg_q_label">JPG quality (1=best, 31=worst)</label>
-          <input type="number" id="cfg-jpeg-q" min="1" max="31">
+          <label for="cfg-jpeg-q" data-i18n="settings.jpeg_q_label">JPG quality (1=best, 31=worst)</label>
+          <input type="number" id="cfg-jpeg-q" name="cfg-jpeg-q" min="1" max="31">
         </div>
         <div class="field">
-          <label data-i18n="settings.max_frames_label">Max frames per video</label>
-          <input type="number" id="cfg-max-frames" min="10" max="500">
+          <label for="cfg-max-frames" data-i18n="settings.max_frames_label">Max frames per video</label>
+          <input type="number" id="cfg-max-frames" name="cfg-max-frames" min="10" max="500">
         </div>
       </div>
     </section>
@@ -292,23 +292,23 @@
     <section>
       <h2 data-i18n="settings.whisper_title">Whisper</h2>
       <div class="field">
-        <label data-i18n="settings.whisper_default_label">Default model</label>
-        <select id="cfg-whisper-default">
+        <label for="cfg-whisper-default" data-i18n="settings.whisper_default_label">Default model</label>
+        <select id="cfg-whisper-default" name="cfg-whisper-default">
           <option>tiny</option><option>base</option><option>small</option>
           <option>medium</option><option>large-v3</option>
         </select>
       </div>
       <div class="field">
-        <label data-i18n="settings.whisper_tiers_label">Auto-fallback order on thermal throttle (heaviest first)</label>
-        <input type="text" id="cfg-whisper-tiers" placeholder="large-v3, medium, small, base, tiny">
+        <label for="cfg-whisper-tiers" data-i18n="settings.whisper_tiers_label">Auto-fallback order on thermal throttle (heaviest first)</label>
+        <input type="text" id="cfg-whisper-tiers" name="cfg-whisper-tiers" placeholder="large-v3, medium, small, base, tiny">
         <span class="muted small" data-i18n="settings.whisper_tiers_help">Comma-separated. If the system overheats, the model is downgraded one tier.</span>
       </div>
     </section>
 
     <section>
-      <h2 data-i18n="settings.prompt_title">System prompt (instruction for Claude)</h2>
+      <h2><label for="cfg-prompt" data-i18n="settings.prompt_title">System prompt (instruction for Claude)</label></h2>
       <p class="muted small" data-i18n="settings.prompt_help">Define how Claude should describe recordings. Edit freely.</p>
-      <textarea id="cfg-prompt" rows="18" class="mono"></textarea>
+      <textarea id="cfg-prompt" name="cfg-prompt" rows="18" class="mono"></textarea>
       <div class="preset-actions">
         <button class="btn-mini" onclick="loadPromptPreset('pl')" data-i18n="settings.prompt_load_pl">📥 Load PL preset</button>
         <button class="btn-mini" onclick="loadPromptPreset('en')" data-i18n="settings.prompt_load_en">📥 Load EN preset</button>
@@ -318,12 +318,12 @@
     <section>
       <h2 data-i18n="settings.defaults_title">Form defaults</h2>
       <div class="field">
-        <label data-i18n="settings.default_context_label">Default context</label>
-        <textarea id="cfg-default-context" rows="2"></textarea>
+        <label for="cfg-default-context" data-i18n="settings.default_context_label">Default context</label>
+        <textarea id="cfg-default-context" name="cfg-default-context" rows="2"></textarea>
       </div>
       <div class="field">
-        <label data-i18n="settings.default_interval_label">Default frame interval (s)</label>
-        <input type="number" id="cfg-default-interval" min="1" max="120">
+        <label for="cfg-default-interval" data-i18n="settings.default_interval_label">Default frame interval (s)</label>
+        <input type="number" id="cfg-default-interval" name="cfg-default-interval" min="1" max="120">
       </div>
     </section>
 
@@ -366,9 +366,9 @@
         <div class="conn-badge" id="conn-badge-anthropic"><span data-i18n="connectors.not_set">Not set</span></div>
       </div>
       <div class="field">
-        <label data-i18n="form.api_key.label">Anthropic API Key</label>
+        <label for="conn-key-anthropic" data-i18n="form.api_key.label">Anthropic API Key</label>
         <div class="conn-key-row">
-          <input type="text" id="conn-key-anthropic" class="conn-key-input masked"
+          <input type="text" id="conn-key-anthropic" name="conn-key-anthropic" class="conn-key-input masked"
             data-i18n-attr-placeholder="connectors.key_placeholder"
             placeholder="Paste API key…"
             autocomplete="off" autocorrect="off" autocapitalize="off"
@@ -396,9 +396,9 @@
         <div class="conn-badge" id="conn-badge-openai"><span data-i18n="connectors.not_set">Not set</span></div>
       </div>
       <div class="field">
-        <label>OpenAI API Key</label>
+        <label for="conn-key-openai" data-i18n="connectors.openai_key_label">OpenAI API Key</label>
         <div class="conn-key-row">
-          <input type="text" id="conn-key-openai" class="conn-key-input masked"
+          <input type="text" id="conn-key-openai" name="conn-key-openai" class="conn-key-input masked"
             data-i18n-attr-placeholder="connectors.key_placeholder"
             placeholder="Paste API key…"
             autocomplete="off" autocorrect="off" autocapitalize="off"

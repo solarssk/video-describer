@@ -350,12 +350,19 @@ header .badge {
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 
-label {
+label, .field-label {
   font-size: 12px;
   font-weight: 500;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+h2 label {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
 }
 
 input[type="text"], input[type="password"], input[type="number"], select, textarea {
@@ -579,6 +586,7 @@ input:disabled, textarea:disabled, select:disabled {
   margin-bottom: 6px;
 }
 .path-info-header b { color: var(--accent); }
+.path-info-pending { color: var(--muted); font-size: 12px; }
 .path-info-files {
   list-style: none;
   margin: 0;
@@ -590,6 +598,7 @@ input:disabled, textarea:disabled, select:disabled {
   color: var(--text);
 }
 .path-info-err { color: var(--yellow); font-size: 12px; }
+body.picker-busy { cursor: progress; }
 
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
@@ -1051,6 +1060,12 @@ input.masked.unmasked {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .path-info-files .file-size {
   color: var(--muted);

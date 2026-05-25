@@ -11,7 +11,7 @@ We came back from a motorcycle trip with 1 TB of GoPro footage and zero idea wha
 
 **video-describer** points Claude at a folder of recordings and comes back with timestamped descriptions of what's happening in each file. Who's there, what they're doing, where they are, what the light looks like. Enough for an editor to know which clips are worth opening before they open them.
 
-It works on GoPro, Insta360, and anything ffmpeg can read. Whisper transcription is optional — useful when there's actual dialogue you'd want to find later.
+It works on common camera and phone video formats backed by ffmpeg, including GoPro, Insta360, and iPhone `.mov` clips. Whisper transcription is optional — useful when there's actual dialogue you'd want to find later.
 
 ---
 
@@ -98,9 +98,23 @@ For Insta360 `.insv` files, it detects both lenses and analyzes them separately.
 
 ---
 
+## Supported files
+
+The app scans the selected folder non-recursively and processes files with these extensions:
+
+| Type | Extensions | Notes |
+|---|---|---|
+| Video | `.mp4`, `.mov`, `.avi`, `.mkv`, `.mts`, `.m2ts`, `.insv` | Includes typical iPhone `.mov` clips. Actual codec support depends on your local `ffmpeg`. |
+| Photos | `.jpg`, `.jpeg`, `.png` | iPhone `.heic` / `.heif` photos are not currently included. |
+
+Unsupported files are ignored when scanning a folder, and a directly selected unsupported file is shown as unsupported in the UI.
+
+---
+
 ## Features
 
-- **GoPro `.mp4`** — single stream
+- **Common video formats** — `.mp4`, `.mov`, `.avi`, `.mkv`, `.mts`, `.m2ts`
+- **iPhone `.mov` clips** — supported when readable by local ffmpeg
 - **Insta360 `.insv`** — dual-lens, both cameras analyzed
 - **Photos** — `.jpg`, `.jpeg`, `.png`
 - **Auto-resume** — skips files that already have a `.txt`
