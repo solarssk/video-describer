@@ -18,10 +18,11 @@ class ApiKeyHandlingTests(unittest.TestCase):
             'ai': {'provider': 'anthropic', 'anthropic': {}},
         }
 
-        with patch.dict(web_app.os.environ, {}, clear=True), \
+        with tempfile.TemporaryDirectory() as media_dir, \
+                patch.dict(web_app.os.environ, {}, clear=True), \
                 patch('web_app.config_loader.load_config', return_value=cfg):
             response = web_app.app.test_client().post('/start', json={
-                'path': '/tmp',
+                'path': media_dir,
                 'analyze_images': True,
                 'transcribe': False,
                 'api_key': 'sk-ant-legacy-inline',
