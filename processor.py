@@ -16,6 +16,8 @@ import threading
 import time
 from pathlib import Path
 
+from output_paths import find_existing_output, output_txt_path
+
 import psutil
 
 import config_loader
@@ -362,7 +364,9 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         if pre_resume_media and config.get('generate_summary'):
             _out_base = Path(config['output_dir']) if config.get('output_dir') else None
             for _fp, _ in pre_resume_media:
-                _txt = (_out_base if _out_base else _fp.parent) / (_fp.stem + '.txt')
+                _txt = find_existing_output(_fp, _out_base)
+                if _txt is None:
+                    continue
                 try:
                     _line = _txt.read_text(encoding='utf-8').split('\n')[0]
                     if ' - ' in _line:
@@ -446,14 +450,16 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
 
             out_dir = Path(config['output_dir']) if config.get('output_dir') else file_path.parent
             out_dir.mkdir(parents=True, exist_ok=True)
-            output_path = out_dir / (file_path.stem + '.txt')
+            output_path = out_dir / output_txt_path(file_path).name
 
             abs_index = resume_from + i
             emit_fn({'type': 'progress', 'current': abs_index, 'total': total_media, 'file': file_path.name})
             print(f"[{abs_index}/{total_media}] {file_path.name}")
 
-            if output_path.exists() and not config.get('overwrite'):
-                print(f"  Skipped — {file_path.stem}.txt already exists")
+            existing = find_existing_output(file_path, out_dir)
+            if existing and not config.get('overwrite'):
+                output_path = existing  # honour legacy path if that's what exists
+                print(f"  Skipped — {existing.name} already exists")
                 logger.debug(f'[skip:{file_path.name}]  .txt exists')
                 skipped += 1
                 emit_fn({'type': 'skipped', 'file': file_path.name})
