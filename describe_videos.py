@@ -22,6 +22,8 @@ import time
 import warnings
 from pathlib import Path
 
+from timefmt import fmt_ts
+
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 # ── Whisper backend detection ──────────────────────────────────────────────
@@ -478,12 +480,6 @@ def format_transcript(segments: list) -> str:
     return '\n'.join(lines)
 
 
-def fmt_ts(seconds: float) -> str:
-    mins = int(seconds) // 60
-    secs = int(seconds) % 60
-    return f"{mins:02d}:{secs:02d}"
-
-
 def _output_language(cfg: dict = None) -> str:
     cfg = cfg or _DEFAULT_CFG
     lang = str(cfg.get('defaults', {}).get('output_language', 'pl')).lower()
@@ -510,7 +506,7 @@ def _content_texts(lang: str) -> dict:
                 '\n\nBased on the frames above{transcript_part}, write a description in this format:\n\n'
                 '{filename} - [overall description: what kind of recording this is, who, where, mood '
                 '- as many sentences as needed, one is fine]\n'
-                'MM:SS event description\n'
+                'MM:SS event description  (or HH:MM:SS for recordings longer than 1 hour)\n'
                 'MM:SS event description\n'
                 '...\n\n'
                 'Critical formatting rules:\n'
@@ -552,7 +548,7 @@ def _content_texts(lang: str) -> dict:
         'video_instruction': (
             '\n\nNa podstawie powyższych klatek{transcript_part} napisz opis w tym formacie:\n\n'
             '{filename} - [ogólny opis: co to za nagranie, kto, gdzie, nastrój - tyle zdań ile potrzeba, może być jedno]\n'
-            'MM:SS opis zdarzenia\n'
+            'MM:SS opis zdarzenia  (lub HH:MM:SS dla nagrań powyżej godziny)\n'
             'MM:SS opis zdarzenia\n'
             '...\n\n'
             'Krytyczne zasady formatowania:\n'
