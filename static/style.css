@@ -598,7 +598,6 @@ input:disabled, textarea:disabled, select:disabled {
   color: var(--text);
 }
 .path-info-err { color: var(--yellow); font-size: 12px; }
-body.picker-busy { cursor: progress; }
 
 input:-webkit-autofill,
 input:-webkit-autofill:hover,

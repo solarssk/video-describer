@@ -11,6 +11,27 @@ class PickerTests(unittest.TestCase):
     def setUp(self):
         with web_app._last_picker_dir_lock:
             web_app._last_picker_dir = ''
+        self.swift_picker = patch('web_app._run_swift_picker', return_value=None)
+        self.swift_picker.start()
+        self.addCleanup(self.swift_picker.stop)
+
+    def test_pick_path_uses_swift_helper_when_available(self):
+        with tempfile.TemporaryDirectory() as picked_dir:
+            with patch('web_app._run_swift_picker', return_value={'ok': True, 'path': picked_dir}), \
+                    patch('web_app.subprocess.run') as run:
+                result = web_app._pick_path('folder')
+
+        self.assertEqual({'ok': True, 'path': picked_dir}, result)
+        self.assertEqual(picked_dir, web_app._last_picker_dir)
+        run.assert_not_called()
+
+    def test_pick_path_returns_swift_helper_cancel(self):
+        with patch('web_app._run_swift_picker', return_value={'ok': False, 'cancelled': True, 'path': ''}), \
+                patch('web_app.subprocess.run') as run:
+            result = web_app._pick_path('folder')
+
+        self.assertEqual({'ok': False, 'cancelled': True, 'path': ''}, result)
+        run.assert_not_called()
 
     def test_pick_folder_success_updates_last_directory(self):
         with tempfile.TemporaryDirectory() as picked_dir:
