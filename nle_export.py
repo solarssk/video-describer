@@ -106,7 +106,7 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
                           start=start,
                           duration=frame_dur,
                           value=_truncate(mk['text']),
-                          posterOffset='0/1s')
+                          posterOffset=start)
         else:
             ET.SubElement(clip, 'marker',
                           start=start,
@@ -202,7 +202,7 @@ def export_sidecars(txt_path: Path, clip_name: str, duration_s: float,
         return []
 
     written = []
-    base = txt_path.parent / txt_path.name  # e.g. video.mp4.txt → siblings named video.mp4.*
+    base = txt_path
 
     if nle_cfg.get('fcpxml'):
         p = base.with_suffix('.fcpxml')
