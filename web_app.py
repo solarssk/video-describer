@@ -24,11 +24,10 @@ from flask import Flask, Response, jsonify, render_template, request
 import config_loader
 from processor import (
     BATCH_STATE_PATH,
-    _calc_cost, _clear_batch_state,
+    _clear_batch_state,
     get_thermal_state,
     run_processing as _run_processing,
 )
-from providers import make_provider
 
 IS_MACOS = platform.system() == 'Darwin'
 
@@ -62,7 +61,7 @@ if __name__ == '__main__':
 from describe_videos import (  # noqa: E402
     WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
     MLX_WHISPER_AVAILABLE, FASTER_WHISPER_AVAILABLE,
-    find_media, get_video_duration, get_video_stream_count,
+    find_media,
 )
 
 app = Flask(__name__)
