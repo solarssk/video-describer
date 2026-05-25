@@ -31,6 +31,30 @@ jobs:
       - run: pip install ruff
       - run: ruff check .
 
+  tests:
+    name: Tests and syntax checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+      - name: Python unit tests
+        run: python -m unittest discover -s tests -p "test*.py"
+      - name: Python syntax check
+        run: python -m py_compile web_app.py describe_videos.py config_loader.py providers/base.py providers/anthropic_provider.py providers/__init__.py
+      - name: JavaScript syntax check
+        run: node --check static/app.js
+      - name: i18n JSON validation
+        run: |
+          python -m json.tool static/i18n/en.json >/dev/null
+          python -m json.tool static/i18n/pl.json >/dev/null
+
   security:
     name: Security (bandit + pip-audit)
     runs-on: ubuntu-latest

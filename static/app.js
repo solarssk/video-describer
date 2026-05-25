@@ -344,6 +344,18 @@ async function verifyConnector(provider) {
 // ── File / folder picker + info ───────────────────────────
 let pickerBusy = false;
 
+function showPickerError(message) {
+  const infoEl = $('path-info');
+  infoEl.innerHTML = `<span class="path-info-err">⚠ ${escHtml(message)}</span>`;
+  infoEl.style.display = 'block';
+}
+
+function pickerErrorMessage(data) {
+  if (data?.code === 'timeout') return t('path_info.picker_timeout');
+  if (data?.code === 'missing_osascript') return t('path_info.picker_missing_osascript');
+  return data?.error || t('path_info.picker_failed');
+}
+
 async function runPicker(endpoint) {
   if (pickerBusy) return;
   pickerBusy = true;
@@ -351,12 +363,17 @@ async function runPicker(endpoint) {
   buttons.forEach(b => b.disabled = true);
   try {
     const res = await fetch(endpoint);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (data.path) {
+    if (data.ok && data.path) {
       $('path').value = data.path;
       loadPathInfo();
       updateStartEnabled();
+    } else if (!data.cancelled) {
+      showPickerError(pickerErrorMessage(data));
     }
+  } catch (e) {
+    showPickerError(e.message || t('path_info.picker_failed'));
   } finally {
     pickerBusy = false;
     buttons.forEach(b => b.disabled = false);
