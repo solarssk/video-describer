@@ -104,6 +104,17 @@ def _applescript_quote(value: str) -> str:
     return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
 
+def _picker_default_dir() -> str:
+    with _last_picker_dir_lock:
+        default_dir = _last_picker_dir
+    if not default_dir:
+        return ''
+    try:
+        return default_dir if os.path.isdir(default_dir) else ''
+    except OSError:
+        return ''
+
+
 def get_thermal_state() -> dict:
     """Returns {cpu, ram, load, ncpu, thermal, thermal_label}.
 
@@ -1015,8 +1026,7 @@ def _pick_path(kind: str) -> dict:
         'file': 'Select a video or photo file',
     }[kind]
 
-    with _last_picker_dir_lock:
-        default_dir = _last_picker_dir if os.path.isdir(_last_picker_dir) else ''
+    default_dir = _picker_default_dir()
 
     picker_cmd = f'choose {kind} with prompt {_applescript_quote(prompt)}'
     if default_dir:

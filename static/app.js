@@ -350,6 +350,23 @@ function showPickerError(message) {
   infoEl.style.display = 'block';
 }
 
+function showPickerPending() {
+  const infoEl = $('path-info');
+  const previous = {
+    html: infoEl.innerHTML,
+    display: infoEl.style.display,
+  };
+  infoEl.innerHTML = `<span class="path-info-pending">${escHtml(t('path_info.picker_opening'))}</span>`;
+  infoEl.style.display = 'block';
+  return previous;
+}
+
+function restorePathInfo(previous) {
+  const infoEl = $('path-info');
+  infoEl.innerHTML = previous.html;
+  infoEl.style.display = previous.display;
+}
+
 function pickerErrorMessage(data) {
   if (data?.code === 'timeout') return t('path_info.picker_timeout');
   if (data?.code === 'missing_osascript') return t('path_info.picker_missing_osascript');
@@ -360,6 +377,8 @@ async function runPicker(endpoint) {
   if (pickerBusy) return;
   pickerBusy = true;
   const buttons = document.querySelectorAll('.btn-pick');
+  const previousPathInfo = showPickerPending();
+  document.body.classList.add('picker-busy');
   buttons.forEach(b => b.disabled = true);
   try {
     const res = await fetch(endpoint);
@@ -369,6 +388,8 @@ async function runPicker(endpoint) {
       $('path').value = data.path;
       loadPathInfo();
       updateStartEnabled();
+    } else if (data.cancelled) {
+      restorePathInfo(previousPathInfo);
     } else if (!data.cancelled) {
       showPickerError(pickerErrorMessage(data));
     }
@@ -376,6 +397,7 @@ async function runPicker(endpoint) {
     showPickerError(e.message || t('path_info.picker_failed'));
   } finally {
     pickerBusy = false;
+    document.body.classList.remove('picker-busy');
     buttons.forEach(b => b.disabled = false);
   }
 }

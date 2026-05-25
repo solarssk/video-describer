@@ -586,6 +586,7 @@ input:disabled, textarea:disabled, select:disabled {
   margin-bottom: 6px;
 }
 .path-info-header b { color: var(--accent); }
+.path-info-pending { color: var(--muted); font-size: 12px; }
 .path-info-files {
   list-style: none;
   margin: 0;
@@ -597,6 +598,7 @@ input:disabled, textarea:disabled, select:disabled {
   color: var(--text);
 }
 .path-info-err { color: var(--yellow); font-size: 12px; }
+body.picker-busy { cursor: progress; }
 
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
