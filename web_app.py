@@ -95,6 +95,13 @@ app_logger.addHandler(_console_handler)
 
 
 VERSION = config_loader.get_version()
+_PICKER_TIMEOUT_SECONDS = 300
+_last_picker_dir = ''
+_last_picker_dir_lock = threading.Lock()
+
+
+def _applescript_quote(value: str) -> str:
+    return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
 
 def get_thermal_state() -> dict:
@@ -999,30 +1006,87 @@ def stream():
     )
 
 
-def _pick_path(kind: str) -> str:
-    """Opens a native macOS folder/file picker via osascript.
-    kind: 'folder' | 'file'. Returns the picked path or '' if cancelled.
-    """
-    script = {
-        'folder': 'POSIX path of (choose folder with prompt "Select a folder with recordings")',
-        'file':   'POSIX path of (choose file with prompt "Select a video or photo file")',
+def _pick_path(kind: str) -> dict:
+    """Opens a native macOS folder/file picker via osascript."""
+    global _last_picker_dir
+
+    prompt = {
+        'folder': 'Select a folder with recordings',
+        'file': 'Select a video or photo file',
     }[kind]
+
+    with _last_picker_dir_lock:
+        default_dir = _last_picker_dir if os.path.isdir(_last_picker_dir) else ''
+
+    picker_cmd = f'choose {kind} with prompt {_applescript_quote(prompt)}'
+    if default_dir:
+        picker_cmd += f' default location POSIX file {_applescript_quote(default_dir)}'
+
+    script = '\n'.join([
+        'activate',
+        f'POSIX path of ({picker_cmd})',
+    ])
+
     try:
         r = subprocess.run(['osascript', '-e', script],
-                           capture_output=True, text=True, timeout=300)
-        return r.stdout.strip() if r.returncode == 0 else ''
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return ''
+                           capture_output=True, text=True, timeout=_PICKER_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        return {
+            'ok': False,
+            'cancelled': False,
+            'path': '',
+            'code': 'timeout',
+            'error': 'Picker timed out. Try again.',
+        }
+    except FileNotFoundError:
+        return {
+            'ok': False,
+            'cancelled': False,
+            'path': '',
+            'code': 'missing_osascript',
+            'error': 'macOS osascript command was not found.',
+        }
+    except OSError as e:
+        return {
+            'ok': False,
+            'cancelled': False,
+            'path': '',
+            'code': 'system_error',
+            'error': str(e),
+        }
+
+    if r.returncode != 0:
+        stderr = (r.stderr or '').strip()
+        if 'User canceled' in stderr or '-128' in stderr:
+            return {'ok': False, 'cancelled': True, 'path': ''}
+        return {
+            'ok': False,
+            'cancelled': False,
+            'path': '',
+            'code': 'osascript_error',
+            'error': stderr or 'Picker failed.',
+        }
+
+    picked_path = r.stdout.strip()
+    if not picked_path:
+        return {'ok': False, 'cancelled': True, 'path': ''}
+
+    next_default_dir = picked_path if kind == 'folder' else os.path.dirname(picked_path)
+    if next_default_dir and os.path.isdir(next_default_dir):
+        with _last_picker_dir_lock:
+            _last_picker_dir = next_default_dir
+
+    return {'ok': True, 'path': picked_path}
 
 
 @app.route('/pick-folder')
 def pick_folder():
-    return jsonify({'path': _pick_path('folder')})
+    return jsonify(_pick_path('folder'))
 
 
 @app.route('/pick-file')
 def pick_file():
-    return jsonify({'path': _pick_path('file')})
+    return jsonify(_pick_path('file'))
 
 
 @app.route('/status')

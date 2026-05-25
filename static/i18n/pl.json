@@ -104,7 +104,10 @@
     "no_supported": "brak obsługiwanych plików",
     "video": "wideo",
     "photos": "zdjęć",
-    "more": "…i {{count}} więcej"
+    "more": "…i {{count}} więcej",
+    "picker_timeout": "Wybór pliku lub folderu przekroczył limit czasu. Spróbuj ponownie.",
+    "picker_missing_osascript": "Nie znaleziono systemowego polecenia macOS osascript.",
+    "picker_failed": "Nie udało się otworzyć wyboru pliku lub folderu."
   },
   "alerts": {
     "provide_path": "Podaj ścieżkę do folderu lub pliku"

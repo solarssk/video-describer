@@ -104,7 +104,10 @@
     "no_supported": "no supported files",
     "video": "video",
     "photos": "photos",
-    "more": "…and {{count}} more"
+    "more": "…and {{count}} more",
+    "picker_timeout": "Picker timed out. Try again.",
+    "picker_missing_osascript": "macOS osascript command was not found.",
+    "picker_failed": "Could not open the file picker."
   },
   "alerts": {
     "provide_path": "Please provide a folder or file path"
