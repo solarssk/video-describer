@@ -506,7 +506,7 @@ def _content_texts(lang: str) -> dict:
                 '\n\nBased on the frames above{transcript_part}, write a description in this format:\n\n'
                 '{filename} - [overall description: what kind of recording this is, who, where, mood '
                 '- as many sentences as needed, one is fine]\n'
-                'MM:SS event description  (or HH:MM:SS for recordings longer than 1 hour)\n'
+                'MM:SS event description  (or HH:MM:SS for recordings of at least 1 hour)\n'
                 'MM:SS event description\n'
                 '...\n\n'
                 'Critical formatting rules:\n'
@@ -548,7 +548,7 @@ def _content_texts(lang: str) -> dict:
         'video_instruction': (
             '\n\nNa podstawie powyższych klatek{transcript_part} napisz opis w tym formacie:\n\n'
             '{filename} - [ogólny opis: co to za nagranie, kto, gdzie, nastrój - tyle zdań ile potrzeba, może być jedno]\n'
-            'MM:SS opis zdarzenia  (lub HH:MM:SS dla nagrań powyżej godziny)\n'
+            'MM:SS opis zdarzenia  (lub HH:MM:SS dla nagrań trwających co najmniej godzinę)\n'
             'MM:SS opis zdarzenia\n'
             '...\n\n'
             'Krytyczne zasady formatowania:\n'
