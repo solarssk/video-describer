@@ -162,8 +162,9 @@ The system prompt lives in `prompts/system.md`. Change it to change the output l
 
 ```
 video-describer/
-├── describe_videos.py       — processing logic + CLI
-├── web_app.py               — Waitress/Flask app
+├── web_app.py               — Waitress/Flask app, HTTP endpoints, SSE
+├── processor.py             — web batch loop, resume state, cost/log plumbing
+├── describe_videos.py       — media/frame/transcription helpers + CLI
 ├── config_loader.py
 ├── config.default.json      — factory settings (in git)
 ├── config.json              — your settings + API key (gitignored)

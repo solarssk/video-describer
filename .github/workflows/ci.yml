@@ -56,7 +56,7 @@ jobs:
       - name: Python unit tests
         run: python -m unittest discover -s tests -p "test*.py"
       - name: Python syntax check
-        run: python -m py_compile web_app.py describe_videos.py config_loader.py providers/base.py providers/anthropic_provider.py providers/__init__.py
+        run: python -m py_compile web_app.py processor.py describe_videos.py config_loader.py providers/base.py providers/anthropic_provider.py providers/__init__.py
       - name: JavaScript syntax check
         run: node --check static/app.js
       - name: i18n JSON validation
