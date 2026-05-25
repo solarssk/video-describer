@@ -7,8 +7,9 @@ import google.generativeai as genai
 
 from .base import AIProvider, ProviderResponse
 
-# genai.configure() sets global state — serialize to avoid races in threaded servers.
-_configure_lock = threading.Lock()
+# genai.configure() sets global SDK state — the lock must cover both
+# configure() AND the subsequent API call to prevent key bleed between threads.
+_api_lock = threading.Lock()
 
 
 class GeminiProvider(AIProvider):
@@ -17,39 +18,37 @@ class GeminiProvider(AIProvider):
         self.model_name = model
         self.timeout = timeout
 
-    def _configure(self) -> None:
-        with _configure_lock:
-            genai.configure(api_key=self._api_key)
-
     def verify(self) -> tuple:
-        self._configure()
-        try:
-            # Validate model access, not just API key — mirrors AnthropicProvider.verify()
-            model = genai.GenerativeModel(model_name=self.model_name)
-            model.generate_content(
-                'hi',
-                generation_config=genai.GenerationConfig(max_output_tokens=1),
-            )
-            return True, ''
-        except Exception as e:
-            return False, str(e)
+        with _api_lock:
+            genai.configure(api_key=self._api_key)
+            try:
+                # Validate model access, not just API key — mirrors AnthropicProvider.verify()
+                model = genai.GenerativeModel(model_name=self.model_name)
+                model.generate_content(
+                    'hi',
+                    generation_config=genai.GenerationConfig(max_output_tokens=1),
+                )
+                return True, ''
+            except Exception as e:
+                return False, str(e)
 
     def describe(self, content_blocks: list, system_prompt: str,
                  max_tokens: int) -> ProviderResponse:
-        self._configure()
-        model = genai.GenerativeModel(
-            model_name=self.model_name,
-            system_instruction=system_prompt,
-        )
         parts = _translate_blocks(content_blocks)
-        try:
-            response = model.generate_content(
-                parts,
-                generation_config=genai.GenerationConfig(max_output_tokens=max_tokens),
-                request_options={'timeout': self.timeout},
+        with _api_lock:
+            genai.configure(api_key=self._api_key)
+            model = genai.GenerativeModel(
+                model_name=self.model_name,
+                system_instruction=system_prompt,
             )
-        except Exception as e:
-            raise RuntimeError(str(e)) from e
+            try:
+                response = model.generate_content(
+                    parts,
+                    generation_config=genai.GenerationConfig(max_output_tokens=max_tokens),
+                    request_options={'timeout': self.timeout},
+                )
+            except Exception as e:
+                raise RuntimeError(str(e)) from e
 
         usage = response.usage_metadata
         return ProviderResponse(

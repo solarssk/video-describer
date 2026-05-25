@@ -204,11 +204,11 @@ function renderSyscheck(s) {
 }
 
 // ── Connector state ───────────────────────────────────────
-let anthropicConnected = false;   // updated by fetchSysinfo() and loadConnectors()
+let providerConnected = { anthropic: false, openai: false, gemini: false };
 let lastSysinfo = null;
 
 function _setAnthropicConnected(connected) {
-  anthropicConnected = connected;
+  providerConnected.anthropic = connected;
   updateStartEnabled();
 }
 
@@ -237,7 +237,10 @@ async function loadConnectors() {
     _renderConnectorBadge('anthropic', data.anthropic);
     _renderConnectorBadge('openai', data.openai);
     _renderConnectorBadge('gemini', data.gemini);
-    _setAnthropicConnected(data.anthropic?.connected || false);
+    providerConnected.anthropic = data.anthropic?.connected || false;
+    providerConnected.openai    = data.openai?.connected    || false;
+    providerConnected.gemini    = data.gemini?.connected    || false;
+    updateStartEnabled();
   } catch (e) {
     console.warn('Failed to load connectors:', e);
   }
@@ -595,7 +598,7 @@ function updateStartEnabled() {
   let reason = '';
   if (!path) reason = t('tooltip.start_no_path');
   else if (!aiOn && !transcribeOn) reason = t('tooltip.start_no_features');
-  else if (aiOn && !anthropicConnected) reason = t('tooltip.start_no_key');
+  else if (aiOn && !providerConnected[activeProviderName]) reason = t('tooltip.start_no_key');
 
   const btn = $('btn-start');
   btn.disabled = !!reason;
@@ -1106,6 +1109,7 @@ function fillSettingsForm(cfg, prompt) {
 function onProviderChange(name) {
   if (!_cachedSettingsCfg) return;
   activeProviderName = name;
+  updateStartEnabled();
   const p = _cachedSettingsCfg.ai[name] || {};
   $('cfg-model').value = p.model || '';
   $('cfg-max-video').value = p.max_tokens_video ?? '';
