@@ -112,9 +112,15 @@ def _prevent_sleep() -> '_SleepBlock':
 def _save_batch_state(config: dict, next_index: int, total: int,
                       processed: int, skipped: int, errors: int,
                       usage: dict, next_filename=None) -> None:
+    import copy
     import datetime
+    safe_config = copy.deepcopy(config)
+    safe_config.pop('api_key', None)
+    for provider_cfg in safe_config.get('ai', {}).values():
+        if isinstance(provider_cfg, dict):
+            provider_cfg.pop('api_key', None)
     state = {
-        'config': config,
+        'config': safe_config,
         'next_index': next_index,
         'next_filepath': next_filename,
         'total': total,
