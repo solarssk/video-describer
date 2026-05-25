@@ -20,13 +20,14 @@ class GeminiProvider(AIProvider):
 
     def verify(self) -> tuple:
         with _api_lock:
-            genai.configure(api_key=self._api_key)
             try:
+                genai.configure(api_key=self._api_key)
                 # Validate model access, not just API key — mirrors AnthropicProvider.verify()
                 model = genai.GenerativeModel(model_name=self.model_name)
                 model.generate_content(
                     'hi',
                     generation_config=genai.GenerationConfig(max_output_tokens=1),
+                    request_options={'timeout': self.timeout},
                 )
                 return True, ''
             except Exception as e:

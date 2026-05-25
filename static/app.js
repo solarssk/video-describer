@@ -1002,10 +1002,10 @@ async function fetchSysinfo() {
     lastSysinfo = s;
     renderSyscheck(s);
 
-    // Update Start button enable state based on Anthropic key presence
-    if (typeof s.anthropic_connected !== 'undefined') {
-      _setAnthropicConnected(s.anthropic_connected);
-    }
+    if (typeof s.anthropic_connected !== 'undefined') providerConnected.anthropic = s.anthropic_connected;
+    if (typeof s.openai_connected   !== 'undefined') providerConnected.openai    = s.openai_connected;
+    if (typeof s.gemini_connected   !== 'undefined') providerConnected.gemini    = s.gemini_connected;
+    updateStartEnabled();
   } catch {
     // server not ready yet — ignore
   }
@@ -1084,13 +1084,15 @@ function fillSettingsForm(cfg, prompt) {
   const providerSel = $('cfg-ai-provider');
   if (providerSel) providerSel.value = activeProviderName;
 
+  updateStartEnabled();
+
   const p = cfg.ai[activeProviderName] || {};
-  $('cfg-model').value = p.model || '';
-  $('cfg-max-video').value = p.max_tokens_video;
-  $('cfg-max-photo').value = p.max_tokens_photo;
-  $('cfg-price-in').value = p.price_input_per_mtok_usd;
-  $('cfg-price-out').value = p.price_output_per_mtok_usd;
-  $('cfg-timeout').value = p.timeout_sec;
+  $('cfg-model').value = p.model ?? '';
+  $('cfg-max-video').value = p.max_tokens_video ?? '';
+  $('cfg-max-photo').value = p.max_tokens_photo ?? '';
+  $('cfg-price-in').value = p.price_input_per_mtok_usd ?? '';
+  $('cfg-price-out').value = p.price_output_per_mtok_usd ?? '';
+  $('cfg-timeout').value = p.timeout_sec ?? '';
 
   $('cfg-video-width').value = cfg.frames.video_width_px;
   $('cfg-photo-width').value = cfg.frames.photo_width_px;
