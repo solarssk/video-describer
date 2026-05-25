@@ -1,5 +1,4 @@
 from pathlib import Path
-import pytest
 from output_paths import find_existing_output, legacy_output_txt_path, output_txt_path
 
 
