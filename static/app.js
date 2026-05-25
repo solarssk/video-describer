@@ -27,8 +27,8 @@ window.addEventListener('beforeunload', releaseTab);
 // ── Tab title + favicon state ─────────────────────────────
 const _APP_TITLE = 'Video Describer';
 
-function _faviconHref(bgColor) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="${bgColor}"/><rect x="4" y="7" width="24" height="5" rx="1.5" fill="#f0f0f0"/><polygon points="8,7 11,7 8.8,12 5.8,12" fill="${bgColor}"/><polygon points="13,7 16,7 13.8,12 10.8,12" fill="${bgColor}"/><polygon points="18,7 21,7 18.8,12 15.8,12" fill="${bgColor}"/><polygon points="23,7 26,7 23.8,12 20.8,12" fill="${bgColor}"/><rect x="4" y="13" width="24" height="13" rx="2" fill="#f0f0f0"/><rect x="7" y="18" width="18" height="1.2" rx="0.6" fill="#c0c0c0"/><rect x="7" y="22" width="18" height="1.2" rx="0.6" fill="#c0c0c0"/></svg>`;
+function _faviconHref(dotColor) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#1c1c1e"/><rect x="4" y="7" width="24" height="5" rx="1.5" fill="#f0f0f0"/><polygon points="8,7 11,7 8.8,12 5.8,12" fill="#1c1c1e"/><polygon points="13,7 16,7 13.8,12 10.8,12" fill="#1c1c1e"/><polygon points="18,7 21,7 18.8,12 15.8,12" fill="#1c1c1e"/><polygon points="23,7 26,7 23.8,12 20.8,12" fill="#1c1c1e"/><rect x="4" y="13" width="24" height="13" rx="2" fill="#f0f0f0"/><rect x="7" y="18" width="18" height="1.2" rx="0.6" fill="#c0c0c0"/><rect x="7" y="22" width="18" height="1.2" rx="0.6" fill="#c0c0c0"/><circle cx="26" cy="26" r="5" fill="${dotColor}" stroke="#1c1c1e" stroke-width="1.5"/></svg>`;
   return 'data:image/svg+xml,' + encodeURIComponent(svg);
 }
 
