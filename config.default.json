@@ -1,7 +1,8 @@
 {
   "connectors": {
     "anthropic": {"api_key": ""},
-    "openai":    {"api_key": ""}
+    "openai":    {"api_key": ""},
+    "gemini":    {"api_key": ""}
   },
   "ai": {
     "provider": "anthropic",
@@ -11,6 +12,22 @@
       "max_tokens_photo": 500,
       "price_input_per_mtok_usd": 3.0,
       "price_output_per_mtok_usd": 15.0,
+      "timeout_sec": 600
+    },
+    "openai": {
+      "model": "gpt-4o",
+      "max_tokens_video": 2000,
+      "max_tokens_photo": 500,
+      "price_input_per_mtok_usd": 2.5,
+      "price_output_per_mtok_usd": 10.0,
+      "timeout_sec": 600
+    },
+    "gemini": {
+      "model": "gemini-2.0-flash",
+      "max_tokens_video": 2000,
+      "max_tokens_photo": 500,
+      "price_input_per_mtok_usd": 0.1,
+      "price_output_per_mtok_usd": 0.4,
       "timeout_sec": 600
     }
   },

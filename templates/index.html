@@ -234,7 +234,21 @@
     </section>
 
     <section>
-      <h2 data-i18n="settings.claude_title">Claude AI</h2>
+      <h2 data-i18n="settings.ai_backends_title">AI Backends</h2>
+      <div class="row">
+        <div class="field">
+          <label for="cfg-ai-provider" data-i18n="settings.ai_provider_label">Image analysis</label>
+          <select id="cfg-ai-provider" name="cfg-ai-provider" onchange="onProviderChange(this.value)">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI (GPT-4o)</option>
+            <option value="gemini">Google (Gemini)</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="settings.claude_title">AI Model settings</h2>
       <div class="field">
         <label for="cfg-model" data-i18n="settings.model_label">Model</label>
         <input type="text" id="cfg-model" name="cfg-model" placeholder="claude-sonnet-4-6">
@@ -411,8 +425,8 @@
       </div>
     </section>
 
-    <!-- Gemini — coming soon -->
-    <section class="conn-card--soon">
+    <!-- Gemini -->
+    <section id="conn-card-gemini">
       <div class="conn-section-header">
         <div class="conn-icon conn-icon--gemini">
           <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
@@ -421,9 +435,23 @@
         </div>
         <div class="conn-info">
           <h2 data-i18n="connectors.gemini_name">Google Gemini</h2>
-          <div class="conn-desc" data-i18n="connectors.gemini_desc">Alternative AI provider for video descriptions</div>
+          <div class="conn-desc" data-i18n="connectors.gemini_desc">Alternative AI provider for video descriptions (gemini-2.0-flash)</div>
         </div>
-        <div class="conn-badge conn-badge--soon"><span data-i18n="connectors.coming_soon">Coming soon</span></div>
+        <div class="conn-badge" id="conn-badge-gemini"><span data-i18n="connectors.not_set">Not set</span></div>
+      </div>
+      <div class="field">
+        <label for="conn-key-gemini" data-i18n="connectors.gemini_key_label">Gemini API Key</label>
+        <div class="conn-key-row">
+          <input type="text" id="conn-key-gemini" name="conn-key-gemini" class="conn-key-input masked"
+            data-i18n-attr-placeholder="connectors.key_placeholder"
+            placeholder="Paste API key…"
+            autocomplete="off" autocorrect="off" autocapitalize="off"
+            spellcheck="false" data-1p-ignore data-bwignore data-lpignore="true" data-form-type="other">
+          <button class="btn-mini" onclick="verifyConnector('gemini')" data-i18n="connectors.verify">Verify</button>
+          <button class="btn-mini" style="background:var(--accent);color:#fff;border-color:transparent" onclick="saveConnector('gemini')" data-i18n="connectors.save">Save</button>
+        </div>
+        <div class="conn-status" id="conn-status-gemini"></div>
+        <div class="conn-hint" id="conn-env-hint-gemini" style="display:none" data-i18n="connectors.from_env_hint_gemini">Key loaded from <code>GEMINI_API_KEY</code> environment variable.</div>
       </div>
     </section>
 

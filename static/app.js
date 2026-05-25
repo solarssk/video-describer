@@ -226,7 +226,7 @@ function _applyMasking(input) {
 
 async function loadConnectors() {
   // Apply masking to connector key inputs
-  ['anthropic', 'openai'].forEach(p => {
+  ['anthropic', 'openai', 'gemini'].forEach(p => {
     const el = $(`conn-key-${p}`);
     if (el) _applyMasking(el);
   });
@@ -236,6 +236,7 @@ async function loadConnectors() {
     const data = await res.json();
     _renderConnectorBadge('anthropic', data.anthropic);
     _renderConnectorBadge('openai', data.openai);
+    _renderConnectorBadge('gemini', data.gemini);
     _setAnthropicConnected(data.anthropic?.connected || false);
   } catch (e) {
     console.warn('Failed to load connectors:', e);
@@ -360,6 +361,8 @@ async function verifyConnector(provider) {
     if (data.ok) {
       if (provider === 'anthropic') {
         statusEl.textContent = t('connectors.verify_ok_anthropic', { model: data.model });
+      } else if (provider === 'gemini') {
+        statusEl.textContent = t('connectors.verify_ok_gemini');
       } else {
         statusEl.textContent = t('connectors.verify_ok_openai');
       }
@@ -1069,11 +1072,17 @@ async function loadSettings() {
 // to extend when more providers land.
 let activeProviderName = 'anthropic';
 
-function fillSettingsForm(cfg, prompt) {
-  activeProviderName = cfg.ai?.provider || 'anthropic';
-  const p = cfg.ai[activeProviderName];
+// Full config cached so onProviderChange can re-read provider-specific fields
+let _cachedSettingsCfg = null;
 
-  $('cfg-model').value = p.model;
+function fillSettingsForm(cfg, prompt) {
+  _cachedSettingsCfg = cfg;
+  activeProviderName = cfg.ai?.provider || 'anthropic';
+  const providerSel = $('cfg-ai-provider');
+  if (providerSel) providerSel.value = activeProviderName;
+
+  const p = cfg.ai[activeProviderName] || {};
+  $('cfg-model').value = p.model || '';
   $('cfg-max-video').value = p.max_tokens_video;
   $('cfg-max-photo').value = p.max_tokens_photo;
   $('cfg-price-in').value = p.price_input_per_mtok_usd;
@@ -1092,6 +1101,18 @@ function fillSettingsForm(cfg, prompt) {
   $('cfg-default-interval').value = cfg.defaults.interval_sec;
 
   $('cfg-prompt').value = prompt;
+}
+
+function onProviderChange(name) {
+  if (!_cachedSettingsCfg) return;
+  activeProviderName = name;
+  const p = _cachedSettingsCfg.ai[name] || {};
+  $('cfg-model').value = p.model || '';
+  $('cfg-max-video').value = p.max_tokens_video || '';
+  $('cfg-max-photo').value = p.max_tokens_photo || '';
+  $('cfg-price-in').value = p.price_input_per_mtok_usd || '';
+  $('cfg-price-out').value = p.price_output_per_mtok_usd || '';
+  $('cfg-timeout').value = p.timeout_sec || '';
 }
 
 function readSettingsForm() {
