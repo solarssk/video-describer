@@ -1327,4 +1327,4 @@ if __name__ == '__main__':
     print(f'  Open in browser: http://localhost:{port}\n')
     app_logger.info(f'=== video-describer started · port {port} · logs: {_LOG_DIR} ===')
     from waitress import serve
-    serve(app, host='127.0.0.1', port=port, threads=4, channel_timeout=0)
+    serve(app, host='127.0.0.1', port=port, threads=4, channel_timeout=3600)
