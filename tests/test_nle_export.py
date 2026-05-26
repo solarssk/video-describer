@@ -248,7 +248,10 @@ class TestSanitizeEdl(unittest.TestCase):
         self.assertEqual(_sanitize_edl('wait…'), 'wait...')
 
     def test_smart_quotes(self):
-        self.assertEqual(_sanitize_edl('"hello"'), '"hello"')
+        # Use Unicode escapes so source stays ASCII-safe
+        left = '“'   # "
+        right = '”'  # "
+        self.assertEqual(_sanitize_edl(f'{left}hello{right}'), '"hello"')
 
     def test_star(self):
         self.assertEqual(_sanitize_edl('★ key moment'), '* key moment')
