@@ -725,7 +725,6 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
     Scans the configured path for media files, finds their existing .txt outputs,
     and calls export_sidecars() on each. No API calls are made.
     """
-    stop_event.clear()
     cfg = config_loader.load_config()
     cfg.update(config)
 

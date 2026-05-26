@@ -1375,10 +1375,11 @@ function openConvertModal() {
     { key: 'fcp7xml', id: 'cfg-nle-fcp7xml', label: 'FCP7 XML',  ext: '.xmeml'  },
   ];
   const formats = formatDefs.filter(f => {
-    // DOM checkbox is authoritative when the Settings tab has been opened;
-    // fall back to cached config otherwise.
+    // Cached config is authoritative (loaded from /config at startup);
+    // fall back to the DOM checkbox only if the config key is absent.
+    if (Object.prototype.hasOwnProperty.call(nle, f.key)) return !!nle[f.key];
     const el = $(f.id);
-    return el ? el.checked : !!nle[f.key];
+    return el ? el.checked : false;
   });
 
   const formatsEl = $('convert-modal-formats');
