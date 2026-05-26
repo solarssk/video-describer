@@ -11,6 +11,7 @@ from batch_metadata import (
     has_metadata_footer,
     mark_file,
     next_retry_index,
+    next_retry_path,
     redact_secrets,
     split_metadata_footer,
     summary_description,
@@ -52,6 +53,17 @@ class BatchManifestTests(unittest.TestCase):
             {"total": 5, "processed": 1, "skipped": 1, "errors": 1},
         )
         self.assertEqual(next_retry_index(files), 2)
+        self.assertIsNone(next_retry_path([{"status": "done", "path": "/x/a.mp4"}]))
+        self.assertIsNone(next_retry_path(files))
+
+    def test_next_retry_path_returns_first_retryable_source_path(self):
+        files = [
+            {"status": "done", "path": "/x/a.mp4"},
+            {"status": "skipped", "path": "/x/b.mp4"},
+            {"status": "error", "path": "/x/c.mp4"},
+            {"status": "pending", "path": "/x/d.mp4"},
+        ]
+        self.assertEqual(next_retry_path(files), "/x/c.mp4")
 
     def test_old_flat_batch_state_is_migrated_to_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -187,6 +199,30 @@ class MetadataFooterTests(unittest.TestCase):
         self.assertEqual(body, "clip.mp4 - desc\n00:01 event")
         self.assertEqual(metadata, {})
         self.assertEqual(summary_description(body), "desc")
+
+    def test_markdown_separator_with_notes_is_not_treated_as_footer(self):
+        description = (
+            "clip.mp4 - desc\n"
+            "\n"
+            "---\n"
+            "notes: legitimate model output\n"
+            "timestamp: 00:15\n"
+        )
+        body, metadata = split_metadata_footer(description)
+        updated = append_metadata_footer(
+            description,
+            source="clip.mp4",
+            file_uuid="file-1",
+            batch_id="batch-1",
+            processed="2026-05-26T12:00:00+00:00",
+            model="claude-sonnet-4-6",
+        )
+
+        self.assertEqual(body, description.rstrip("\n"))
+        self.assertEqual(metadata, {})
+        self.assertIn("notes: legitimate model output", updated)
+        self.assertIn("uuid: file-1", updated)
+        self.assertTrue(has_metadata_footer(updated))
 
     def test_atomic_json_write(self):
         with tempfile.TemporaryDirectory() as tmp:

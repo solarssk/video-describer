@@ -13,6 +13,7 @@ from output_paths import find_existing_output, output_txt_path
 
 SCHEMA_VERSION = 2
 FOOTER_SEPARATOR = "---"
+REQUIRED_FOOTER_KEYS = {"source", "uuid", "batch", "processed", "model"}
 ALLOWED_STATUSES = {"pending", "in_progress", "done", "skipped", "error"}
 _SECRET_KEYS = (
     "api_key",
@@ -208,7 +209,7 @@ def split_metadata_footer(text: str) -> tuple[str, dict]:
                 valid = False
                 break
             metadata[key] = value.strip()
-        if valid and metadata:
+        if valid and REQUIRED_FOOTER_KEYS.issubset(metadata.keys()):
             return "\n".join(lines[:idx]).rstrip(), metadata
     return text.rstrip("\n"), {}
 
