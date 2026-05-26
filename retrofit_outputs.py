@@ -21,6 +21,7 @@ class RetrofitResult:
     unchanged: int = 0
     skipped_ambiguous: int = 0
     skipped_missing: int = 0
+    failed: int = 0
 
 
 @dataclass
@@ -90,31 +91,44 @@ def retrofit_existing_outputs(media: list[tuple[Path, str]],
             result.skipped_missing += 1
             continue
 
-        current_path = action.output if action.output.exists() else action.legacy_output
-        if current_path == action.legacy_output and not action.output.exists():
-            if action.ambiguous:
-                result.skipped_ambiguous += 1
+        renamed_this_action = False
+        try:
+            current_path = action.output if action.output.exists() else action.legacy_output
+            if current_path == action.legacy_output and not action.output.exists():
+                if action.ambiguous:
+                    result.skipped_ambiguous += 1
+                    continue
+                if not dry_run:
+                    action.legacy_output.replace(action.output)
+                    renamed_this_action = True
+                    current_path = action.output
+                result.renamed += 1
+
+            text = current_path.read_text(encoding="utf-8")
+            if has_metadata_footer(text):
+                result.unchanged += 1
                 continue
+
+            updated = append_metadata_footer(
+                text,
+                source=action.source.name,
+                file_uuid=str(uuid.uuid4()),
+                batch_id=batch_id,
+                processed=utc_timestamp(),
+                model=model,
+            )
             if not dry_run:
-                action.legacy_output.replace(action.output)
-                current_path = action.output
-            result.renamed += 1
+                current_path.write_text(updated, encoding="utf-8")
+            result.metadata_added += 1
 
-        text = current_path.read_text(encoding="utf-8")
-        if has_metadata_footer(text):
-            result.unchanged += 1
-            continue
-
-        updated = append_metadata_footer(
-            text,
-            source=action.source.name,
-            file_uuid=str(uuid.uuid4()),
-            batch_id=batch_id,
-            processed=utc_timestamp(),
-            model=model,
-        )
-        if not dry_run:
-            current_path.write_text(updated, encoding="utf-8")
-        result.metadata_added += 1
+        except (OSError, UnicodeError) as exc:
+            if renamed_this_action:
+                try:
+                    action.output.replace(action.legacy_output)
+                except OSError:
+                    pass
+            result.renamed -= renamed_this_action
+            result.failed += 1
+            print(f"  ⚠ retrofit failed for {action.source.name}: {exc}")
 
     return result

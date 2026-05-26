@@ -148,6 +148,40 @@ class RetrofitOutputsTests(unittest.TestCase):
             self.assertFalse(actions[0].exists)
             self.assertEqual(result.skipped_missing, 1)
 
+    def test_io_error_increments_failed_and_continues(self):
+        """An unreadable .txt increments failed and does not abort the batch."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            bad = tmp_path / "bad.mp4"
+            bad_txt = tmp_path / "bad.mp4.txt"
+            good = tmp_path / "good.mp4"
+            good_txt = tmp_path / "good.mp4.txt"
+            bad.write_text("")
+            good.write_text("")
+            bad_txt.write_bytes(b"\xff\xfe bad utf-16 garbage")
+            good_txt.write_text("good desc\n", encoding="utf-8")
+
+            result = retrofit_existing_outputs([(bad, "video"), (good, "video")])
+
+            self.assertEqual(result.failed, 1)
+            self.assertEqual(result.metadata_added, 1)
+
+    def test_rename_rolled_back_on_footer_write_failure(self):
+        """If footer write fails after rename, the rename is rolled back."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            source = tmp_path / "clip.mp4"
+            legacy = tmp_path / "clip.txt"
+            source.write_text("")
+            legacy.write_bytes(b"\xff\xfe bad utf-16")
+
+            result = retrofit_existing_outputs([(source, "video")])
+
+            self.assertTrue(legacy.exists())
+            self.assertFalse((tmp_path / "clip.mp4.txt").exists())
+            self.assertEqual(result.failed, 1)
+            self.assertEqual(result.renamed, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
