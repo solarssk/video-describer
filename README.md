@@ -37,7 +37,13 @@ processed: 2026-05-26T12:34:00+00:00
 model: claude-sonnet-4-6
 ```
 
-Older `video.txt` outputs from previous versions are still treated as valid legacy results.
+Older `video.txt` outputs from previous versions are still treated as valid legacy results. To update an existing folder without re-processing the media, run:
+
+```bash
+python3 describe_videos.py /path/to/folder --retrofit-existing
+```
+
+This renames unambiguous legacy files such as `video.txt` to `video.mp4.txt` and adds the metadata footer. It does not call any AI provider and does not require an API key. Use `--dry-run` first if you want to see counters without writing changes. If both `video.mp4` and `video.jpg` would point to the same old `video.txt`, the file is left untouched so you can resolve it manually.
 
 ---
 
@@ -131,6 +137,7 @@ Unsupported files are ignored when scanning a folder, and a directly selected un
 - **Insta360 `.insv`** — dual-lens, both cameras analyzed
 - **Photos** — `.jpg`, `.jpeg`, `.png`
 - **Auto-resume** — skips files that already have a `.txt`, including legacy `stem.txt` outputs
+- **Existing output retrofit** — converts old `.txt` outputs to current `name.ext.txt` naming and metadata without re-processing media
 - **Batch resume** — if the batch stops (crash, power loss, manual stop), the app stores a manifest in `batch_state.json` with one UUID and status per file; on next launch it offers to pick up from file 7/15, $0.43 already spent
 - **Budget guard** — set a USD cap before starting; the batch stops gracefully before it would exceed it
 - **Folder summary** — after each batch, `_summary.txt` is written: one line per file with a short description, plus totals; useful for editors who want a map of the material before opening anything
@@ -181,6 +188,7 @@ video-describer/
 ├── batch_metadata.py        — batch manifest + .txt metadata helpers
 ├── describe_videos.py       — media/frame/transcription helpers + CLI
 ├── output_paths.py          — new/legacy output path handling
+├── retrofit_outputs.py      — safe upgrade path for existing .txt outputs
 ├── timefmt.py               — timestamp formatting
 ├── nle_export.py            — FCPXML / EDL / FCP7 XML sidecar export
 ├── config_loader.py

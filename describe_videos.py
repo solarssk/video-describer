@@ -23,6 +23,7 @@ import warnings
 from pathlib import Path
 
 from timefmt import fmt_ts
+from retrofit_outputs import retrofit_existing_outputs
 
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
@@ -76,16 +77,19 @@ class _Segment:
     __slots__ = ('start', 'end', 'text')
 
     def __init__(self, start: float, end: float, text: str):
+        """Store one transcript segment with timestamps and text."""
         self.start = start
         self.end = end
         self.text = text
 
     @classmethod
     def from_mlx(cls, d: dict) -> '_Segment':
+        """Create a segment from mlx-whisper's dict shape."""
         return cls(d['start'], d['end'], d['text'])
 
     @classmethod
     def from_faster(cls, seg) -> '_Segment':
+        """Create a segment from faster-whisper's object shape."""
         return cls(seg.start, seg.end, seg.text)
 
 
@@ -93,6 +97,7 @@ class _MLXWhisperModel:
     """Thin wrapper around mlx_whisper with the same interface as faster-whisper WhisperModel."""
 
     def __init__(self, model_name: str):
+        """Load the requested mlx-whisper model lazily in the current process."""
         import mlx_whisper  # eager import — validates backend is truly importable in this process
         self._mlx_whisper = mlx_whisper
         self._model_id = _mlx_model_id(model_name)
@@ -100,6 +105,7 @@ class _MLXWhisperModel:
     def transcribe(self, audio_path: str, language: str = 'pl',
                    beam_size: int = 5, vad_filter: bool = True,
                    vad_parameters: dict = None):
+        """Transcribe audio and return normalised segments plus no info object."""
         result = self._mlx_whisper.transcribe(
             audio_path,
             path_or_hf_repo=self._model_id,
@@ -114,12 +120,14 @@ class _FasterWhisperWrapper:
     """Wraps faster_whisper.WhisperModel so segments are normalised _Segment objects."""
 
     def __init__(self, model_name: str):
+        """Load faster-whisper on CPU using the compact int8 compute mode."""
         from faster_whisper import WhisperModel
         self._model = WhisperModel(model_name, device='cpu', compute_type='int8')
 
     def transcribe(self, audio_path: str, language: str = 'pl',
                    beam_size: int = 5, vad_filter: bool = True,
                    vad_parameters: dict = None):
+        """Transcribe audio and normalise faster-whisper segment objects."""
         segs, info = self._model.transcribe(
             audio_path,
             language=language,
@@ -135,11 +143,13 @@ class _OpenAIWhisperModel:
     Fallback when no local backend is available and an OpenAI key is provided."""
 
     def __init__(self, api_key: str):
+        """Store the OpenAI API key for the cloud transcription fallback."""
         self._api_key = api_key
 
     def transcribe(self, audio_path: str, language: str = 'pl',
                    beam_size: int = 5, vad_filter: bool = True,
                    vad_parameters: dict = None):
+        """Transcribe audio with OpenAI's Whisper API and normalise segments."""
         try:
             from openai import OpenAI
         except ImportError:
@@ -318,10 +328,12 @@ def _run_ffmpeg(cmd: list, stop_event=None, duration_sec: float = None,
     stderr_chunks: list = []
 
     def _read_stderr():
+        """Collect stderr asynchronously so ffmpeg cannot block on a full pipe."""
         for line in proc.stderr:
             stderr_chunks.append(line)
 
     def _read_progress():
+        """Parse ffmpeg progress lines and forward percent updates."""
         for line in proc.stdout:
             line = line.strip()
             if line.startswith('out_time_us='):
@@ -397,6 +409,7 @@ def extract_frames(video_path: str, output_dir: str, interval: int,
 
         # Per-stream progress: cam 1 → 0-50%, cam 2 → 50-100% (for dual-lens)
         def _stream_cb(pct, sec, sidx=stream_idx, slabel=cam_label):
+            """Map per-stream ffmpeg progress into whole-file progress."""
             if progress_cb:
                 if multi_cam:
                     overall = (sidx + pct) / stream_count
@@ -425,6 +438,7 @@ def extract_audio(video_path: str, output_dir: str,
     dur = duration if duration is not None else get_video_duration(video_path)
 
     def _cb(pct, sec):
+        """Format audio extraction progress for the UI callback."""
         if progress_cb:
             progress_cb(pct, f'{fmt_ts(sec)}/{fmt_ts(dur)}')
 
@@ -495,6 +509,7 @@ def transcribe_audio_with_timeout(audio_path: str, model_name: str,
     proc.start()
 
     def _terminate():
+        """Terminate the Whisper worker process, escalating to kill if needed."""
         if proc.is_alive():
             proc.terminate()
             proc.join(timeout=3)
@@ -557,12 +572,14 @@ def format_transcript(segments: list) -> str:
 
 
 def _output_language(cfg: dict = None) -> str:
+    """Return the configured output language, falling back to Polish."""
     cfg = cfg or _DEFAULT_CFG
     lang = str(cfg.get('defaults', {}).get('output_language', 'pl')).lower()
     return lang if lang in ('pl', 'en') else 'pl'
 
 
 def _content_texts(lang: str) -> dict:
+    """Return language-specific prompt scaffolding for video and photo analysis."""
     if lang == 'en':
         return {
             'video_intro': (
@@ -744,16 +761,19 @@ def describe_video(video_path: str, provider: AIProvider,
     file_size_mb = Path(video_path).stat().st_size / (1024 * 1024)
 
     def _step(name: str):
+        """Send a processing step update and reset percent progress."""
         if step_cb:
             step_cb(name)
         if progress_cb:
             progress_cb(None, '')  # reset progress on each new step
 
     def _progress(pct, label):
+        """Forward percent progress updates when a callback is configured."""
         if progress_cb:
             progress_cb(pct, label)
 
     def _check_stop():
+        """Raise when the caller requested cancellation."""
         if stop_event and stop_event.is_set():
             raise InterruptedError("Stopped by user")
 
@@ -900,16 +920,19 @@ def transcribe_only_video(video_path: str, whisper_model_name: str,
     filename = Path(video_path).name
 
     def _step(name: str):
+        """Send a transcript-only step update and reset percent progress."""
         if step_cb:
             step_cb(name)
         if progress_cb:
             progress_cb(None, '')
 
     def _progress(pct, label):
+        """Forward transcript-only percent progress updates."""
         if progress_cb:
             progress_cb(pct, label)
 
     def _check_stop():
+        """Raise when transcript-only processing was cancelled."""
         if stop_event and stop_event.is_set():
             raise InterruptedError("Stopped by user")
 
@@ -1009,6 +1032,7 @@ def main():
   python3 describe_videos.py . --transcribe --whisper-model large-v3  # more accurate model
   python3 describe_videos.py . --interval 60    # one frame per minute
   python3 describe_videos.py . --output-dir ~/Desktop/descriptions/
+  python3 describe_videos.py . --retrofit-existing  # update old .txt files without API calls
         """
     )
     parser.add_argument('paths', nargs='+', help='Video files or folder with recordings')
@@ -1027,8 +1051,45 @@ def main():
                         help='Output folder (default: next to the video)')
     parser.add_argument('--overwrite', action='store_true',
                         help='Overwrite existing .txt files')
+    parser.add_argument('--retrofit-existing', action='store_true',
+                        help='Convert existing .txt outputs to current naming/metadata without re-processing')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='Show retrofit counters without writing changes')
 
     args = parser.parse_args()
+
+    if args.dry_run and not args.retrofit_existing:
+        parser.error('--dry-run can only be used with --retrofit-existing')
+
+    cfg = _DEFAULT_CFG
+    out_dir = Path(args.output_dir) if args.output_dir else None
+    if out_dir and not (args.retrofit_existing and args.dry_run):
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.retrofit_existing:
+        media = find_media(args.paths)
+        if not media:
+            print("No video or photo files found.")
+            sys.exit(1)
+        provider_name = cfg.get('ai', {}).get('provider', '')
+        provider_cfg = cfg.get('ai', {}).get(provider_name, {})
+        result = retrofit_existing_outputs(
+            media,
+            out_dir,
+            model=provider_cfg.get('model', 'unknown'),
+            dry_run=args.dry_run,
+        )
+        mode = "Retrofit dry-run" if args.dry_run else "Retrofit complete"
+        print(
+            f"{mode}: "
+            f"scanned {result.scanned}, "
+            f"renamed {result.renamed}, "
+            f"metadata added {result.metadata_added}, "
+            f"unchanged {result.unchanged}, "
+            f"ambiguous skipped {result.skipped_ambiguous}, "
+            f"missing skipped {result.skipped_missing}"
+        )
+        return
 
     api_key = os.environ.get('ANTHROPIC_API_KEY')
     if not api_key:
@@ -1037,7 +1098,6 @@ def main():
         print("API key: https://console.anthropic.com/settings/api-keys")
         sys.exit(1)
 
-    cfg = _DEFAULT_CFG
     provider = make_provider(cfg['ai']['provider'], cfg, api_key)
 
     if args.transcribe:
@@ -1064,10 +1124,6 @@ def main():
     print()
 
     processed = skipped = errors = 0
-
-    out_dir = Path(args.output_dir) if args.output_dir else None
-    if out_dir:
-        out_dir.mkdir(parents=True, exist_ok=True)
 
     for i, (file_path, media_type) in enumerate(media, 1):
         output_path = output_txt_path(file_path, out_dir)
