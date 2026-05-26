@@ -1138,7 +1138,7 @@ input.masked.unmasked {
 }
 .modal-box h2 { font-size: 16px; font-weight: 600; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
-.modal-actions .btn { height: 38px; line-height: 38px; padding: 0 18px; }
+.modal-actions .btn { height: 38px; line-height: 38px; padding: 0 18px; white-space: nowrap; }
 .convert-formats { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text); }
 .convert-formats .format-row { display: flex; align-items: center; gap: 8px; }
 .convert-formats .format-chip {

@@ -66,8 +66,8 @@ def _timecode(time_s: float, fps: float) -> str:
     return f'{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}'
 
 
-def _truncate(text: str, max_len: int = 100) -> str:
-    """Truncate marker text to fit NLE limits."""
+def _truncate_edl(text: str, max_len: int = 127) -> str:
+    """Truncate marker text to fit EDL line length constraints."""
     return text if len(text) <= max_len else text[:max_len - 1] + '…'
 
 
@@ -106,13 +106,13 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
             ET.SubElement(clip, 'chapter-marker',
                           start=start,
                           duration=frame_dur,
-                          value=_truncate(mk['text']),
+                          value=mk['text'],
                           posterOffset=start)
         else:
             ET.SubElement(clip, 'marker',
                           start=start,
                           duration=frame_dur,
-                          value=_truncate(mk['text']))
+                          value=mk['text'])
 
     tree = ET.ElementTree(root)
     ET.indent(tree, space='  ')
@@ -139,7 +139,7 @@ def write_edl(markers: list, clip_name: str, fps: float, out_path: Path) -> None
         lines.append(
             f'{idx:03d}  AX  V  C  {tc_in} {tc_out} {tc_in} {tc_out}'
         )
-        lines.append(f'* |M: {_truncate(mk["text"], 127)}')
+        lines.append(f'* |M: {_truncate_edl(mk["text"])}')
         lines.append(f'* |C: {color}')
         lines.append('')
     out_path.write_text('\n'.join(lines), encoding='utf-8')
@@ -169,7 +169,7 @@ def write_fcp7xml(markers: list, clip_name: str, fps: float,
         frame_in  = int(round(mk['time_s'] * fps))
         frame_out = frame_in + 1
         marker_el = ET.SubElement(seq, 'marker')
-        ET.SubElement(marker_el, 'name').text = _truncate(mk['text'])
+        ET.SubElement(marker_el, 'name').text = mk['text']
         ET.SubElement(marker_el, 'in').text   = str(frame_in)
         ET.SubElement(marker_el, 'out').text  = str(frame_out)
         if mk['is_key']:

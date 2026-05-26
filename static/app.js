@@ -600,17 +600,42 @@ function onTranscribeChange() {
 function updateStartEnabled() {
   if (activelyProcessing) return;  // locked during processing
   const path = $('path').value.trim();
-  const aiOn = $('analyze_images').checked;
-  const transcribeOn = $('transcribe').checked;
+  const convertMode = !!$('convert_existing')?.checked;
 
   let reason = '';
-  if (!path) reason = t('tooltip.start_no_path');
-  else if (!aiOn && !transcribeOn) reason = t('tooltip.start_no_features');
-  else if (aiOn && !providerConnected[activeProviderName]) reason = t('tooltip.start_no_key');
+  if (!path) {
+    reason = t('tooltip.start_no_path');
+  } else if (convertMode) {
+    const nle = _cachedSettingsCfg?.nle_export || {};
+    const hasFormats = ['fcpxml', 'edl', 'fcp7xml'].some(k => {
+      if (Object.prototype.hasOwnProperty.call(nle, k)) return !!nle[k];
+      const el = $('cfg-nle-' + k);
+      return el ? el.checked : false;
+    });
+    if (!hasFormats) reason = t('convert.warn_no_formats');
+  } else {
+    const aiOn = $('analyze_images').checked;
+    const transcribeOn = $('transcribe').checked;
+    if (!aiOn && !transcribeOn) reason = t('tooltip.start_no_features');
+    else if (aiOn && !providerConnected[activeProviderName]) reason = t('tooltip.start_no_key');
+  }
 
   const btn = $('btn-start');
   btn.disabled = !!reason;
   btn.title = reason || '';
+}
+
+function onConvertModeChange() {
+  const on = !!$('convert_existing')?.checked;
+  const nle = _cachedSettingsCfg?.nle_export || {};
+  const hasFormats = ['fcpxml', 'edl', 'fcp7xml'].some(k => {
+    if (Object.prototype.hasOwnProperty.call(nle, k)) return !!nle[k];
+    const el = $('cfg-nle-' + k);
+    return el ? el.checked : false;
+  });
+  const warn = $('convert-warn-inline');
+  if (warn) warn.style.display = (on && !hasFormats) ? '' : 'none';
+  updateStartEnabled();
 }
 
 // ── UI updates ────────────────────────────────────────────
@@ -830,6 +855,8 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   const path = $('path').value.trim();
   if (!path) { alert(t('alerts.provide_path')); return; }
 
+  const convertMode = !!$('convert_existing')?.checked;
+
   const ctxEl = $('context');
   const context = ctxEl.value.trim() || ctxEl.placeholder || '';
 
@@ -858,15 +885,18 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   claimTab();
 
   $('btn-start').style.display = 'none';
-  $('btn-convert').style.display = 'none';
   $('btn-stop').style.display = 'block';
-  setStatus('running', t('status.processing'), 'status.processing');
+  const statusKey = convertMode ? 'convert.status_running' : 'status.processing';
+  setStatus('running', t(statusKey), statusKey);
   setFormLocked(true);
 
-  fetch('/start', {
+  const endpoint = convertMode ? '/convert' : '/start';
+  const body = convertMode ? JSON.stringify({ path, output_dir: null }) : JSON.stringify(config);
+
+  fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(config)
+    body,
   }).then(r => r.json()).then(data => {
     if (data.error) {
       addLog(data.error, 'err');
@@ -897,7 +927,6 @@ function resetUI() {
   activelyProcessing = false;
   releaseTab();
   $('btn-start').style.display = 'block';
-  $('btn-convert').style.display = 'block';
   $('btn-stop').style.display = 'none';
   $('btn-stop').disabled = false;
   setFormLocked(false);
@@ -980,7 +1009,6 @@ async function restoreState() {
     if (state.processing) {
       activelyProcessing = true;
       $('btn-start').style.display = 'none';
-      $('btn-convert').style.display = 'none';
       $('btn-stop').style.display = 'block';
       const progressLabel = state.progress?.current && state.progress?.total
         ? `${state.progress.current}/${state.progress.total}` : null;
@@ -1377,105 +1405,3 @@ async function discardBatch() {
   await fetch('/batch-state/discard', { method: 'POST' });
 }
 
-// ── Convert existing modal ────────────────────────────────
-function openConvertModal() {
-  const path = $('path').value.trim();
-
-  // Prefer the cached config (loaded when Settings tab was opened) so the
-  // modal works even before the user visits the Settings tab.
-  const nle = _cachedSettingsCfg?.nle_export || {};
-  const formatDefs = [
-    { key: 'fcpxml',  id: 'cfg-nle-fcpxml',  label: 'FCPXML',   ext: '.fcpxml' },
-    { key: 'edl',     id: 'cfg-nle-edl',     label: 'EDL',       ext: '.edl'    },
-    { key: 'fcp7xml', id: 'cfg-nle-fcp7xml', label: 'FCP7 XML',  ext: '.xmeml'  },
-  ];
-  const formats = formatDefs.filter(f => {
-    // Cached config is authoritative (loaded from /config at startup);
-    // fall back to the DOM checkbox only if the config key is absent.
-    if (Object.prototype.hasOwnProperty.call(nle, f.key)) return !!nle[f.key];
-    const el = $(f.id);
-    return el ? el.checked : false;
-  });
-
-  const formatsEl = $('convert-modal-formats');
-  const warnEl    = $('convert-modal-warn');
-  const confirmEl = $('btn-convert-confirm');
-
-  formatsEl.innerHTML = '';
-  warnEl.style.display = 'none';
-
-  if (!path) {
-    warnEl.textContent = t('convert.warn_no_path');
-    warnEl.style.display = 'block';
-    confirmEl.disabled = true;
-  } else if (formats.length === 0) {
-    warnEl.textContent = t('convert.warn_no_formats');
-    warnEl.style.display = 'block';
-    confirmEl.disabled = true;
-  } else {
-    confirmEl.disabled = false;
-    formats.forEach(f => {
-      const row = document.createElement('div');
-      row.className = 'format-row';
-      row.innerHTML = `<span>✓ ${f.label}</span><span class="format-chip">${f.ext}</span>`;
-      formatsEl.appendChild(row);
-    });
-  }
-
-  $('convert-modal-overlay').style.display = 'flex';
-}
-
-function closeConvertModal(e) {
-  if (e && e.target !== $('convert-modal-overlay')) return;
-  $('convert-modal-overlay').style.display = 'none';
-}
-
-function startConversion() {
-  const path = $('path').value.trim();
-  if (!path) return;
-
-  $('convert-modal-overlay').style.display = 'none';
-
-  $('log').innerHTML = '';
-  $('file-cards').innerHTML = '';
-  $('file-cards').style.display = 'none';
-  $('progress-bar').style.width = '0%';
-  totalFiles = 0;
-  activelyProcessing = true;
-  claimTab();
-
-  $('btn-start').style.display = 'none';
-  $('btn-convert').style.display = 'none';
-  $('btn-stop').style.display = 'block';
-  setStatus('running', t('convert.status_running'), 'convert.status_running');
-  setFormLocked(true);
-
-  fetch('/convert', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path, output_dir: null }),
-  }).then(r => r.json()).then(data => {
-    if (data.error) {
-      addLog(data.error, 'err');
-      resetConvertUI();
-      return;
-    }
-    setTabState('processing');
-    connectStream();
-  }).catch(err => {
-    addLog(`Failed to start: ${err}`, 'err');
-    resetConvertUI();
-  });
-}
-
-function resetConvertUI() {
-  activelyProcessing = false;
-  releaseTab();
-  $('btn-start').style.display = 'block';
-  $('btn-convert').style.display = 'block';
-  $('btn-stop').style.display = 'none';
-  $('btn-stop').disabled = false;
-  setStatus('idle', t('status.ready'), 'status.ready');
-  setFormLocked(false);
-  updateStartEnabled();
-}
