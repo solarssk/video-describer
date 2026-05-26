@@ -479,6 +479,13 @@ def connectors_save():
     if provider not in ('anthropic', 'openai', 'gemini'):
         return jsonify({'error': 'Unknown provider'}), 400
 
+    if key:
+        try:
+            key.encode('ascii')
+        except UnicodeEncodeError:
+            return jsonify({'error': 'Invalid API key — contains non-ASCII characters. '
+                            'Clear the field, paste your key, and save again.'}), 400
+
     cfg = config_loader.load_config()
     if 'connectors' not in cfg:
         cfg['connectors'] = {}
