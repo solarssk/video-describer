@@ -8,6 +8,7 @@ and writes one sidecar file next to the source .txt.
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Optional
 
 
 # ── Timestamp parser ──────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ def parse_timestamps(txt_content: str) -> list:
 
     Recognises MM:SS and HH:MM:SS prefixes. Lines starting with ★ are flagged
     as key moments (is_key=True).  Non-timestamp lines are ignored.
+    Result is sorted by time_s ascending.
     """
     markers = []
     for line in txt_content.splitlines():
@@ -47,9 +49,11 @@ def parse_timestamps(txt_content: str) -> list:
         if text.startswith('★'):
             text = text[1:].strip()
             is_key = True
+        # Strip leading dash/em-dash separators that editors sometimes add
+        text = re.sub(r'^[-–—]\s*', '', text)
         time_s = h * 3600 + mins * 60 + secs
         markers.append({'time_s': time_s, 'text': text, 'is_key': is_key})
-    return markers
+    return sorted(markers, key=lambda mk: mk['time_s'])
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -71,15 +75,33 @@ def _truncate_edl(text: str, max_len: int = 127) -> str:
     return text if len(text) <= max_len else text[:max_len - 1] + '…'
 
 
+_EDL_UNICODE_MAP = [
+    ('—', '-'), ('–', '-'),  # em-dash, en-dash
+    ('…', '...'),                  # ellipsis
+    ('“', '"'), ('”', '"'),   # curly double quotes
+    ('‘', "'"), ('’', "'"),   # curly single quotes
+    ('★', '*'), ('☆', '*'),   # ★ ☆
+]
+
+
+def _sanitize_edl(text: str) -> str:
+    """Replace Unicode chars that may cause issues in ASCII-based EDL."""
+    for src, dst in _EDL_UNICODE_MAP:
+        text = text.replace(src, dst)
+    return text
+
+
 # ── FCPXML 1.11 (Final Cut Pro) ───────────────────────────────────────────────
 
 def write_fcpxml(markers: list, clip_name: str, duration_s: float,
-                 out_path: Path, fps: float = 25.0) -> None:
+                 out_path: Path, fps: float = 25.0,
+                 video_path: Optional[Path] = None) -> None:
     """Write an FCPXML 1.11 sidecar file with clip markers.
 
     Key moments (is_key=True) become <chapter-marker> elements (orange in FCP).
     Regular moments become <marker> elements (blue).
     frameDuration and clip duration are derived from fps for correct timebase.
+    video_path is used for the <asset src> URI; defaults to out_path.parent/clip_name.
     """
     fps_eff = fps if fps and fps > 0 else 25.0
     fps_base = max(1, int(round(fps_eff)))
@@ -88,13 +110,24 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
     duration_frames = int(round(duration_s * fps_base))
     duration_str = f'{duration_frames}/{fps_base}s'
 
+    vpath = video_path if video_path else (out_path.parent / clip_name)
+    asset_src = vpath.resolve().as_uri()
+
     root = ET.Element('fcpxml', version='1.11')
     resources = ET.SubElement(root, 'resources')
     ET.SubElement(resources, 'format', id='r1', frameDuration=frame_dur)
+    ET.SubElement(resources, 'asset',
+                  id='r2',
+                  name=Path(clip_name).stem,
+                  src=asset_src,
+                  start='0s',
+                  duration=duration_str,
+                  format='r1')
 
     library = ET.SubElement(root, 'library')
     event = ET.SubElement(library, 'event', name=Path(clip_name).stem)
     clip = ET.SubElement(event, 'asset-clip',
+                         ref='r2',
                          name=clip_name,
                          duration=duration_str,
                          format='r1',
@@ -139,7 +172,7 @@ def write_edl(markers: list, clip_name: str, fps: float, out_path: Path) -> None
         lines.append(
             f'{idx:03d}  AX  V  C  {tc_in} {tc_out} {tc_in} {tc_out}'
         )
-        lines.append(f'* |M: {_truncate_edl(mk["text"])}')
+        lines.append(f'* |M: {_truncate_edl(_sanitize_edl(mk["text"]))}')
         lines.append(f'* |C: {color}')
         lines.append('')
     out_path.write_text('\n'.join(lines), encoding='utf-8')
@@ -207,7 +240,9 @@ def export_sidecars(txt_path: Path, clip_name: str, duration_s: float,
 
     if nle_cfg.get('fcpxml'):
         p = base.with_suffix('.fcpxml')
-        write_fcpxml(markers, clip_name, duration_s, p, fps=fps)
+        video_path = txt_path.parent / clip_name
+        write_fcpxml(markers, clip_name, duration_s, p, fps=fps,
+                     video_path=video_path if video_path.exists() else None)
         written.append(p)
 
     if nle_cfg.get('edl') and fps and fps > 0:

@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from nle_export import (
+    _sanitize_edl,
     export_sidecars,
     parse_timestamps,
     write_edl,
@@ -59,6 +60,26 @@ class TestParseTimestamps(unittest.TestCase):
         self.assertEqual(parse_timestamps(''), [])
         self.assertEqual(parse_timestamps('No timestamps here.\nJust prose.'), [])
 
+    def test_sorted_by_time(self):
+        """Out-of-order timestamps must be returned sorted ascending."""
+        txt = '05:00 later\n01:00 earlier\n03:00 middle\n'
+        m = parse_timestamps(txt)
+        times = [mk['time_s'] for mk in m]
+        self.assertEqual(times, sorted(times))
+
+    def test_leading_dash_stripped(self):
+        """Leading — – - before text is removed from marker text."""
+        cases = [
+            '00:30 — em dash text',
+            '00:30 – en dash text',
+            '00:30 - hyphen text',
+        ]
+        for line in cases:
+            m = parse_timestamps(line)
+            self.assertEqual(len(m), 1)
+            self.assertFalse(m[0]['text'].startswith(('-', '—', '–')),
+                             f'dash not stripped in: {line!r}')
+
 
 class TestWriteFcpxml(unittest.TestCase):
 
@@ -104,6 +125,30 @@ class TestWriteFcpxml(unittest.TestCase):
         fmt = ET.parse(out).find('.//format')  # nosec B314
         self.assertEqual(fmt.attrib['frameDuration'], '1001/30000s')
 
+    def test_asset_element_present(self):
+        """<asset> must exist in <resources> with an src file URI."""
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=25.0)
+        root = ET.parse(out).getroot()  # nosec B314
+        asset = root.find('.//resources/asset')
+        self.assertIsNotNone(asset)
+        self.assertTrue(asset.attrib.get('src', '').startswith('file://'))
+
+    def test_asset_clip_has_ref(self):
+        """<asset-clip> must have ref='r2' linking to the <asset>."""
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=25.0)
+        clip = ET.parse(out).find('.//asset-clip')  # nosec B314
+        self.assertEqual(clip.attrib.get('ref'), 'r2')
+
+    def test_explicit_video_path_used_in_src(self):
+        """When video_path is given, its URI appears in the asset src."""
+        out = self.tmp / 'test.fcpxml'
+        vpath = self.tmp / 'myclip.mp4'
+        write_fcpxml(_markers(), 'myclip.mp4', 600.0, out, fps=25.0, video_path=vpath)
+        asset = ET.parse(out).find('.//resources/asset')  # nosec B314
+        self.assertIn('myclip.mp4', asset.attrib['src'])
+
 
 class TestWriteEdl(unittest.TestCase):
 
@@ -138,6 +183,38 @@ class TestWriteEdl(unittest.TestCase):
         content = out.read_text()
         self.assertIn('00:00:01:00', content)
         self.assertIn('00:00:01:01', content)
+
+    def test_unicode_sanitized_in_edl(self):
+        """Em-dashes, ellipsis and smart quotes are replaced with ASCII equivalents."""
+        out = self.tmp / 'test.edl'
+        markers = [{'time_s': 10, 'text': 'long — road… "great"', 'is_key': False}]
+        write_edl(markers, 'clip.mp4', 25.0, out)
+        content = out.read_text()
+        self.assertNotIn('—', content)
+        self.assertNotIn('…', content)
+        self.assertNotIn('“', content)
+        self.assertIn('long - road...', content)
+
+
+class TestSanitizeEdl(unittest.TestCase):
+
+    def test_em_dash(self):
+        self.assertEqual(_sanitize_edl('a — b'), 'a - b')
+
+    def test_en_dash(self):
+        self.assertEqual(_sanitize_edl('a – b'), 'a - b')
+
+    def test_ellipsis(self):
+        self.assertEqual(_sanitize_edl('wait…'), 'wait...')
+
+    def test_smart_quotes(self):
+        self.assertEqual(_sanitize_edl('“hello”'), '"hello"')
+
+    def test_star(self):
+        self.assertEqual(_sanitize_edl('★ key moment'), '* key moment')
+
+    def test_plain_text_unchanged(self):
+        self.assertEqual(_sanitize_edl('hello world'), 'hello world')
 
 
 class TestWriteFcp7xml(unittest.TestCase):
