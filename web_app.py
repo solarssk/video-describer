@@ -27,6 +27,7 @@ from processor import (
     _clear_batch_state,
     get_thermal_state,
     run_processing as _run_processing,
+    run_conversion as _run_conversion,
 )
 
 IS_MACOS = platform.system() == 'Darwin'
@@ -344,6 +345,49 @@ def stop():
     """Request graceful cancellation of the active processing batch."""
     stop_event.set()
     return jsonify({'status': 'stopping'})
+
+
+@app.route('/convert', methods=['POST'])
+def convert():
+    """Generate NLE sidecar files for already-processed media without re-running AI."""
+    global is_processing, log_buffer, results_buffer, total_files_global, progress_global
+    config = request.json or {}
+    if not config.get('path'):
+        return jsonify({'error': 'Please provide a folder or file path'}), 400
+
+    with _start_lock:
+        if is_processing:
+            return jsonify({'error': 'Processing already in progress'}), 400
+
+        log_buffer.clear()
+        results_buffer.clear()
+        total_files_global = 0
+        progress_global = {}
+        while not log_queue.empty():
+            try:
+                log_queue.get_nowait()
+            except queue.Empty:
+                break
+        stop_event.clear()
+        is_processing = True
+
+    def _run_convert(cfg):
+        """Run conversion in a background thread and clear busy state."""
+        global is_processing
+        try:
+            _run_conversion(cfg, emit, stop_event)
+        finally:
+            with _start_lock:
+                is_processing = False
+
+    try:
+        thread = threading.Thread(target=_run_convert, args=(config,), daemon=True)
+        thread.start()
+    except Exception:
+        with _start_lock:
+            is_processing = False
+        raise
+    return jsonify({'status': 'started'})
 
 
 @app.route('/state')

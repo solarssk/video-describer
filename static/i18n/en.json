@@ -69,7 +69,17 @@
       "placeholder": "no limit"
     },
     "start": "Start",
-    "stop": "Stop"
+    "stop": "Stop",
+    "convert": "Convert existing"
+  },
+  "convert": {
+    "title": "Convert existing descriptions",
+    "desc": "Generate NLE sidecar files from already-processed .txt files — no AI calls, no API cost.",
+    "cancel": "Cancel",
+    "run": "Generate sidecars",
+    "warn_no_path": "Select a folder first.",
+    "warn_no_formats": "No NLE formats enabled. Go to Settings → NLE Export and enable at least one.",
+    "status_running": "Generating sidecars…"
   },
   "whisper": {
     "tiny": "tiny — fastest, less accurate",

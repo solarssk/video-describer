@@ -848,6 +848,7 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   claimTab();
 
   $('btn-start').style.display = 'none';
+  $('btn-convert').style.display = 'none';
   $('btn-stop').style.display = 'block';
   setStatus('running', t('status.processing'), 'status.processing');
   setFormLocked(true);
@@ -859,6 +860,7 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   }).then(r => r.json()).then(data => {
     if (data.error) {
       addLog(data.error, 'err');
+      setStatus('idle', t('status.ready'), 'status.ready');
       resetUI();
       if (callbacks.onError) callbacks.onError();
       return;
@@ -868,6 +870,7 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
     connectStream();
   }).catch(err => {
     addLog(`Failed to start: ${err}`, 'err');
+    setStatus('idle', t('status.ready'), 'status.ready');
     resetUI();
     if (callbacks.onError) callbacks.onError();
   });
@@ -881,8 +884,10 @@ function stopProcessing() {
 }
 
 function resetUI() {
+  activelyProcessing = false;
   releaseTab();
   $('btn-start').style.display = 'block';
+  $('btn-convert').style.display = 'block';
   $('btn-stop').style.display = 'none';
   $('btn-stop').disabled = false;
   setFormLocked(false);
@@ -965,6 +970,7 @@ async function restoreState() {
     if (state.processing) {
       activelyProcessing = true;
       $('btn-start').style.display = 'none';
+      $('btn-convert').style.display = 'none';
       $('btn-stop').style.display = 'block';
       const progressLabel = state.progress?.current && state.progress?.total
         ? `${state.progress.current}/${state.progress.total}` : null;
@@ -1281,6 +1287,7 @@ window.addEventListener('load', async () => {
     // Set activeProviderName before first updateStartEnabled() so the Start
     // button checks the right provider's connection status from the start
     activeProviderName = data.config?.ai?.provider || 'anthropic';
+    if (data.config) _cachedSettingsCfg = data.config;
   } catch {
     renderPeople(DEFAULT_PEOPLE_FALLBACK);
   }
@@ -1358,4 +1365,107 @@ async function discardBatch() {
   _batchStateData = null;
   $('resume-banner').style.display = 'none';
   await fetch('/batch-state/discard', { method: 'POST' });
+}
+
+// ── Convert existing modal ────────────────────────────────
+function openConvertModal() {
+  const path = $('path').value.trim();
+
+  // Prefer the cached config (loaded when Settings tab was opened) so the
+  // modal works even before the user visits the Settings tab.
+  const nle = _cachedSettingsCfg?.nle_export || {};
+  const formatDefs = [
+    { key: 'fcpxml',  id: 'cfg-nle-fcpxml',  label: 'FCPXML',   ext: '.fcpxml' },
+    { key: 'edl',     id: 'cfg-nle-edl',     label: 'EDL',       ext: '.edl'    },
+    { key: 'fcp7xml', id: 'cfg-nle-fcp7xml', label: 'FCP7 XML',  ext: '.xmeml'  },
+  ];
+  const formats = formatDefs.filter(f => {
+    // Cached config is authoritative (loaded from /config at startup);
+    // fall back to the DOM checkbox only if the config key is absent.
+    if (Object.prototype.hasOwnProperty.call(nle, f.key)) return !!nle[f.key];
+    const el = $(f.id);
+    return el ? el.checked : false;
+  });
+
+  const formatsEl = $('convert-modal-formats');
+  const warnEl    = $('convert-modal-warn');
+  const confirmEl = $('btn-convert-confirm');
+
+  formatsEl.innerHTML = '';
+  warnEl.style.display = 'none';
+
+  if (!path) {
+    warnEl.textContent = t('convert.warn_no_path');
+    warnEl.style.display = 'block';
+    confirmEl.disabled = true;
+  } else if (formats.length === 0) {
+    warnEl.textContent = t('convert.warn_no_formats');
+    warnEl.style.display = 'block';
+    confirmEl.disabled = true;
+  } else {
+    confirmEl.disabled = false;
+    formats.forEach(f => {
+      const row = document.createElement('div');
+      row.className = 'format-row';
+      row.innerHTML = `<span>✓ ${f.label}</span><span class="format-chip">${f.ext}</span>`;
+      formatsEl.appendChild(row);
+    });
+  }
+
+  $('convert-modal-overlay').style.display = 'flex';
+}
+
+function closeConvertModal(e) {
+  if (e && e.target !== $('convert-modal-overlay')) return;
+  $('convert-modal-overlay').style.display = 'none';
+}
+
+function startConversion() {
+  const path = $('path').value.trim();
+  if (!path) return;
+
+  $('convert-modal-overlay').style.display = 'none';
+
+  $('log').innerHTML = '';
+  $('file-cards').innerHTML = '';
+  $('file-cards').style.display = 'none';
+  $('progress-bar').style.width = '0%';
+  totalFiles = 0;
+  activelyProcessing = true;
+  claimTab();
+
+  $('btn-start').style.display = 'none';
+  $('btn-convert').style.display = 'none';
+  $('btn-stop').style.display = 'block';
+  setStatus('running', t('convert.status_running'), 'convert.status_running');
+  setFormLocked(true);
+
+  fetch('/convert', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, output_dir: null }),
+  }).then(r => r.json()).then(data => {
+    if (data.error) {
+      addLog(data.error, 'err');
+      resetConvertUI();
+      return;
+    }
+    setTabState('processing');
+    connectStream();
+  }).catch(err => {
+    addLog(`Failed to start: ${err}`, 'err');
+    resetConvertUI();
+  });
+}
+
+function resetConvertUI() {
+  activelyProcessing = false;
+  releaseTab();
+  $('btn-start').style.display = 'block';
+  $('btn-convert').style.display = 'block';
+  $('btn-stop').style.display = 'none';
+  $('btn-stop').disabled = false;
+  setStatus('idle', t('status.ready'), 'status.ready');
+  setFormLocked(false);
+  updateStartEnabled();
 }
