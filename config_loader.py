@@ -31,6 +31,7 @@ def _preset_path(lang: str) -> Path:
 
 
 def get_version() -> str:
+    """Return the application version string, or 'unknown' when VERSION is missing."""
     try:
         return VERSION_PATH.read_text(encoding='utf-8').strip()
     except OSError:
@@ -94,6 +95,7 @@ def _migrate_legacy_schema(cfg: dict) -> dict:
 
 
 def save_config(config: dict) -> None:
+    """Persist the user-editable runtime config to config.json."""
     CONFIG_PATH.write_text(
         json.dumps(config, indent=2, ensure_ascii=False) + '\n',
         encoding='utf-8',
@@ -113,6 +115,7 @@ def load_system_prompt() -> str:
 
 
 def save_system_prompt(text: str) -> None:
+    """Persist the editable system prompt markdown."""
     PROMPT_PATH.write_text(text, encoding='utf-8')
 
 
