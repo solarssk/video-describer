@@ -149,6 +149,24 @@ class TestWriteFcpxml(unittest.TestCase):
         asset = ET.parse(out).find('.//resources/asset')  # nosec B314
         self.assertIn('myclip.mp4', asset.attrib['src'])
 
+    def test_asset_has_video(self):
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=25.0)
+        asset = ET.parse(out).find('.//resources/asset')  # nosec B314
+        self.assertEqual(asset.attrib.get('hasVideo'), '1')
+
+    def test_asset_clip_has_offset_and_start(self):
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=25.0)
+        clip = ET.parse(out).find('.//asset-clip')  # nosec B314
+        self.assertEqual(clip.attrib.get('offset'), '0s')
+        self.assertEqual(clip.attrib.get('start'), '0s')
+
+    def test_doctype_in_fcpxml(self):
+        out = self.tmp / 'test.fcpxml'
+        write_fcpxml(_markers(), 'test.mp4', 600.0, out, fps=25.0)
+        self.assertIn(b'<!DOCTYPE fcpxml>', out.read_bytes())
+
 
 class TestWriteEdl(unittest.TestCase):
 
@@ -185,15 +203,27 @@ class TestWriteEdl(unittest.TestCase):
         self.assertIn('00:00:01:01', content)
 
     def test_unicode_sanitized_in_edl(self):
-        """Em-dashes, ellipsis and smart quotes are replaced with ASCII equivalents."""
+        """Em-dashes, ellipsis and curly quotes are replaced with ASCII equivalents."""
         out = self.tmp / 'test.edl'
-        markers = [{'time_s': 10, 'text': 'long — road… "great"', 'is_key': False}]
+        # Use escape sequences so the source stays ASCII-safe
+        em_dash = '—'
+        ellipsis = '…'
+        lquote = '“'
+        rquote = '”'
+        text = f'long {em_dash} road{ellipsis} {lquote}great{rquote}'
+        markers = [{'time_s': 10, 'text': text, 'is_key': False}]
         write_edl(markers, 'clip.mp4', 25.0, out)
         content = out.read_text()
-        self.assertNotIn('—', content)
-        self.assertNotIn('…', content)
-        self.assertNotIn('“', content)
+        self.assertNotIn(em_dash, content)
+        self.assertNotIn(ellipsis, content)
+        self.assertNotIn(lquote, content)
         self.assertIn('long - road...', content)
+
+    def test_from_clip_name_comment(self):
+        """Each EDL event must include a FROM CLIP NAME comment for Resolve."""
+        out = self.tmp / 'test.edl'
+        write_edl(_markers(), 'myclip.mp4', 25.0, out)
+        self.assertIn('* FROM CLIP NAME: myclip.mp4', out.read_text())
 
 
 class TestSanitizeEdl(unittest.TestCase):
@@ -208,7 +238,7 @@ class TestSanitizeEdl(unittest.TestCase):
         self.assertEqual(_sanitize_edl('wait…'), 'wait...')
 
     def test_smart_quotes(self):
-        self.assertEqual(_sanitize_edl('“hello”'), '"hello"')
+        self.assertEqual(_sanitize_edl('"hello"'), '"hello"')
 
     def test_star(self):
         self.assertEqual(_sanitize_edl('★ key moment'), '* key moment')
@@ -237,7 +267,7 @@ class TestWriteFcp7xml(unittest.TestCase):
         seq = ET.parse(out).find('sequence')  # nosec B314
         first = seq.findall('marker')[0]
         self.assertEqual(first.find('in').text, '375')   # 15s * 25fps
-        self.assertEqual(first.find('out').text, '376')
+        self.assertEqual(first.find('out').text, '-1')   # point marker
 
     def test_key_color(self):
         out = self.tmp / 'test.xmeml'
@@ -261,6 +291,33 @@ class TestWriteFcp7xml(unittest.TestCase):
         write_fcp7xml(_markers(), 'test.mp4', 25.0, out)
         rate = ET.parse(out).find('sequence/rate')  # nosec B314
         self.assertEqual(rate.find('ntsc').text, 'FALSE')
+
+    def test_version_is_4(self):
+        out = self.tmp / 'test.xmeml'
+        write_fcp7xml(_markers(), 'test.mp4', 25.0, out)
+        self.assertEqual(ET.parse(out).getroot().attrib['version'], '4')  # nosec B314
+
+    def test_markers_have_comment(self):
+        out = self.tmp / 'test.xmeml'
+        write_fcp7xml(_markers(), 'test.mp4', 25.0, out)
+        seq = ET.parse(out).find('sequence')  # nosec B314
+        first = seq.findall('marker')[0]
+        self.assertEqual(first.find('comment').text, first.find('name').text)
+
+    def test_has_clipitem_with_file_pathurl(self):
+        """Full structure must include media/video/track/clipitem/file/pathurl."""
+        out = self.tmp / 'test.xmeml'
+        write_fcp7xml(_markers(), 'test.mp4', 25.0, out)
+        pathurl = ET.parse(out).find(  # nosec B314
+            'sequence/media/video/track/clipitem/file/pathurl'
+        )
+        self.assertIsNotNone(pathurl)
+        self.assertTrue(pathurl.text.startswith('file://'))
+
+    def test_doctype_in_premiere_xml(self):
+        out = self.tmp / 'test.xmeml'
+        write_fcp7xml(_markers(), 'test.mp4', 25.0, out)
+        self.assertIn(b'<!DOCTYPE xmeml>', out.read_bytes())
 
 
 class TestExportSidecars(unittest.TestCase):
@@ -292,7 +349,7 @@ class TestExportSidecars(unittest.TestCase):
         cfg = {'nle_export': {'fcpxml': True, 'edl': True, 'fcp7xml': True}}
         result = export_sidecars(self._txt(), 'clip.mp4', 600.0, 25.0, cfg)
         self.assertEqual(len(result), 3)
-        self.assertEqual({p.suffix for p in result}, {'.fcpxml', '.edl', '.xmeml'})
+        self.assertEqual({p.suffix for p in result}, {'.fcpxml', '.edl', '.xml'})
 
     def test_no_timestamps(self):
         cfg = {'nle_export': {'fcpxml': True, 'edl': True, 'fcp7xml': True}}

@@ -122,6 +122,7 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
                   src=asset_src,
                   start='0s',
                   duration=duration_str,
+                  hasVideo='1',
                   format='r1')
 
     library = ET.SubElement(root, 'library')
@@ -129,6 +130,8 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
     clip = ET.SubElement(event, 'asset-clip',
                          ref='r2',
                          name=clip_name,
+                         offset='0s',
+                         start='0s',
                          duration=duration_str,
                          format='r1',
                          tcFormat='NDF')
@@ -151,6 +154,7 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
     ET.indent(tree, space='  ')
     with out_path.open('wb') as f:
         f.write(b"<?xml version='1.0' encoding='UTF-8'?>\n")
+        f.write(b"<!DOCTYPE fcpxml>\n")
         tree.write(f, encoding='utf-8', xml_declaration=False)
 
 
@@ -172,6 +176,7 @@ def write_edl(markers: list, clip_name: str, fps: float, out_path: Path) -> None
         lines.append(
             f'{idx:03d}  AX  V  C  {tc_in} {tc_out} {tc_in} {tc_out}'
         )
+        lines.append(f'* FROM CLIP NAME: {clip_name}')
         lines.append(f'* |M: {_truncate_edl(_sanitize_edl(mk["text"]))}')
         lines.append(f'* |C: {color}')
         lines.append('')
@@ -181,37 +186,74 @@ def write_edl(markers: list, clip_name: str, fps: float, out_path: Path) -> None
 # ── FCP7 XML / xmeml (Adobe Premiere) ────────────────────────────────────────
 
 def write_fcp7xml(markers: list, clip_name: str, fps: float,
-                  out_path: Path) -> None:
-    """Write an FCP7/xmeml XML file with sequence markers for Adobe Premiere.
+                  out_path: Path, duration_s: float = 0.0,
+                  video_path: Optional[Path] = None) -> None:
+    """Write an FCP7/xmeml v4 XML file with sequence markers for Adobe Premiere.
 
-    Marker positions are expressed in frame numbers (in/out).
-    Import via File > Import in Premiere Pro.
+    Uses Final Cut Pro 7 XML (xmeml v4) structure. Premiere Pro imports this
+    via File > Import. Markers sit at sequence level; the clipitem/file elements
+    give Premiere the media reference so it can locate the source clip.
+    Fractional rates (29.97, 59.94) set ntsc=TRUE so Premiere maps frames
+    to the correct timebase.
     """
     fps_int = int(round(fps))
-    # Fractional rates (29.97, 59.94 …) need ntsc=TRUE so Premiere maps frames
-    # to the correct timebase rather than treating it as true 30/60 fps.
     is_ntsc = abs(fps - fps_int) > 0.01
-    xmeml = ET.Element('xmeml', version='2')
+    ntsc_str = 'TRUE' if is_ntsc else 'FALSE'
+    total_frames = int(round(duration_s * fps)) if duration_s > 0 else 0
+
+    vpath = video_path if video_path else (out_path.parent / clip_name)
+    path_url = vpath.resolve().as_uri()
+
+    def _rate(parent: ET.Element) -> None:
+        r = ET.SubElement(parent, 'rate')
+        ET.SubElement(r, 'timebase').text = str(fps_int)
+        ET.SubElement(r, 'ntsc').text = ntsc_str
+
+    xmeml = ET.Element('xmeml', version='4')
     seq = ET.SubElement(xmeml, 'sequence')
     ET.SubElement(seq, 'name').text = Path(clip_name).stem
-    rate_el = ET.SubElement(seq, 'rate')
-    ET.SubElement(rate_el, 'timebase').text = str(fps_int)
-    ET.SubElement(rate_el, 'ntsc').text = 'TRUE' if is_ntsc else 'FALSE'
+    ET.SubElement(seq, 'duration').text = str(total_frames)
+    _rate(seq)
+
+    tc_el = ET.SubElement(seq, 'timecode')
+    _rate(tc_el)
+    ET.SubElement(tc_el, 'string').text = '00:00:00:00'
+    ET.SubElement(tc_el, 'frame').text = '0'
+    ET.SubElement(tc_el, 'displayformat').text = 'NDF'
+
+    media = ET.SubElement(seq, 'media')
+    video_el = ET.SubElement(media, 'video')
+    track = ET.SubElement(video_el, 'track')
+    clip_el = ET.SubElement(track, 'clipitem', id='clipitem-1')
+    ET.SubElement(clip_el, 'name').text = clip_name
+    ET.SubElement(clip_el, 'duration').text = str(total_frames)
+    _rate(clip_el)
+    ET.SubElement(clip_el, 'start').text = '0'
+    ET.SubElement(clip_el, 'end').text = str(total_frames)
+    ET.SubElement(clip_el, 'in').text = '0'
+    ET.SubElement(clip_el, 'out').text = str(total_frames)
+
+    file_el = ET.SubElement(clip_el, 'file', id='file-1')
+    ET.SubElement(file_el, 'name').text = clip_name
+    ET.SubElement(file_el, 'pathurl').text = path_url
+    _rate(file_el)
+    ET.SubElement(file_el, 'duration').text = str(total_frames)
 
     for mk in markers:
-        frame_in  = int(round(mk['time_s'] * fps))
-        frame_out = frame_in + 1
-        marker_el = ET.SubElement(seq, 'marker')
-        ET.SubElement(marker_el, 'name').text = mk['text']
-        ET.SubElement(marker_el, 'in').text   = str(frame_in)
-        ET.SubElement(marker_el, 'out').text  = str(frame_out)
+        frame_in = int(round(mk['time_s'] * fps))
+        m_el = ET.SubElement(seq, 'marker')
+        ET.SubElement(m_el, 'name').text = mk['text']
+        ET.SubElement(m_el, 'comment').text = mk['text']
+        ET.SubElement(m_el, 'in').text = str(frame_in)
+        ET.SubElement(m_el, 'out').text = '-1'
         if mk['is_key']:
-            ET.SubElement(marker_el, 'color').text = 'red'
+            ET.SubElement(m_el, 'color').text = 'red'
 
     tree = ET.ElementTree(xmeml)
     ET.indent(tree, space='  ')
     with out_path.open('wb') as f:
         f.write(b"<?xml version='1.0' encoding='utf-8'?>\n")
+        f.write(b"<!DOCTYPE xmeml>\n")
         tree.write(f, encoding='utf-8', xml_declaration=False)
 
 
@@ -251,8 +293,10 @@ def export_sidecars(txt_path: Path, clip_name: str, duration_s: float,
         written.append(p)
 
     if nle_cfg.get('fcp7xml') and fps and fps > 0:
-        p = base.with_suffix('.xmeml')
-        write_fcp7xml(markers, clip_name, fps, p)
+        p = base.with_suffix('.xml')
+        video_path_p = txt_path.parent / clip_name
+        write_fcp7xml(markers, clip_name, fps, p, duration_s=duration_s,
+                      video_path=video_path_p if video_path_p.exists() else None)
         written.append(p)
 
     return written
