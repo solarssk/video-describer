@@ -860,6 +860,7 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   }).then(r => r.json()).then(data => {
     if (data.error) {
       addLog(data.error, 'err');
+      setStatus('idle', t('status.ready'), 'status.ready');
       resetUI();
       if (callbacks.onError) callbacks.onError();
       return;
@@ -869,6 +870,7 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
     connectStream();
   }).catch(err => {
     addLog(`Failed to start: ${err}`, 'err');
+    setStatus('idle', t('status.ready'), 'status.ready');
     resetUI();
     if (callbacks.onError) callbacks.onError();
   });
@@ -882,6 +884,7 @@ function stopProcessing() {
 }
 
 function resetUI() {
+  activelyProcessing = false;
   releaseTab();
   $('btn-start').style.display = 'block';
   $('btn-convert').style.display = 'block';
