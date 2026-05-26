@@ -1284,6 +1284,7 @@ window.addEventListener('load', async () => {
     // Set activeProviderName before first updateStartEnabled() so the Start
     // button checks the right provider's connection status from the start
     activeProviderName = data.config?.ai?.provider || 'anthropic';
+    if (data.config) _cachedSettingsCfg = data.config;
   } catch {
     renderPeople(DEFAULT_PEOPLE_FALLBACK);
   }
@@ -1461,6 +1462,7 @@ function resetConvertUI() {
   $('btn-convert').style.display = 'block';
   $('btn-stop').style.display = 'none';
   $('btn-stop').disabled = false;
+  setStatus('idle', t('status.ready'), 'status.ready');
   setFormLocked(false);
   updateStartEnabled();
 }
