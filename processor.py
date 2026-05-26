@@ -711,3 +711,61 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 sleep_block.release()
             except Exception:
                 pass
+
+
+def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
+    """Generate NLE sidecar files for already-processed media without re-running AI.
+
+    Scans the configured path for media files, finds their existing .txt outputs,
+    and calls export_sidecars() on each. No API calls are made.
+    """
+    cfg = config_loader.load_config()
+    cfg.update(config)
+
+    nle_cfg = cfg.get('nle_export', {})
+    if not any(nle_cfg.values()):
+        emit_fn({'type': 'error', 'text': 'No NLE formats enabled. Enable at least one in Settings → NLE Export.'})
+        return
+
+    media = find_media([config['path']])
+    if not media:
+        emit_fn({'type': 'error', 'text': f"No video/photo files found in: {config['path']}"})
+        return
+
+    out_dir = Path(config['output_dir']) if config.get('output_dir') else None
+    total = len(media)
+    converted = 0
+    skipped = 0
+    errors = 0
+
+    emit_fn({'type': 'log', 'text': f'Found {total} media file(s) — scanning for existing descriptions…'})
+
+    for i, (file_path, media_type) in enumerate(media, 1):
+        if stop_event.is_set():
+            break
+
+        emit_fn({'type': 'progress', 'current': i, 'total': total, 'file': file_path.name})
+
+        if media_type != 'video':
+            skipped += 1
+            continue
+
+        existing = find_existing_output(file_path, out_dir)
+        if not existing:
+            skipped += 1
+            continue
+
+        _dur, _fps = get_video_metadata(str(file_path))
+        try:
+            sidecars = export_sidecars(existing, file_path.name, _dur, _fps, cfg)
+            if sidecars:
+                for sc in sidecars:
+                    emit_fn({'type': 'log', 'text': f'  {file_path.name} → {sc.name}'})
+                converted += 1
+            else:
+                skipped += 1
+        except Exception as exc:
+            errors += 1
+            emit_fn({'type': 'log', 'text': f'⚠ {file_path.name}: {exc}'})
+
+    emit_fn({'type': 'done', 'processed': converted, 'skipped': skipped, 'errors': errors})

@@ -174,6 +174,7 @@
       </div>
       <button class="btn btn-start" id="btn-start" onclick="startProcessing()" data-i18n="form.start">Start</button>
       <button class="btn btn-stop"  id="btn-stop"  onclick="stopProcessing()" data-i18n="form.stop">Stop</button>
+      <button class="btn btn-secondary" id="btn-convert" onclick="openConvertModal()" data-i18n="form.convert">Convert existing</button>
     </div>
 
   </div>
@@ -500,6 +501,20 @@
     </div>
   </div>
 </div><!-- /pane-connectors -->
+
+<!-- Convert existing modal -->
+<div id="convert-modal-overlay" class="modal-overlay" style="display:none" onclick="closeConvertModal(event)">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="convert-modal-title">
+    <h2 id="convert-modal-title" data-i18n="convert.title">Convert existing descriptions</h2>
+    <p class="muted small" data-i18n="convert.desc">Generate NLE sidecar files from already-processed .txt files — no AI calls, no API cost.</p>
+    <div id="convert-modal-formats" class="convert-formats"></div>
+    <div id="convert-modal-warn" class="convert-warn" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeConvertModal()" data-i18n="convert.cancel">Cancel</button>
+      <button class="btn btn-start" id="btn-convert-confirm" onclick="startConversion()" data-i18n="convert.run">Generate sidecars</button>
+    </div>
+  </div>
+</div>
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 <script>

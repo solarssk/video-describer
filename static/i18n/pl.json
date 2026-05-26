@@ -69,7 +69,17 @@
       "placeholder": "bez limitu"
     },
     "start": "Rozpocznij",
-    "stop": "Zatrzymaj"
+    "stop": "Zatrzymaj",
+    "convert": "Konwertuj istniejące"
+  },
+  "convert": {
+    "title": "Konwertuj istniejące opisy",
+    "desc": "Generuj pliki NLE z istniejących plików .txt — bez wywołań AI, bez kosztu API.",
+    "cancel": "Anuluj",
+    "run": "Generuj sidecary",
+    "warn_no_path": "Najpierw wybierz folder.",
+    "warn_no_formats": "Brak włączonych formatów NLE. Przejdź do Ustawień → Eksport NLE i włącz co najmniej jeden.",
+    "status_running": "Generowanie sidecarów…"
   },
   "whisper": {
     "tiny": "tiny — najszybszy, mniej dokładny",
