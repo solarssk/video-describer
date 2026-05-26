@@ -1455,6 +1455,7 @@ function startConversion() {
 }
 
 function resetConvertUI() {
+  activelyProcessing = false;
   releaseTab();
   $('btn-start').style.display = 'block';
   $('btn-convert').style.display = 'block';
