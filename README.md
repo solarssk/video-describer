@@ -24,7 +24,20 @@ VID_20250829_173904 — departure day, Filip and Jadzia pack the motorcycle outs
 08:12  they pull out onto the street, morning light, long shadows
 ```
 
-One `.txt` per file, next to the original. Your editor can grep it, read it, feed it into their own workflow — it's just text.
+One `.txt` per file, next to the original. New outputs use the source filename plus `.txt`, for example `video.mp4.txt`, so `video.mp4` and `video.jpg` cannot collide. Your editor can grep it, read it, feed it into their own workflow — it's just text.
+
+New `.txt` files also end with a small metadata footer:
+
+```text
+---
+source: video.mp4
+uuid: d1e2f3a4-...
+batch: a3f8b2c1-...
+processed: 2026-05-26T12:34:00+00:00
+model: claude-sonnet-4-6
+```
+
+Older `video.txt` outputs from previous versions are still treated as valid legacy results.
 
 ---
 
@@ -117,8 +130,8 @@ Unsupported files are ignored when scanning a folder, and a directly selected un
 - **iPhone `.mov` clips** — supported when readable by local ffmpeg
 - **Insta360 `.insv`** — dual-lens, both cameras analyzed
 - **Photos** — `.jpg`, `.jpeg`, `.png`
-- **Auto-resume** — skips files that already have a `.txt`
-- **Batch resume** — if the batch stops (crash, power loss, manual stop), the app remembers where it was; on next launch it offers to pick up from file 7/15, $0.43 already spent
+- **Auto-resume** — skips files that already have a `.txt`, including legacy `stem.txt` outputs
+- **Batch resume** — if the batch stops (crash, power loss, manual stop), the app stores a manifest in `batch_state.json` with one UUID and status per file; on next launch it offers to pick up from file 7/15, $0.43 already spent
 - **Budget guard** — set a USD cap before starting; the batch stops gracefully before it would exceed it
 - **Folder summary** — after each batch, `_summary.txt` is written: one line per file with a short description, plus totals; useful for editors who want a map of the material before opening anything
 - **File selection** — deselect individual files from the list before starting
@@ -165,13 +178,19 @@ The system prompt lives in `prompts/system.md`. Change it to change the output l
 video-describer/
 ├── web_app.py               — Waitress/Flask app, HTTP endpoints, SSE
 ├── processor.py             — web batch loop, resume state, cost/log plumbing
+├── batch_metadata.py        — batch manifest + .txt metadata helpers
 ├── describe_videos.py       — media/frame/transcription helpers + CLI
+├── output_paths.py          — new/legacy output path handling
+├── timefmt.py               — timestamp formatting
+├── nle_export.py            — FCPXML / EDL / FCP7 XML sidecar export
 ├── config_loader.py
 ├── config.default.json      — factory settings (in git)
 ├── config.json              — your settings + API key (gitignored)
 ├── providers/
 │   ├── base.py
-│   └── anthropic_provider.py
+│   ├── anthropic_provider.py
+│   ├── openai_provider.py
+│   └── gemini_provider.py
 ├── prompts/
 │   ├── system.pl.default.md
 │   ├── system.en.default.md

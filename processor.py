@@ -14,8 +14,19 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from pathlib import Path
 
+from batch_metadata import (
+    append_metadata_footer,
+    build_batch_state,
+    build_manifest_files,
+    counts_from_files,
+    mark_file,
+    summary_description,
+    utc_timestamp,
+    write_json_atomic,
+)
 from output_paths import find_existing_output, output_txt_path
 
 import psutil
@@ -115,30 +126,27 @@ def _prevent_sleep() -> '_SleepBlock':
 
 def _save_batch_state(config: dict, next_index: int, total: int,
                       processed: int, skipped: int, errors: int,
-                      usage: dict, next_filename=None) -> None:
-    import copy
-    import datetime
-    safe_config = copy.deepcopy(config)
-    safe_config.pop('api_key', None)
-    for section in ('ai', 'connectors'):
-        for provider_cfg in safe_config.get(section, {}).values():
-            if isinstance(provider_cfg, dict):
-                provider_cfg.pop('api_key', None)
-    state = {
-        'config': safe_config,
-        'next_index': next_index,
-        'next_filepath': next_filename,
-        'total': total,
-        'processed': processed,
-        'skipped': skipped,
-        'errors': errors,
-        'cost_usd': usage['cost_usd'],
-        'timestamp': datetime.datetime.now().isoformat(timespec='seconds'),
-    }
+                      usage: dict, next_filename=None,
+                      files: list = None, batch_id: str = None) -> None:
+    if files is None:
+        files = []
+    state = build_batch_state(
+        config=config,
+        files=files,
+        usage=usage,
+        batch_id=batch_id or str(uuid.uuid4()),
+    )
+    if not files:
+        state.update({
+            'next_index': next_index,
+            'next_filepath': next_filename,
+            'total': total,
+            'processed': processed,
+            'skipped': skipped,
+            'errors': errors,
+        })
     try:
-        tmp = BATCH_STATE_PATH.with_suffix('.json.tmp')
-        tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
-        tmp.replace(BATCH_STATE_PATH)
+        write_json_atomic(BATCH_STATE_PATH, state)
     except OSError as e:
         print(f"⚠ Warning: could not save batch state: {e}")
 
@@ -280,6 +288,21 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             emit_fn({'type': 'error', 'text': f"No video/photo files found in: {config['path']}"})
             return
 
+        out_dir = Path(config['output_dir']) if config.get('output_dir') else None
+        if out_dir:
+            out_dir.mkdir(parents=True, exist_ok=True)
+
+        is_resume_request = (
+            'resume_from_index' in config
+            or config.get('resume_next_filepath') is not None
+        )
+        previous_state = None
+        try:
+            if is_resume_request and BATCH_STATE_PATH.exists():
+                previous_state = json.loads(BATCH_STATE_PATH.read_text(encoding='utf-8'))
+        except (OSError, json.JSONDecodeError):
+            previous_state = None
+
         resume_from = int(config.get('resume_from_index', 0) or 0)
         resume_next_filepath = config.get('resume_next_filepath')
         if resume_next_filepath and resume_from > 0:
@@ -289,8 +312,26 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                         resume_from = _idx
                         break
                 else:
-                    resume_from = 0
+                    emit_fn({
+                        'type': 'error',
+                        'text': (
+                            'Cannot safely resume: saved next file is no longer in the selected folder. '
+                            'Discard the saved batch state and start again.'
+                        ),
+                    })
+                    return
         total_media = len(media)
+        batch_id = (
+            previous_state.get('batch_id')
+            if isinstance(previous_state, dict) and previous_state.get('batch_id')
+            else str(uuid.uuid4())
+        )
+        manifest_files = build_manifest_files(
+            media,
+            out_dir,
+            previous_state=previous_state if isinstance(previous_state, dict) else None,
+            resume_from_index=resume_from,
+        )
         pre_resume_media = media[:resume_from]
         if resume_from > 0:
             media = media[resume_from:]
@@ -345,9 +386,10 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                          f'${budget_usd:.2f} — batch not started'})
                 return
 
-        processed = int(config.get('resume_processed', 0) or 0)
-        skipped   = int(config.get('resume_skipped',   0) or 0)
-        errors    = int(config.get('resume_errors',    0) or 0)
+        _counts = counts_from_files(manifest_files)
+        processed = _counts['processed']
+        skipped   = _counts['skipped']
+        errors    = _counts['errors']
 
         _provider_key = cfg['ai'].get('provider', 'anthropic')
         _model_label  = cfg['ai'].get(_provider_key, {}).get('model', '?')
@@ -366,16 +408,16 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         completed_times: list = []
         summary_entries: list = []
         if pre_resume_media and config.get('generate_summary'):
-            _out_base = Path(config['output_dir']) if config.get('output_dir') else None
-            for _fp, _ in pre_resume_media:
-                _txt = find_existing_output(_fp, _out_base)
-                if _txt is None:
+            for _idx, (_fp, _) in enumerate(pre_resume_media):
+                _entry = manifest_files[_idx]
+                _txt = Path(_entry['output'])
+                if not _txt.exists():
                     continue
                 try:
-                    _line = _txt.read_text(encoding='utf-8').split('\n')[0]
-                    if ' - ' in _line:
-                        _line = _line.split(' - ', 1)[1]
-                    summary_entries.append((_fp.name, _line))
+                    summary_entries.append((
+                        _fp.name,
+                        summary_description(_txt.read_text(encoding='utf-8')),
+                    ))
                 except OSError:
                     pass
 
@@ -428,9 +470,19 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             logger.debug(f'  ↳ {input_tok:,} in / {output_tok:,} out tok — ${call_cost:.4f}')
             emit_fn({'type': 'usage', **usage})
 
-        out_dir = Path(config['output_dir']) if config.get('output_dir') else None
-        if out_dir:
-            out_dir.mkdir(parents=True, exist_ok=True)
+        def _sync_counts():
+            nonlocal processed, skipped, errors
+            _counts = counts_from_files(manifest_files)
+            processed = _counts['processed']
+            skipped = _counts['skipped']
+            errors = _counts['errors']
+
+        def _persist_state():
+            _sync_counts()
+            _save_batch_state(
+                config, 0, total_media, processed, skipped, errors, usage,
+                files=manifest_files, batch_id=batch_id,
+            )
 
         for i, (file_path, media_type) in enumerate(media, 1):
             if stop_event.is_set():
@@ -459,6 +511,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             output_path = output_txt_path(file_path, out_dir)
 
             abs_index = resume_from + i
+            manifest_entry = manifest_files[abs_index - 1]
             emit_fn({'type': 'progress', 'current': abs_index, 'total': total_media, 'file': file_path.name})
             print(f"[{abs_index}/{total_media}] {file_path.name}")
 
@@ -467,29 +520,31 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 output_path = existing  # honour legacy path if that's what exists
                 print(f"  Skipped — {existing.name} already exists")
                 logger.debug(f'[skip:{file_path.name}]  .txt exists')
-                skipped += 1
+                mark_file(manifest_files, file_path, 'skipped', output=output_path)
+                _sync_counts()
                 emit_fn({'type': 'skipped', 'file': file_path.name})
-                _save_batch_state(config, abs_index, total_media, processed, skipped, errors, usage,
-                                  next_filename=str(media[i][0]) if i < len(media) else None)
+                _persist_state()
                 if config.get('generate_summary'):
                     try:
-                        _line = output_path.read_text(encoding='utf-8').split('\n')[0]
-                        if ' - ' in _line:
-                            _line = _line.split(' - ', 1)[1]
-                        summary_entries.append((file_path.name, _line))
+                        summary_entries.append((
+                            file_path.name,
+                            summary_description(output_path.read_text(encoding='utf-8')),
+                        ))
                     except OSError:
                         pass
                 continue
 
             if media_type == 'photo' and not analyze_images:
                 print("  Skipped — photo requires AI analysis (currently disabled)")
-                skipped += 1
+                mark_file(manifest_files, file_path, 'skipped', output=output_path)
+                _sync_counts()
                 emit_fn({'type': 'skipped', 'file': file_path.name})
-                _save_batch_state(config, abs_index, total_media, processed, skipped, errors, usage,
-                                  next_filename=str(media[i][0]) if i < len(media) else None)
+                _persist_state()
                 continue
 
             try:
+                mark_file(manifest_files, file_path, 'in_progress', output=output_path)
+                _persist_state()
                 file_start[0] = time.time()
                 current_progress[0] = None
                 current_progress[1] = ''
@@ -530,7 +585,16 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
 
                 current_step[0] = ''
                 completed_times.append(time.time() - file_start[0])
-                output_path.write_text(desc + '\n', encoding='utf-8')
+                processed_at = utc_timestamp()
+                desc_with_metadata = append_metadata_footer(
+                    desc,
+                    source=file_path.name,
+                    file_uuid=manifest_entry['uuid'],
+                    batch_id=batch_id,
+                    processed=processed_at,
+                    model=_model_label,
+                )
+                output_path.write_text(desc_with_metadata, encoding='utf-8')
                 print(f"  Saved: {output_path.name}")
 
                 if media_type == 'video' and any(cfg.get('nle_export', {}).values()):
@@ -551,10 +615,9 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                                            file_path.name, _flag_err)
                         print(f"  ⚠ NLE export failed: {_warn}")
                         emit_fn({'type': 'log', 'text': f'⚠ NLE export failed for {file_path.name}: {_warn}'})
-                processed += 1
-                first_line = desc.split('\n')[0] if desc else ''
-                if ' - ' in first_line:
-                    first_line = first_line.split(' - ', 1)[1]
+                mark_file(manifest_files, file_path, 'done', output=output_path)
+                _sync_counts()
+                first_line = summary_description(desc_with_metadata)
                 summary_entries.append((file_path.name, first_line))
                 file_in   = usage['input']    - file_usage_before['input']
                 file_out  = usage['output']   - file_usage_before['output']
@@ -567,8 +630,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 )
                 emit_fn({'type': 'done_file', 'file': file_path.name, 'output': str(output_path),
                          'preview': first_line, 'file_tokens': file_tokens, 'file_cost': file_cost})
-                _save_batch_state(config, abs_index, total_media, processed, skipped, errors, usage,
-                                  next_filename=str(media[i][0]) if i < len(media) else None)
+                _persist_state()
 
             except InterruptedError:
                 current_step[0] = ''
@@ -579,11 +641,10 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 current_step[0] = ''
                 err_msg = str(e)
                 print(f"  ERROR: {err_msg}")
-                errors += 1
+                mark_file(manifest_files, file_path, 'error', output=output_path, error=err_msg)
+                _sync_counts()
                 emit_fn({'type': 'error_file', 'file': file_path.name, 'error': err_msg})
-                # abs_index - 1 so resume retries the failed file on next run
-                _save_batch_state(config, abs_index - 1, total_media, processed, skipped, errors, usage,
-                                  next_filename=str(file_path))
+                _persist_state()
                 if _is_fatal_api_error(err_msg):
                     print(f"⛔ Stopping batch: {err_msg}")
                     emit_fn({'type': 'error', 'text': f'⛔ {err_msg}'})

@@ -4,6 +4,19 @@ All notable changes to Video Describer are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Batch manifest schema v2** — `batch_state.json` now stores `schema_version`, `batch_id`, and a per-file manifest with UUID, output path, status, and error fields. Legacy `next_index` / `next_filepath` fields are still written for the current resume UI.
+- **Metadata footer for new `.txt` outputs** — generated descriptions now include `source`, `uuid`, `batch`, `processed`, and `model` metadata after a `---` separator. Summary generation ignores this footer.
+
+### Security
+
+- Batch state secret redaction is now recursive and removes nested API keys, webhook URLs, tokens, secrets, and passwords before writing state.
+
+---
+
 ## [0.3.0] — 2026-05-25
 
 ### Added
