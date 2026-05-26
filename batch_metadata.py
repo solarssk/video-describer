@@ -4,6 +4,7 @@ import copy
 import datetime
 import json
 import os
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -12,6 +13,7 @@ from output_paths import find_existing_output, output_txt_path
 
 SCHEMA_VERSION = 2
 FOOTER_SEPARATOR = "---"
+ALLOWED_STATUSES = {"pending", "in_progress", "done", "skipped", "error"}
 _SECRET_KEYS = (
     "api_key",
     "webhook_url",
@@ -77,7 +79,7 @@ def build_manifest_files(media: list, out_dir: Optional[Path] = None,
             "uuid": entry_uuid,
             "path": str(source_path),
             "output": output,
-            "status": status if status in {"pending", "in_progress", "done", "skipped", "error"} else "pending",
+            "status": status if status in ALLOWED_STATUSES else "pending",
             "error": error,
         })
     return files
@@ -105,6 +107,7 @@ def next_retry_index(files: list) -> int:
 
 
 def next_retry_path(files: list) -> Optional[str]:
+    """Return the source path for the first retryable manifest entry."""
     idx = next_retry_index(files)
     if idx >= len(files):
         return None
@@ -114,6 +117,12 @@ def next_retry_path(files: list) -> Optional[str]:
 def mark_file(files: list, source_path: Path, status: str,
               output: Optional[Path] = None, error: Optional[str] = None) -> dict:
     """Update one manifest entry and return it."""
+    if status not in ALLOWED_STATUSES:
+        raise ValueError(
+            f"Invalid file status '{status}'. "
+            "mark_file status must be one of the values consumed by "
+            "counts_from_files and next_retry_index."
+        )
     source_text = str(source_path)
     for item in files:
         if item.get("path") == source_text:
@@ -146,17 +155,34 @@ def build_batch_state(config: dict, files: list, usage: dict,
 
 def write_json_atomic(path: Path, data: dict) -> None:
     """Persist JSON via temp file + fsync + rename."""
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp_path = None
     payload = json.dumps(data, ensure_ascii=False, indent=2)
-    with tmp.open("w", encoding="utf-8") as f:
-        f.write(payload)
-        f.write("\n")
-        f.flush()
-        os.fsync(f.fileno())
-    tmp.replace(path)
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as f:
+            tmp_path = Path(f.name)
+            f.write(payload)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        tmp_path.replace(path)
+    except Exception:
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        raise
 
 
 def has_metadata_footer(text: str) -> bool:
+    """Return True when text ends with a parseable metadata footer."""
     body, metadata = split_metadata_footer(text)
     return metadata != {} and body != text
 

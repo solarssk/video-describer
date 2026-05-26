@@ -521,7 +521,6 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 print(f"  Skipped — {existing.name} already exists")
                 logger.debug(f'[skip:{file_path.name}]  .txt exists')
                 mark_file(manifest_files, file_path, 'skipped', output=output_path)
-                _sync_counts()
                 emit_fn({'type': 'skipped', 'file': file_path.name})
                 _persist_state()
                 if config.get('generate_summary'):
@@ -537,7 +536,6 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             if media_type == 'photo' and not analyze_images:
                 print("  Skipped — photo requires AI analysis (currently disabled)")
                 mark_file(manifest_files, file_path, 'skipped', output=output_path)
-                _sync_counts()
                 emit_fn({'type': 'skipped', 'file': file_path.name})
                 _persist_state()
                 continue
@@ -613,10 +611,9 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                         except OSError as _flag_err:
                             logger.warning("Could not write sidecar error flag for %s: %s",
                                            file_path.name, _flag_err)
-                        print(f"  ⚠ NLE export failed: {_warn}")
-                        emit_fn({'type': 'log', 'text': f'⚠ NLE export failed for {file_path.name}: {_warn}'})
+                print(f"  ⚠ NLE export failed: {_warn}")
+                emit_fn({'type': 'log', 'text': f'⚠ NLE export failed for {file_path.name}: {_warn}'})
                 mark_file(manifest_files, file_path, 'done', output=output_path)
-                _sync_counts()
                 first_line = summary_description(desc_with_metadata)
                 summary_entries.append((file_path.name, first_line))
                 file_in   = usage['input']    - file_usage_before['input']

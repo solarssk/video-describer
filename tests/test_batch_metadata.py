@@ -9,6 +9,7 @@ from batch_metadata import (
     build_manifest_files,
     counts_from_files,
     has_metadata_footer,
+    mark_file,
     next_retry_index,
     redact_secrets,
     split_metadata_footer,
@@ -90,6 +91,18 @@ class BatchManifestTests(unittest.TestCase):
         self.assertEqual(files[0]["uuid"], "file-1")
         self.assertEqual(files[0]["output"], str(custom))
         self.assertEqual(files[0]["status"], "error")
+
+    def test_mark_file_rejects_unknown_status(self):
+        files = [{
+            "uuid": "file-1",
+            "path": "/x/video.mp4",
+            "output": "/x/video.mp4.txt",
+            "status": "pending",
+            "error": None,
+        }]
+        with self.assertRaises(ValueError):
+            mark_file(files, Path("/x/video.mp4"), "finished")
+        self.assertEqual(files[0]["status"], "pending")
 
 
 class SecretRedactionTests(unittest.TestCase):
@@ -180,7 +193,7 @@ class MetadataFooterTests(unittest.TestCase):
             path = Path(tmp) / "state.json"
             write_json_atomic(path, {"ok": True})
             self.assertEqual(json.loads(path.read_text()), {"ok": True})
-            self.assertFalse((Path(tmp) / "state.json.tmp").exists())
+            self.assertEqual(list(Path(tmp).glob("*.tmp")), [])
 
 
 if __name__ == "__main__":
