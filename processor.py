@@ -114,13 +114,20 @@ class _SleepBlock:
                 self.handle.kill()
             except Exception:
                 pass
+            finally:
+                self.handle = None
+                print("🔓 Caffeinate released — Mac can sleep again")
 
 
 def _prevent_sleep() -> '_SleepBlock':
-    """Start macOS caffeinate when available and return a release handle."""
+    """Start macOS caffeinate when available and return a release handle.
+
+    Passes -w <pid> so caffeinate auto-exits if the Python process is killed
+    unexpectedly (SIGKILL, crash) without reaching the finally block.
+    """
     try:
         proc = subprocess.Popen(
-            ['caffeinate', '-d', '-i', '-m'],
+            ['caffeinate', '-d', '-i', '-m', '-w', str(os.getpid())],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         print("🔒 Caffeinate active — Mac will not sleep during processing")
