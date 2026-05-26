@@ -96,10 +96,14 @@ def get_thermal_state() -> dict:
 # ── Sleep prevention ──────────────────────────────────────────────────────────
 
 class _SleepBlock:
+    """Handle for a best-effort macOS sleep-prevention process."""
+
     def __init__(self, handle=None):
+        """Store the optional subprocess handle to release later."""
         self.handle = handle
 
     def release(self):
+        """Terminate the sleep-prevention process if it was started."""
         if self.handle is not None:
             try:
                 self.handle.terminate()
@@ -111,6 +115,7 @@ class _SleepBlock:
 
 
 def _prevent_sleep() -> '_SleepBlock':
+    """Start macOS caffeinate when available and return a release handle."""
     try:
         proc = subprocess.Popen(
             ['caffeinate', '-d', '-i', '-m'],
@@ -125,6 +130,7 @@ def _prevent_sleep() -> '_SleepBlock':
 # ── Batch state persistence ───────────────────────────────────────────────────
 
 def _save_batch_state(config: dict, files: list, usage: dict, batch_id: str) -> None:
+    """Persist the current schema-v2 batch manifest state."""
     state = build_batch_state(
         config=config,
         files=files,
@@ -138,6 +144,7 @@ def _save_batch_state(config: dict, files: list, usage: dict, batch_id: str) -> 
 
 
 def _clear_batch_state() -> None:
+    """Remove the persisted batch resume state, ignoring missing files."""
     try:
         BATCH_STATE_PATH.unlink(missing_ok=True)
     except OSError:
@@ -147,6 +154,7 @@ def _clear_batch_state() -> None:
 # ── Cost + error helpers ──────────────────────────────────────────────────────
 
 def _calc_cost(input_tok: int, output_tok: int, cfg: dict = None) -> float:
+    """Calculate provider cost in USD from token usage and configured prices."""
     cfg = cfg or config_loader.load_config()
     provider_name = cfg['ai']['provider']
     p = cfg['ai'][provider_name]
@@ -165,11 +173,13 @@ _FATAL_API_PATTERNS = (
 
 
 def _is_fatal_api_error(error_msg: str) -> bool:
+    """Return True for provider errors that should stop the whole batch."""
     lower = (error_msg or '').lower()
     return any(p in lower for p in _FATAL_API_PATTERNS)
 
 
 def _preflight_api(provider) -> tuple:
+    """Run the provider's lightweight credential/model verification."""
     return provider.verify()
 
 
@@ -180,16 +190,19 @@ class QueueLogger:
     Terminal output is handled by logger's console handler — no double write.
     """
     def __init__(self, logger, emit_fn):
+        """Create a stdout-like adapter backed by app logging and SSE emit."""
         self._logger = logger
         self._emit = emit_fn
 
     def write(self, text: str):
+        """Write one non-empty log line to both destinations."""
         if text and text.strip():
             t = text.rstrip()
             self._logger.info(t)
             self._emit({'type': 'warn', 'text': t} if t.startswith('⚠') else {'type': 'log', 'text': t})
 
     def flush(self):
+        """Flush the real stdout stream used by the console handler."""
         sys.__stdout__.flush()
 
 

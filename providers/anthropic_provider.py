@@ -25,12 +25,16 @@ def _clean_error_msg(e: Exception) -> str:
 
 
 class AnthropicProvider(AIProvider):
+    """AI provider adapter for Anthropic Claude messages API."""
+
     def __init__(self, api_key: str, model: str, timeout: int = 600):
+        """Create an Anthropic SDK client for the configured model."""
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
         self.timeout = timeout
 
     def verify(self) -> tuple:
+        """Check that the configured API key and model can create a tiny message."""
         try:
             self.client.messages.create(
                 model=self.model,
@@ -43,6 +47,7 @@ class AnthropicProvider(AIProvider):
 
     def describe(self, content_blocks: list, system_prompt: str,
                  max_tokens: int) -> ProviderResponse:
+        """Generate a description from Anthropic-format content blocks."""
         # content_blocks is already in Anthropic format — pass through.
         try:
             response = self.client.messages.create(

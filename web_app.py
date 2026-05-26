@@ -38,6 +38,7 @@ class _QuietAccessLogFilter(logging.Filter):
     NOISY = ('/metrics', '/state', '/status', '/stream', '/api-status')
 
     def filter(self, record):
+        """Return False for noisy polling requests in Werkzeug access logs."""
         msg = record.getMessage()
         for path in self.NOISY:
             if f'GET {path} ' in msg or f'POST {path} ' in msg:
@@ -107,10 +108,12 @@ _last_picker_dir_lock = threading.Lock()
 
 
 def _applescript_quote(value: str) -> str:
+    """Quote a string for interpolation into AppleScript snippets."""
     return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
 
 def _picker_default_dir() -> str:
+    """Return the last accessible picker directory, or an empty default."""
     with _last_picker_dir_lock:
         default_dir = _last_picker_dir
     if not default_dir:
@@ -124,6 +127,7 @@ def _picker_default_dir() -> str:
 
 
 def _picker_helper_path() -> str:
+    """Build or reuse the Swift macOS picker helper and return its path."""
     if not IS_MACOS or not _PICKER_HELPER_SOURCE.exists():
         return ''
     swiftc = shutil.which('swiftc')
@@ -162,6 +166,7 @@ def _picker_helper_path() -> str:
 
 
 def _remember_picked_dir(kind: str, picked_path: str) -> None:
+    """Remember the picked folder, or parent folder for picked files."""
     global _last_picker_dir
 
     next_default_dir = picked_path if kind == 'folder' else os.path.dirname(picked_path)
@@ -171,6 +176,7 @@ def _remember_picked_dir(kind: str, picked_path: str) -> None:
 
 
 def _run_swift_picker(kind: str, default_dir: str):
+    """Run the native Swift picker helper and normalize its result payload."""
     helper = _picker_helper_path()
     if not helper:
         return None
@@ -248,6 +254,7 @@ def emit(msg: dict):
 
 @app.route('/')
 def index():
+    """Render the main web application page."""
     return render_template('index.html',
                            whisper_available=WHISPER_AVAILABLE,
                            version=VERSION)
@@ -255,6 +262,7 @@ def index():
 
 @app.route('/batch-state', methods=['GET'])
 def batch_state():
+    """Return saved batch resume state, or null when no state exists."""
     if BATCH_STATE_PATH.exists():
         try:
             return jsonify(json.loads(BATCH_STATE_PATH.read_text(encoding='utf-8')))
@@ -265,12 +273,14 @@ def batch_state():
 
 @app.route('/batch-state/discard', methods=['POST'])
 def batch_state_discard():
+    """Discard saved batch resume state after user confirmation."""
     _clear_batch_state()
     return jsonify({'ok': True})
 
 
 @app.route('/start', methods=['POST'])
 def start():
+    """Start a background processing batch from the submitted payload."""
     global is_processing, log_buffer, results_buffer, total_files_global, progress_global
     config = request.json or {}
     if not config.get('path'):
@@ -311,6 +321,7 @@ def start():
         is_processing = True
 
     def _run_batch(cfg):
+        """Run processor work in a background thread and clear busy state."""
         global is_processing
         try:
             _run_processing(cfg, emit, app_logger, stop_event, usage_global)
@@ -330,6 +341,7 @@ def start():
 
 @app.route('/stop', methods=['POST'])
 def stop():
+    """Request graceful cancellation of the active processing batch."""
     stop_event.set()
     return jsonify({'status': 'stopping'})
 
@@ -528,7 +540,9 @@ def folder_info():
 
 @app.route('/stream')
 def stream():
+    """Stream live processing events via Server-Sent Events."""
     def generate():
+        """Yield SSE frames until the batch finishes or the client disconnects."""
         while True:
             try:
                 msg = log_queue.get(timeout=1)
@@ -546,7 +560,7 @@ def stream():
 
 
 def _pick_path(kind: str) -> dict:
-    """Opens a native macOS folder/file picker."""
+    """Open a native macOS folder/file picker and normalize the result."""
     default_dir = _picker_default_dir()
 
     helper_result = _run_swift_picker(kind, default_dir)
@@ -620,16 +634,19 @@ def _pick_path(kind: str) -> dict:
 
 @app.route('/pick-folder')
 def pick_folder():
+    """Return a folder path selected by the user."""
     return jsonify(_pick_path('folder'))
 
 
 @app.route('/pick-file')
 def pick_file():
+    """Return a file path selected by the user."""
     return jsonify(_pick_path('file'))
 
 
 @app.route('/status')
 def status():
+    """Return whether a processing batch is currently active."""
     return jsonify({'processing': is_processing})
 
 
@@ -642,6 +659,7 @@ def api_status():
 
 @app.route('/open-file', methods=['POST'])
 def open_file():
+    """Open a generated .txt output file in the host OS file viewer."""
     path = (request.json or {}).get('path', '').strip()
     if not path or not os.path.exists(path):
         return jsonify({'error': 'path not found'}), 400
@@ -705,11 +723,13 @@ def sysinfo():
 
 @app.route('/version')
 def version():
+    """Return the application version exposed to the frontend."""
     return jsonify({'version': VERSION})
 
 
 @app.route('/config', methods=['GET'])
 def config_get():
+    """Return current config, defaults, prompt, and prompt presets."""
     return jsonify({
         'version': VERSION,
         'config': config_loader.load_config(),
@@ -721,6 +741,7 @@ def config_get():
 
 @app.route('/config', methods=['POST'])
 def config_save():
+    """Persist config and/or system prompt changes from the frontend."""
     body = request.json or {}
     if 'config' in body:
         try:
@@ -737,6 +758,7 @@ def config_save():
 
 @app.route('/config/reset', methods=['POST'])
 def config_reset():
+    """Reset config and/or prompt settings to factory defaults."""
     body = request.json or {}
     what = body.get('what', 'all')   # 'all' | 'config' | 'prompt'
     lang = body.get('lang', config_loader.DEFAULT_PROMPT_LANG)
