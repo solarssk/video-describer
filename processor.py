@@ -7,7 +7,6 @@ the emit callable, logger, stop_event, and the shared usage dict.
 """
 
 import json
-import logging
 import math
 import os
 import platform
@@ -816,6 +815,7 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
     converted = 0
     skipped = 0
     errors = 0
+    batch_id = str(uuid.uuid4())
 
     emit_fn({'type': 'log', 'text': f'Found {total} media file(s) — scanning for existing descriptions…'})
 
@@ -831,6 +831,28 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
 
         existing = find_existing_output(file_path, out_dir)
         if not existing:
+            skipped += 1
+            continue
+
+        try:
+            raw = existing.read_text(encoding='utf-8')
+            if not has_metadata_footer(raw):
+                upgraded = append_metadata_footer(
+                    raw, source=file_path.name,
+                    file_uuid=str(uuid.uuid4()), batch_id=batch_id,
+                    processed=utc_timestamp(), model='—',
+                )
+                existing.write_text(upgraded, encoding='utf-8')
+        except OSError:
+            pass
+
+        _ext_map = [
+            ('fcpxml',  '.fcpxml'),
+            ('edl',     '.edl'),
+            ('fcp7xml', '.xmeml'),
+        ]
+        enabled_exts = [ext for key, ext in _ext_map if nle_cfg.get(key)]
+        if enabled_exts and all(existing.with_suffix(ext).exists() for ext in enabled_exts):
             skipped += 1
             continue
 
