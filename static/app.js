@@ -1365,11 +1365,21 @@ async function discardBatch() {
 // ── Convert existing modal ────────────────────────────────
 function openConvertModal() {
   const path = $('path').value.trim();
-  const formats = [
-    { id: 'cfg-nle-fcpxml',  label: 'FCPXML',   ext: '.fcpxml' },
-    { id: 'cfg-nle-edl',     label: 'EDL',       ext: '.edl'    },
-    { id: 'cfg-nle-fcp7xml', label: 'FCP7 XML',  ext: '.xmeml'  },
-  ].filter(f => $(f.id) && $(f.id).checked);
+
+  // Prefer the cached config (loaded when Settings tab was opened) so the
+  // modal works even before the user visits the Settings tab.
+  const nle = _cachedSettingsCfg?.nle_export || {};
+  const formatDefs = [
+    { key: 'fcpxml',  id: 'cfg-nle-fcpxml',  label: 'FCPXML',   ext: '.fcpxml' },
+    { key: 'edl',     id: 'cfg-nle-edl',     label: 'EDL',       ext: '.edl'    },
+    { key: 'fcp7xml', id: 'cfg-nle-fcp7xml', label: 'FCP7 XML',  ext: '.xmeml'  },
+  ];
+  const formats = formatDefs.filter(f => {
+    // DOM checkbox is authoritative when the Settings tab has been opened;
+    // fall back to cached config otherwise.
+    const el = $(f.id);
+    return el ? el.checked : !!nle[f.key];
+  });
 
   const formatsEl = $('convert-modal-formats');
   const warnEl    = $('convert-modal-warn');

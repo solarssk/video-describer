@@ -538,6 +538,12 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                         _sidecars = export_sidecars(output_path, file_path.name, _dur, _fps, cfg)
                         for _sc in _sidecars:
                             print(f"  NLE: {_sc.name}")
+                        _error_flag = output_path.with_suffix('.sidecar_error')
+                        if _error_flag.exists():
+                            try:
+                                _error_flag.unlink()
+                            except OSError:
+                                pass
                     except Exception as _sidecar_err:
                         _warn = str(_sidecar_err)
                         try:
@@ -719,6 +725,7 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
     Scans the configured path for media files, finds their existing .txt outputs,
     and calls export_sidecars() on each. No API calls are made.
     """
+    stop_event.clear()
     cfg = config_loader.load_config()
     cfg.update(config)
 
