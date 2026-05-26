@@ -225,7 +225,7 @@ class TestWriteEdl(unittest.TestCase):
         write_edl(markers, 'clip.mp4', 25.0, out)
         content = out.read_text()
         self.assertNotIn('…', content)   # no Unicode ellipsis
-        line = [l for l in content.splitlines() if l.startswith('* |M:')][0]
+        line = [ln for ln in content.splitlines() if ln.startswith('* |M:')][0]
         self.assertTrue(line.endswith('...'))
         self.assertLessEqual(len(line), len('* |M: ') + 127)
 
