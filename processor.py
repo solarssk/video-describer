@@ -23,6 +23,7 @@ from batch_metadata import (
     build_batch_state,
     build_manifest_files,
     counts_from_files,
+    has_metadata_footer,
     mark_file,
     summary_description,
     utc_timestamp,
@@ -552,6 +553,24 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 mark_file(manifest_files, file_path, 'skipped', output=output_path)
                 emit_fn({'type': 'skipped', 'file': file_path.name})
                 _persist_state()
+
+                # Silently upgrade legacy outputs that lack a metadata footer.
+                try:
+                    raw = output_path.read_text(encoding='utf-8')
+                    if not has_metadata_footer(raw):
+                        upgraded = append_metadata_footer(
+                            raw,
+                            source=file_path.name,
+                            file_uuid=manifest_entry['uuid'],
+                            batch_id=batch_id,
+                            processed=utc_timestamp(),
+                            model=_model_label,
+                        )
+                        output_path.write_text(upgraded, encoding='utf-8')
+                        logger.debug('[skip:%s]  metadata footer added', file_path.name)
+                except (OSError, UnicodeDecodeError):
+                    pass
+
                 if config.get('generate_summary'):
                     try:
                         summary_entries.append((
