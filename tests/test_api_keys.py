@@ -48,12 +48,14 @@ class ApiKeyHandlingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             state_path = Path(tmpdir) / 'batch_state.json'
             with patch.object(processor, 'BATCH_STATE_PATH', state_path):
+                source_path = Path(tmpdir) / 'video.mp4'
+                output_path = Path(tmpdir) / 'video.mp4.txt'
                 processor._save_batch_state(
                     config=config,
                     files=[{
                         'uuid': 'file-1',
-                        'path': '/tmp/video.mp4',
-                        'output': '/tmp/video.mp4.txt',
+                        'path': str(source_path),
+                        'output': str(output_path),
                         'status': 'pending',
                         'error': None,
                     }],
