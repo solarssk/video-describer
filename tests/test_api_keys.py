@@ -49,9 +49,16 @@ class ApiKeyHandlingTests(unittest.TestCase):
             state_path = Path(tmpdir) / 'batch_state.json'
             with patch.object(processor, 'BATCH_STATE_PATH', state_path):
                 processor._save_batch_state(
-                    config, next_index=1, total=2,
-                    processed=1, skipped=0, errors=0,
+                    config=config,
+                    files=[{
+                        'uuid': 'file-1',
+                        'path': '/tmp/video.mp4',
+                        'output': '/tmp/video.mp4.txt',
+                        'status': 'pending',
+                        'error': None,
+                    }],
                     usage={'cost_usd': 0.01},
+                    batch_id='batch-1',
                 )
             saved_config = json.loads(state_path.read_text(encoding='utf-8'))['config']
 

@@ -104,6 +104,24 @@ class BatchManifestTests(unittest.TestCase):
         self.assertEqual(files[0]["output"], str(custom))
         self.assertEqual(files[0]["status"], "error")
 
+    def test_resume_resets_stale_in_progress_status_to_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "clip.mp4"
+            src.write_text("")
+            previous = {
+                "files": [{
+                    "uuid": "file-1",
+                    "path": str(src),
+                    "output": str(Path(tmp) / "clip.mp4.txt"),
+                    "status": "in_progress",
+                    "error": None,
+                }]
+            }
+            files = build_manifest_files([(src, "video")], previous_state=previous)
+
+        self.assertEqual(files[0]["uuid"], "file-1")
+        self.assertEqual(files[0]["status"], "pending")
+
     def test_mark_file_rejects_unknown_status(self):
         files = [{
             "uuid": "file-1",

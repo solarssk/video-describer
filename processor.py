@@ -124,27 +124,13 @@ def _prevent_sleep() -> '_SleepBlock':
 
 # ── Batch state persistence ───────────────────────────────────────────────────
 
-def _save_batch_state(config: dict, next_index: int, total: int,
-                      processed: int, skipped: int, errors: int,
-                      usage: dict, next_filename=None,
-                      files: list = None, batch_id: str = None) -> None:
-    if files is None:
-        files = []
+def _save_batch_state(config: dict, files: list, usage: dict, batch_id: str) -> None:
     state = build_batch_state(
         config=config,
         files=files,
         usage=usage,
-        batch_id=batch_id or str(uuid.uuid4()),
+        batch_id=batch_id,
     )
-    if not files:
-        state.update({
-            'next_index': next_index,
-            'next_filepath': next_filename,
-            'total': total,
-            'processed': processed,
-            'skipped': skipped,
-            'errors': errors,
-        })
     try:
         write_json_atomic(BATCH_STATE_PATH, state)
     except OSError as e:
@@ -480,8 +466,10 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         def _persist_state():
             _sync_counts()
             _save_batch_state(
-                config, 0, total_media, processed, skipped, errors, usage,
-                files=manifest_files, batch_id=batch_id,
+                config=config,
+                files=manifest_files,
+                usage=usage,
+                batch_id=batch_id,
             )
 
         for i, (file_path, media_type) in enumerate(media, 1):

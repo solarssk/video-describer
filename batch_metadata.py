@@ -64,6 +64,8 @@ def build_manifest_files(media: list, out_dir: Optional[Path] = None,
         if previous:
             entry_uuid = previous.get("uuid") or str(uuid.uuid4())
             status = previous.get("status") or "pending"
+            if status == "in_progress":
+                status = "pending"
             output = previous.get("output") or str(existing_output or default_output)
             error = previous.get("error")
         else:
