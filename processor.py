@@ -611,8 +611,8 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                         except OSError as _flag_err:
                             logger.warning("Could not write sidecar error flag for %s: %s",
                                            file_path.name, _flag_err)
-                print(f"  ⚠ NLE export failed: {_warn}")
-                emit_fn({'type': 'log', 'text': f'⚠ NLE export failed for {file_path.name}: {_warn}'})
+                        print(f"  ⚠ NLE export failed: {_warn}")
+                        emit_fn({'type': 'log', 'text': f'⚠ NLE export failed for {file_path.name}: {_warn}'})
                 mark_file(manifest_files, file_path, 'done', output=output_path)
                 first_line = summary_description(desc_with_metadata)
                 summary_entries.append((file_path.name, first_line))
