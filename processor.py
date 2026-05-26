@@ -843,7 +843,7 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
                     processed=utc_timestamp(), model='—',
                 )
                 existing.write_text(upgraded, encoding='utf-8')
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             pass
 
         _ext_map = [
