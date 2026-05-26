@@ -42,11 +42,11 @@ class BatchManifestTests(unittest.TestCase):
 
     def test_counts_are_derived_from_file_statuses(self):
         files = [
-            {"status": "done"},
-            {"status": "skipped"},
-            {"status": "error"},
-            {"status": "pending"},
-            {"status": "in_progress"},
+            {"status": "done", "path": "/x/done.mp4"},
+            {"status": "skipped", "path": "/x/skipped.mp4"},
+            {"status": "error", "path": "/x/error.mp4"},
+            {"status": "pending", "path": "/x/pending.mp4"},
+            {"status": "in_progress", "path": "/x/in_progress.mp4"},
         ]
         self.assertEqual(
             counts_from_files(files),
@@ -54,7 +54,7 @@ class BatchManifestTests(unittest.TestCase):
         )
         self.assertEqual(next_retry_index(files), 2)
         self.assertIsNone(next_retry_path([{"status": "done", "path": "/x/a.mp4"}]))
-        self.assertIsNone(next_retry_path(files))
+        self.assertEqual(next_retry_path(files), "/x/error.mp4")
 
     def test_next_retry_path_returns_first_retryable_source_path(self):
         files = [
