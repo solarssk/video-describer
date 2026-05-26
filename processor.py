@@ -7,6 +7,7 @@ the emit callable, logger, stop_event, and the shared usage dict.
 """
 
 import json
+import logging
 import math
 import os
 import platform
@@ -44,6 +45,8 @@ from providers import make_provider
 IS_MACOS = platform.system() == 'Darwin'
 
 BATCH_STATE_PATH = Path(__file__).parent / 'batch_state.json'
+
+_logger = logging.getLogger(__name__)
 
 
 # ── Thermal state ─────────────────────────────────────────────────────────────
@@ -115,7 +118,7 @@ class _SleepBlock:
                 pass
             finally:
                 self.handle = None
-                print("🔓 Caffeinate released — Mac can sleep again")
+                _logger.info("🔓 Caffeinate released — Mac can sleep again")
 
 
 def _prevent_sleep() -> '_SleepBlock':
