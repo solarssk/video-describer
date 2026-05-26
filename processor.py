@@ -852,7 +852,7 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
         _ext_map = [
             ('fcpxml',  '.fcpxml'),
             ('edl',     '.edl'),
-            ('fcp7xml', '.xmeml'),
+            ('fcp7xml', '.xml'),
         ]
         enabled_exts = [ext for key, ext in _ext_map if nle_cfg.get(key)]
         if enabled_exts and all(existing.with_suffix(ext).exists() for ext in enabled_exts):
