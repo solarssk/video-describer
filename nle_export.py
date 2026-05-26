@@ -71,8 +71,12 @@ def _timecode(time_s: float, fps: float) -> str:
 
 
 def _truncate_edl(text: str, max_len: int = 127) -> str:
-    """Truncate marker text to fit EDL line length constraints."""
-    return text if len(text) <= max_len else text[:max_len - 1] + '…'
+    """Truncate marker text to fit EDL line length constraints (ASCII-safe suffix)."""
+    if len(text) <= max_len:
+        return text
+    if max_len <= 3:
+        return text[:max_len]
+    return text[:max_len - 3] + '...'
 
 
 _EDL_UNICODE_MAP = [

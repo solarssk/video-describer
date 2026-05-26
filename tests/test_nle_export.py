@@ -219,6 +219,16 @@ class TestWriteEdl(unittest.TestCase):
         self.assertNotIn(lquote, content)
         self.assertIn('long - road...', content)
 
+    def test_long_text_truncation_stays_ascii(self):
+        out = self.tmp / 'test.edl'
+        markers = [{'time_s': 10, 'text': 'x' * 200, 'is_key': False}]
+        write_edl(markers, 'clip.mp4', 25.0, out)
+        content = out.read_text()
+        self.assertNotIn('…', content)   # no Unicode ellipsis
+        line = [l for l in content.splitlines() if l.startswith('* |M:')][0]
+        self.assertTrue(line.endswith('...'))
+        self.assertLessEqual(len(line), len('* |M: ') + 127)
+
     def test_from_clip_name_comment(self):
         """Each EDL event must include a FROM CLIP NAME comment for Resolve."""
         out = self.tmp / 'test.edl'
