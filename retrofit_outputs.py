@@ -127,7 +127,8 @@ def retrofit_existing_outputs(media: list[tuple[Path, str]],
                     action.output.replace(action.legacy_output)
                 except OSError:
                     pass
-            result.renamed -= renamed_this_action
+            if renamed_this_action:
+                result.renamed -= 1
             result.failed += 1
             print(f"  ⚠ retrofit failed for {action.source.name}: {exc}")
 

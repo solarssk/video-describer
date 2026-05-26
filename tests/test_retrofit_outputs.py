@@ -165,6 +165,7 @@ class RetrofitOutputsTests(unittest.TestCase):
 
             self.assertEqual(result.failed, 1)
             self.assertEqual(result.metadata_added, 1)
+            self.assertIn("good desc", good_txt.read_text(encoding="utf-8"))
 
     def test_rename_rolled_back_on_footer_write_failure(self):
         """If footer write fails after rename, the rename is rolled back."""
@@ -178,6 +179,7 @@ class RetrofitOutputsTests(unittest.TestCase):
             result = retrofit_existing_outputs([(source, "video")])
 
             self.assertTrue(legacy.exists())
+            self.assertEqual(legacy.read_bytes(), b"\xff\xfe bad utf-16")
             self.assertFalse((tmp_path / "clip.mp4.txt").exists())
             self.assertEqual(result.failed, 1)
             self.assertEqual(result.renamed, 0)
