@@ -1027,7 +1027,7 @@ input.masked.unmasked {
   border-top: 1px solid var(--border);
   padding: 14px 32px;
 }
-.settings-actions .btn { width: auto; padding: 10px 20px; }
+.settings-actions .btn { width: auto; padding: 0 20px; height: 40px; line-height: 40px; }
 .btn-secondary {
   background: var(--surface2);
   color: var(--text);
