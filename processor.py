@@ -7,6 +7,7 @@ the emit callable, logger, stop_event, and the shared usage dict.
 """
 
 import json
+import logging
 import math
 import os
 import platform
@@ -22,6 +23,7 @@ from batch_metadata import (
     build_batch_state,
     build_manifest_files,
     counts_from_files,
+    has_metadata_footer,
     mark_file,
     summary_description,
     utc_timestamp,
@@ -43,6 +45,8 @@ from providers import make_provider
 IS_MACOS = platform.system() == 'Darwin'
 
 BATCH_STATE_PATH = Path(__file__).parent / 'batch_state.json'
+
+_logger = logging.getLogger(__name__)
 
 
 # ── Thermal state ─────────────────────────────────────────────────────────────
@@ -112,13 +116,20 @@ class _SleepBlock:
                 self.handle.kill()
             except Exception:
                 pass
+            finally:
+                self.handle = None
+                _logger.info("🔓 Caffeinate released — Mac can sleep again")
 
 
 def _prevent_sleep() -> '_SleepBlock':
-    """Start macOS caffeinate when available and return a release handle."""
+    """Start macOS caffeinate when available and return a release handle.
+
+    Passes -w <pid> so caffeinate auto-exits if the Python process is killed
+    unexpectedly (SIGKILL, crash) without reaching the finally block.
+    """
     try:
         proc = subprocess.Popen(
-            ['caffeinate', '-d', '-i', '-m'],
+            ['caffeinate', '-d', '-i', '-m', '-w', str(os.getpid())],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         print("🔒 Caffeinate active — Mac will not sleep during processing")
@@ -229,6 +240,28 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
 
     sleep_block = _prevent_sleep()
 
+    # ── Debug session header ──────────────────────────────────────────────────
+    try:
+        import psutil as _psutil
+        _mem = _psutil.virtual_memory()
+        _mem_total = f'{_mem.total / (1024**3):.1f} GB'
+        _mem_free  = f'{_mem.available / (1024**3):.1f} GB free'
+        _ram_info  = f'{_mem_total} ({_mem_free})'
+    except Exception:
+        _ram_info = 'RAM ?'
+    _chip = ''
+    try:
+        _r = subprocess.run(['sysctl', '-n', 'machdep.cpu.brand_string'],
+                            capture_output=True, text=True, timeout=2)
+        _chip = _r.stdout.strip()
+    except Exception:
+        _chip = platform.processor() or platform.machine()
+    _py = f'Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}'
+    _os = f'macOS {platform.mac_ver()[0]}' if platform.system() == 'Darwin' else platform.system()
+    logger.debug('=== session: %s | %s ===', uuid.uuid4(), time.strftime('%Y-%m-%dT%H:%M:%S'))
+    logger.debug('%s | %s | %s | %s', _os, _py, _ram_info, _chip)
+    # ─────────────────────────────────────────────────────────────────────────
+
     try:
         cfg = config_loader.load_config()
         system_prompt = config_loader.load_system_prompt()
@@ -261,7 +294,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 emit_fn({'type': 'error', 'text': f'API not available: {short}'})
                 print(f"⛔ Pre-flight failed: {err}")
                 return
-            print("✓ API OK")
+            emit_fn({'type': 'ok', 'text': '✓ API OK'})
         else:
             print("AI image analysis: OFF — running in transcript-only mode")
             if not transcribe:
@@ -334,11 +367,11 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         pre_resume_media = media[:resume_from]
         if resume_from > 0:
             media = media[resume_from:]
-            print(f"Resuming from file {resume_from + 1}/{total_media}")
+            emit_fn({'type': 'ok', 'text': f'Resuming from file {resume_from + 1}/{total_media}'})
 
         videos = sum(1 for _, t in media if t == 'video')
         photos = sum(1 for _, t in media if t == 'photo')
-        print(f"Found: {videos} video, {photos} photos.")
+        emit_fn({'type': 'ok', 'text': f'Found: {videos} video, {photos} photos.'})
         emit_fn({'type': 'total', 'total': total_media})
 
         _raw_budget = config.get('budget_usd')
@@ -460,13 +493,18 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             current_progress[0] = pct
             current_progress[1] = label
 
+        _call_start: list = [0.0]
+
         def _usage_cb(input_tok: int, output_tok: int):
+            elapsed = time.time() - _call_start[0] if _call_start[0] else 0.0
+            _call_start[0] = 0.0
             usage['input'] += input_tok
             usage['output'] += output_tok
             usage['cost_usd'] = resume_cost_offset + _calc_cost(
                 usage['input'], usage['output'], cfg)
             call_cost = _calc_cost(input_tok, output_tok, cfg)
-            logger.debug(f'  ↳ {input_tok:,} in / {output_tok:,} out tok — ${call_cost:.4f}')
+            logger.debug('  ↳ %s in / %s out tok — $%.4f — %.1f s',
+                         f'{input_tok:,}', f'{output_tok:,}', call_cost, elapsed)
             emit_fn({'type': 'usage', **usage})
 
         def _sync_counts():
@@ -524,6 +562,24 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 mark_file(manifest_files, file_path, 'skipped', output=output_path)
                 emit_fn({'type': 'skipped', 'file': file_path.name})
                 _persist_state()
+
+                # Silently upgrade legacy outputs that lack a metadata footer.
+                try:
+                    raw = output_path.read_text(encoding='utf-8')
+                    if not has_metadata_footer(raw):
+                        upgraded = append_metadata_footer(
+                            raw,
+                            source=file_path.name,
+                            file_uuid=manifest_entry['uuid'],
+                            batch_id=batch_id,
+                            processed=utc_timestamp(),
+                            model=_model_label,
+                        )
+                        output_path.write_text(upgraded, encoding='utf-8')
+                        logger.debug('[skip:%s]  metadata footer added', file_path.name)
+                except (OSError, UnicodeDecodeError):
+                    pass
+
                 if config.get('generate_summary'):
                     try:
                         summary_entries.append((
@@ -570,8 +626,25 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 current_progress[1] = ''
                 file_usage_before = dict(usage)
 
+                # Per-file debug metadata
+                try:
+                    _fsize = file_path.stat().st_size
+                    _fsize_str = (f'{_fsize/(1024**3):.2f} GB' if _fsize >= 1024**3
+                                  else f'{_fsize/(1024**2):.1f} MB')
+                    if media_type == 'video':
+                        _fdur, _ffps = get_video_metadata(str(file_path))
+                        _dur_str = f'{int(_fdur//60):02d}:{int(_fdur%60):02d}' if _fdur else '?'
+                        logger.debug('[file:%s] size=%s duration=%s fps=%s',
+                                     file_path.name, _fsize_str, _dur_str,
+                                     f'{_ffps:.2f}' if _ffps else '?')
+                    else:
+                        logger.debug('[file:%s] size=%s', file_path.name, _fsize_str)
+                except Exception:
+                    pass
+
                 if media_type == 'video':
                     if analyze_images:
+                        _call_start[0] = time.time()
                         desc = describe_video(
                             str(file_path), provider,
                             config['people'], config['context'],
@@ -598,6 +671,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 else:
                     _step_cb(f"analyzing photo with {cfg['ai']['provider']}")
                     print("  Analyzing photo...")
+                    _call_start[0] = time.time()
                     desc = describe_photo(
                         str(file_path), provider, config['people'], config['context'],
                         usage_cb=_usage_cb, cfg=cfg, system_prompt=system_prompt,
@@ -659,6 +733,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             except Exception as e:
                 current_step[0] = ''
                 err_msg = str(e)
+                logger.exception('Error processing %s', file_path.name)
                 print(f"  ERROR: {err_msg}")
                 mark_file(manifest_files, file_path, 'error', output=output_path, error=err_msg)
                 _sync_counts()
@@ -743,6 +818,7 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
     converted = 0
     skipped = 0
     errors = 0
+    batch_id = str(uuid.uuid4())
 
     emit_fn({'type': 'log', 'text': f'Found {total} media file(s) — scanning for existing descriptions…'})
 
@@ -758,6 +834,28 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
 
         existing = find_existing_output(file_path, out_dir)
         if not existing:
+            skipped += 1
+            continue
+
+        try:
+            raw = existing.read_text(encoding='utf-8')
+            if not has_metadata_footer(raw):
+                upgraded = append_metadata_footer(
+                    raw, source=file_path.name,
+                    file_uuid=str(uuid.uuid4()), batch_id=batch_id,
+                    processed=utc_timestamp(), model='—',
+                )
+                existing.write_text(upgraded, encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            pass
+
+        _ext_map = [
+            ('fcpxml',  '.fcpxml'),
+            ('edl',     '.edl'),
+            ('fcp7xml', '.xmeml'),
+        ]
+        enabled_exts = [ext for key, ext in _ext_map if nle_cfg.get(key)]
+        if enabled_exts and all(existing.with_suffix(ext).exists() for ext in enabled_exts):
             skipped += 1
             continue
 

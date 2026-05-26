@@ -303,9 +303,17 @@ function _renderConnectorBadge(provider, info) {
 async function saveConnector(provider) {
   const keyEl = $(`conn-key-${provider}`);
   if (!keyEl) return;
-  const key = keyEl.value.trim();
   const statusEl = $(`conn-status-${provider}`);
 
+  // If the field still shows the stored-mask placeholder, the user hasn't
+  // entered a new key — there is nothing to save.
+  if (keyEl.dataset.storedMask === 'true') {
+    statusEl.textContent = t('connectors.saved');
+    statusEl.className = 'conn-status ok';
+    return;
+  }
+
+  const key = keyEl.value.trim();
   statusEl.textContent = t('connectors.saving');
   statusEl.className = 'conn-status';
 
@@ -765,7 +773,9 @@ function formatCost(usd) {
 // ── SSE message handling ──────────────────────────────────
 function handleMsg(msg) {
   if (msg.type === 'ping') return;
-  if (msg.type === 'log') {
+  if (msg.type === 'ok') {
+    addLog(msg.text, 'ok');
+  } else if (msg.type === 'log') {
     addLog(msg.text);
   } else if (msg.type === 'warn') {
     addLog(msg.text, 'warn');
