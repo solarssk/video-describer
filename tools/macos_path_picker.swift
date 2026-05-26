@@ -17,7 +17,6 @@ let defaultDir = args.count >= 3 ? args[2] : ""
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
-app.activate(ignoringOtherApps: true)
 
 let panel = NSOpenPanel()
 panel.canChooseFiles = kind == "file"
@@ -33,10 +32,16 @@ if !defaultDir.isEmpty {
     panel.directoryURL = URL(fileURLWithPath: defaultDir, isDirectory: true)
 }
 
-let response = panel.runModal()
-if response == .OK, let url = panel.url {
-    print(url.path)
-    exit(0)
+// Run the panel inside the event loop so NSApp.activate takes effect
+// before the panel appears — fixes focus issues on repeated opens.
+DispatchQueue.main.async {
+    NSApp.activate(ignoringOtherApps: true)
+    let response = panel.runModal()
+    if response == .OK, let url = panel.url {
+        print(url.path)
+        exit(0)
+    }
+    exit(2)
 }
 
-exit(2)
+app.run()

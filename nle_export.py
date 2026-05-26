@@ -8,6 +8,7 @@ and writes one sidecar file next to the source .txt.
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Optional
 
 
 # ── Timestamp parser ──────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ def parse_timestamps(txt_content: str) -> list:
 
     Recognises MM:SS and HH:MM:SS prefixes. Lines starting with ★ are flagged
     as key moments (is_key=True).  Non-timestamp lines are ignored.
+    Result is sorted by time_s ascending.
     """
     markers = []
     for line in txt_content.splitlines():
@@ -47,9 +49,11 @@ def parse_timestamps(txt_content: str) -> list:
         if text.startswith('★'):
             text = text[1:].strip()
             is_key = True
+        # Strip leading dash/em-dash separators that editors sometimes add
+        text = re.sub(r'^[-–—]\s*', '', text)
         time_s = h * 3600 + mins * 60 + secs
         markers.append({'time_s': time_s, 'text': text, 'is_key': is_key})
-    return markers
+    return sorted(markers, key=lambda mk: mk['time_s'])
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -66,20 +70,42 @@ def _timecode(time_s: float, fps: float) -> str:
     return f'{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}'
 
 
-def _truncate(text: str, max_len: int = 100) -> str:
-    """Truncate marker text to fit NLE limits."""
-    return text if len(text) <= max_len else text[:max_len - 1] + '…'
+def _truncate_edl(text: str, max_len: int = 127) -> str:
+    """Truncate marker text to fit EDL line length constraints (ASCII-safe suffix)."""
+    if len(text) <= max_len:
+        return text
+    if max_len <= 3:
+        return text[:max_len]
+    return text[:max_len - 3] + '...'
+
+
+_EDL_UNICODE_MAP = [
+    ('—', '-'), ('–', '-'),  # em-dash, en-dash
+    ('…', '...'),                  # ellipsis
+    ('“', '"'), ('”', '"'),   # curly double quotes
+    ('‘', "'"), ('’', "'"),   # curly single quotes
+    ('★', '*'), ('☆', '*'),   # ★ ☆
+]
+
+
+def _sanitize_edl(text: str) -> str:
+    """Replace Unicode chars that may cause issues in ASCII-based EDL."""
+    for src, dst in _EDL_UNICODE_MAP:
+        text = text.replace(src, dst)
+    return text
 
 
 # ── FCPXML 1.11 (Final Cut Pro) ───────────────────────────────────────────────
 
 def write_fcpxml(markers: list, clip_name: str, duration_s: float,
-                 out_path: Path, fps: float = 25.0) -> None:
+                 out_path: Path, fps: float = 25.0,
+                 video_path: Optional[Path] = None) -> None:
     """Write an FCPXML 1.11 sidecar file with clip markers.
 
     Key moments (is_key=True) become <chapter-marker> elements (orange in FCP).
     Regular moments become <marker> elements (blue).
     frameDuration and clip duration are derived from fps for correct timebase.
+    video_path is used for the <asset src> URI; defaults to out_path.parent/clip_name.
     """
     fps_eff = fps if fps and fps > 0 else 25.0
     fps_base = max(1, int(round(fps_eff)))
@@ -88,14 +114,28 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
     duration_frames = int(round(duration_s * fps_base))
     duration_str = f'{duration_frames}/{fps_base}s'
 
+    vpath = video_path if video_path else (out_path.parent / clip_name)
+    asset_src = vpath.resolve().as_uri()
+
     root = ET.Element('fcpxml', version='1.11')
     resources = ET.SubElement(root, 'resources')
     ET.SubElement(resources, 'format', id='r1', frameDuration=frame_dur)
+    ET.SubElement(resources, 'asset',
+                  id='r2',
+                  name=Path(clip_name).stem,
+                  src=asset_src,
+                  start='0s',
+                  duration=duration_str,
+                  hasVideo='1',
+                  format='r1')
 
     library = ET.SubElement(root, 'library')
     event = ET.SubElement(library, 'event', name=Path(clip_name).stem)
     clip = ET.SubElement(event, 'asset-clip',
+                         ref='r2',
                          name=clip_name,
+                         offset='0s',
+                         start='0s',
                          duration=duration_str,
                          format='r1',
                          tcFormat='NDF')
@@ -106,18 +146,19 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
             ET.SubElement(clip, 'chapter-marker',
                           start=start,
                           duration=frame_dur,
-                          value=_truncate(mk['text']),
+                          value=mk['text'],
                           posterOffset=start)
         else:
             ET.SubElement(clip, 'marker',
                           start=start,
                           duration=frame_dur,
-                          value=_truncate(mk['text']))
+                          value=mk['text'])
 
     tree = ET.ElementTree(root)
     ET.indent(tree, space='  ')
     with out_path.open('wb') as f:
         f.write(b"<?xml version='1.0' encoding='UTF-8'?>\n")
+        f.write(b"<!DOCTYPE fcpxml>\n")
         tree.write(f, encoding='utf-8', xml_declaration=False)
 
 
@@ -139,7 +180,8 @@ def write_edl(markers: list, clip_name: str, fps: float, out_path: Path) -> None
         lines.append(
             f'{idx:03d}  AX  V  C  {tc_in} {tc_out} {tc_in} {tc_out}'
         )
-        lines.append(f'* |M: {_truncate(mk["text"], 127)}')
+        lines.append(f'* FROM CLIP NAME: {clip_name}')
+        lines.append(f'* |M: {_truncate_edl(_sanitize_edl(mk["text"]))}')
         lines.append(f'* |C: {color}')
         lines.append('')
     out_path.write_text('\n'.join(lines), encoding='utf-8')
@@ -148,37 +190,74 @@ def write_edl(markers: list, clip_name: str, fps: float, out_path: Path) -> None
 # ── FCP7 XML / xmeml (Adobe Premiere) ────────────────────────────────────────
 
 def write_fcp7xml(markers: list, clip_name: str, fps: float,
-                  out_path: Path) -> None:
-    """Write an FCP7/xmeml XML file with sequence markers for Adobe Premiere.
+                  out_path: Path, duration_s: float = 0.0,
+                  video_path: Optional[Path] = None) -> None:
+    """Write an FCP7/xmeml v4 XML file with sequence markers for Adobe Premiere.
 
-    Marker positions are expressed in frame numbers (in/out).
-    Import via File > Import in Premiere Pro.
+    Uses Final Cut Pro 7 XML (xmeml v4) structure. Premiere Pro imports this
+    via File > Import. Markers sit at sequence level; the clipitem/file elements
+    give Premiere the media reference so it can locate the source clip.
+    Fractional rates (29.97, 59.94) set ntsc=TRUE so Premiere maps frames
+    to the correct timebase.
     """
     fps_int = int(round(fps))
-    # Fractional rates (29.97, 59.94 …) need ntsc=TRUE so Premiere maps frames
-    # to the correct timebase rather than treating it as true 30/60 fps.
     is_ntsc = abs(fps - fps_int) > 0.01
-    xmeml = ET.Element('xmeml', version='2')
+    ntsc_str = 'TRUE' if is_ntsc else 'FALSE'
+    total_frames = int(round(duration_s * fps)) if duration_s > 0 else 0
+
+    vpath = video_path if video_path else (out_path.parent / clip_name)
+    path_url = vpath.resolve().as_uri()
+
+    def _rate(parent: ET.Element) -> None:
+        r = ET.SubElement(parent, 'rate')
+        ET.SubElement(r, 'timebase').text = str(fps_int)
+        ET.SubElement(r, 'ntsc').text = ntsc_str
+
+    xmeml = ET.Element('xmeml', version='4')
     seq = ET.SubElement(xmeml, 'sequence')
     ET.SubElement(seq, 'name').text = Path(clip_name).stem
-    rate_el = ET.SubElement(seq, 'rate')
-    ET.SubElement(rate_el, 'timebase').text = str(fps_int)
-    ET.SubElement(rate_el, 'ntsc').text = 'TRUE' if is_ntsc else 'FALSE'
+    ET.SubElement(seq, 'duration').text = str(total_frames)
+    _rate(seq)
+
+    tc_el = ET.SubElement(seq, 'timecode')
+    _rate(tc_el)
+    ET.SubElement(tc_el, 'string').text = '00:00:00:00'
+    ET.SubElement(tc_el, 'frame').text = '0'
+    ET.SubElement(tc_el, 'displayformat').text = 'NDF'
+
+    media = ET.SubElement(seq, 'media')
+    video_el = ET.SubElement(media, 'video')
+    track = ET.SubElement(video_el, 'track')
+    clip_el = ET.SubElement(track, 'clipitem', id='clipitem-1')
+    ET.SubElement(clip_el, 'name').text = clip_name
+    ET.SubElement(clip_el, 'duration').text = str(total_frames)
+    _rate(clip_el)
+    ET.SubElement(clip_el, 'start').text = '0'
+    ET.SubElement(clip_el, 'end').text = str(total_frames)
+    ET.SubElement(clip_el, 'in').text = '0'
+    ET.SubElement(clip_el, 'out').text = str(total_frames)
+
+    file_el = ET.SubElement(clip_el, 'file', id='file-1')
+    ET.SubElement(file_el, 'name').text = clip_name
+    ET.SubElement(file_el, 'pathurl').text = path_url
+    _rate(file_el)
+    ET.SubElement(file_el, 'duration').text = str(total_frames)
 
     for mk in markers:
-        frame_in  = int(round(mk['time_s'] * fps))
-        frame_out = frame_in + 1
-        marker_el = ET.SubElement(seq, 'marker')
-        ET.SubElement(marker_el, 'name').text = _truncate(mk['text'])
-        ET.SubElement(marker_el, 'in').text   = str(frame_in)
-        ET.SubElement(marker_el, 'out').text  = str(frame_out)
+        frame_in = int(round(mk['time_s'] * fps))
+        m_el = ET.SubElement(seq, 'marker')
+        ET.SubElement(m_el, 'name').text = mk['text']
+        ET.SubElement(m_el, 'comment').text = mk['text']
+        ET.SubElement(m_el, 'in').text = str(frame_in)
+        ET.SubElement(m_el, 'out').text = '-1'
         if mk['is_key']:
-            ET.SubElement(marker_el, 'color').text = 'red'
+            ET.SubElement(m_el, 'color').text = 'red'
 
     tree = ET.ElementTree(xmeml)
     ET.indent(tree, space='  ')
     with out_path.open('wb') as f:
         f.write(b"<?xml version='1.0' encoding='utf-8'?>\n")
+        f.write(b"<!DOCTYPE xmeml>\n")
         tree.write(f, encoding='utf-8', xml_declaration=False)
 
 
@@ -207,7 +286,9 @@ def export_sidecars(txt_path: Path, clip_name: str, duration_s: float,
 
     if nle_cfg.get('fcpxml'):
         p = base.with_suffix('.fcpxml')
-        write_fcpxml(markers, clip_name, duration_s, p, fps=fps)
+        video_path = txt_path.parent / clip_name
+        write_fcpxml(markers, clip_name, duration_s, p, fps=fps,
+                     video_path=video_path if video_path.exists() else None)
         written.append(p)
 
     if nle_cfg.get('edl') and fps and fps > 0:
@@ -216,8 +297,10 @@ def export_sidecars(txt_path: Path, clip_name: str, duration_s: float,
         written.append(p)
 
     if nle_cfg.get('fcp7xml') and fps and fps > 0:
-        p = base.with_suffix('.xmeml')
-        write_fcp7xml(markers, clip_name, fps, p)
+        p = base.with_suffix('.xml')
+        video_path_p = txt_path.parent / clip_name
+        write_fcp7xml(markers, clip_name, fps, p, duration_s=duration_s,
+                      video_path=video_path_p if video_path_p.exists() else None)
         written.append(p)
 
     return written

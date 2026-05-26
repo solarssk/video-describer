@@ -166,6 +166,18 @@
       </label>
     </div>
 
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label" id="label-convert-existing" data-i18n="form.convert_mode.label">Convert existing .txt files</div>
+        <div class="toggle-sub" data-i18n="form.convert_mode.sub">Generate NLE sidecars — no AI calls, no cost</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="convert_existing" name="convert_existing" aria-labelledby="label-convert-existing" onchange="onConvertModeChange()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div id="convert-warn-inline" class="convert-warn" style="display:none; padding: 2px 0 0;" data-i18n="convert.warn_no_formats">No NLE formats enabled. Go to Settings → NLE Export and enable at least one.</div>
+
     <div class="form-actions" style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
       <div class="budget-row">
         <label class="budget-label" for="budget_usd" data-i18n="form.budget.label">Budget limit (USD)</label>
@@ -174,7 +186,6 @@
       </div>
       <button class="btn btn-start" id="btn-start" onclick="startProcessing()" data-i18n="form.start">Start</button>
       <button class="btn btn-stop"  id="btn-stop"  onclick="stopProcessing()" data-i18n="form.stop">Stop</button>
-      <button class="btn btn-secondary" id="btn-convert" onclick="openConvertModal()" data-i18n="form.convert">Convert existing</button>
     </div>
 
   </div>
@@ -502,19 +513,6 @@
   </div>
 </div><!-- /pane-connectors -->
 
-<!-- Convert existing modal -->
-<div id="convert-modal-overlay" class="modal-overlay" style="display:none" onclick="closeConvertModal(event)">
-  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="convert-modal-title">
-    <h2 id="convert-modal-title" data-i18n="convert.title">Convert existing descriptions</h2>
-    <p class="muted small" data-i18n="convert.desc">Generate NLE sidecar files from already-processed .txt files — no AI calls, no API cost.</p>
-    <div id="convert-modal-formats" class="convert-formats"></div>
-    <div id="convert-modal-warn" class="convert-warn" style="display:none"></div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeConvertModal()" data-i18n="convert.cancel">Cancel</button>
-      <button class="btn btn-start" id="btn-convert-confirm" onclick="startConversion()" data-i18n="convert.run">Generate sidecars</button>
-    </div>
-  </div>
-</div>
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 <script>
