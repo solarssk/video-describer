@@ -765,7 +765,9 @@ function formatCost(usd) {
 // ── SSE message handling ──────────────────────────────────
 function handleMsg(msg) {
   if (msg.type === 'ping') return;
-  if (msg.type === 'log') {
+  if (msg.type === 'ok') {
+    addLog(msg.text, 'ok');
+  } else if (msg.type === 'log') {
     addLog(msg.text);
   } else if (msg.type === 'warn') {
     addLog(msg.text, 'warn');

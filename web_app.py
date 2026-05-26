@@ -69,17 +69,19 @@ from describe_videos import (  # noqa: E402
 app = Flask(__name__)
 
 # ── Log folder + daily rotation ──────────────────────────────────────────────
-# logs/app.log — active file; rotated copies get a .YYYY-MM-DD suffix.
-# 30 days of history kept. Terminal also receives DEBUG messages (tokens, cost)
-# that never appear in the UI.
+# logs/app.log  — INFO+,  rotated daily, kept 30 days  (user-facing)
+# logs/debug.log — DEBUG+, rotated daily, kept 7 days   (developer diagnostics)
+# Terminal receives all levels (DEBUG). UI receives only what emit_fn pushes.
 _LOG_DIR = Path(__file__).parent / 'logs'
 try:
     _LOG_DIR.mkdir(exist_ok=True)
 except OSError:
     pass
-_LOG_PATH = _LOG_DIR / 'app.log'
+_LOG_PATH       = _LOG_DIR / 'app.log'
+_DEBUG_LOG_PATH = _LOG_DIR / 'debug.log'
 
-_LOG_FMT = logging.Formatter('%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+_LOG_FMT   = logging.Formatter('%(asctime)s %(message)s',        datefmt='%Y-%m-%d %H:%M:%S')
+_DEBUG_FMT = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 app_logger = logging.getLogger('video_describer')
 app_logger.setLevel(logging.DEBUG)
@@ -89,10 +91,21 @@ try:
     _file_handler = logging.handlers.TimedRotatingFileHandler(
         _LOG_PATH, when='midnight', backupCount=30, encoding='utf-8',
     )
+    _file_handler.setLevel(logging.INFO)
     _file_handler.setFormatter(_LOG_FMT)
     app_logger.addHandler(_file_handler)
 except OSError:
     pass  # non-writable directory — skip file logging, app still starts
+
+try:
+    _debug_handler = logging.handlers.TimedRotatingFileHandler(
+        _DEBUG_LOG_PATH, when='midnight', backupCount=7, encoding='utf-8',
+    )
+    _debug_handler.setLevel(logging.DEBUG)
+    _debug_handler.setFormatter(_DEBUG_FMT)
+    app_logger.addHandler(_debug_handler)
+except OSError:
+    pass
 
 _console_handler = logging.StreamHandler(sys.__stdout__)
 _console_handler.setFormatter(logging.Formatter('%(message)s'))
