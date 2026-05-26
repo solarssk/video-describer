@@ -967,6 +967,7 @@ async function restoreState() {
     if (state.processing) {
       activelyProcessing = true;
       $('btn-start').style.display = 'none';
+      $('btn-convert').style.display = 'none';
       $('btn-stop').style.display = 'block';
       const progressLabel = state.progress?.current && state.progress?.total
         ? `${state.progress.current}/${state.progress.total}` : null;
