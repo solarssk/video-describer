@@ -532,6 +532,21 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                         ))
                     except OSError:
                         pass
+                if media_type == 'video' and any(cfg.get('nle_export', {}).values()):
+                    _dur, _fps = get_video_metadata(str(file_path))
+                    try:
+                        _sidecars = export_sidecars(output_path, file_path.name, _dur, _fps, cfg)
+                        for _sc in _sidecars:
+                            print(f"  NLE: {_sc.name}")
+                    except Exception as _sidecar_err:
+                        _warn = str(_sidecar_err)
+                        try:
+                            output_path.with_suffix('.sidecar_error').write_text(_warn, encoding='utf-8')
+                        except OSError as _flag_err:
+                            logger.warning("Could not write sidecar error flag for %s: %s",
+                                           file_path.name, _flag_err)
+                        print(f"  ⚠ NLE export failed: {_warn}")
+                        emit_fn({'type': 'log', 'text': f'⚠ NLE export failed for {file_path.name}: {_warn}'})
                 continue
 
             if media_type == 'photo' and not analyze_images:
