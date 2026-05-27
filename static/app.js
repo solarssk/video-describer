@@ -961,9 +961,11 @@ function setFormLocked(locked) {
   const panelLeft = document.querySelector('.panel-left');
   if (panelLeft) panelLeft.classList.toggle('locked', locked);
 
-  // Also disable Settings pane while processing
+  // Disable settings inputs while processing — Save / Restore defaults stay active
+  // because they affect the next run, not the current batch.
+  const SETTINGS_ALWAYS_ON = new Set(['btn-save-settings', 'btn-reset-settings']);
   document.querySelectorAll('#pane-settings input, #pane-settings textarea, #pane-settings select, #pane-settings button').forEach(el => {
-    el.disabled = locked;
+    if (!SETTINGS_ALWAYS_ON.has(el.id)) el.disabled = locked;
   });
   const status = $('settings-status');
   if (status) {
