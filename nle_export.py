@@ -51,6 +51,8 @@ def parse_timestamps(txt_content: str) -> list:
             is_key = True
         # Strip leading dash/em-dash separators that editors sometimes add
         text = re.sub(r'^[-–—]\s*', '', text)
+        if not text:
+            continue
         time_s = h * 3600 + mins * 60 + secs
         markers.append({'time_s': time_s, 'text': text, 'is_key': is_key})
     return sorted(markers, key=lambda mk: mk['time_s'])

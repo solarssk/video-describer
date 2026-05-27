@@ -6,22 +6,46 @@ let reconnectTimer = null;
 let activelyProcessing = false;
 
 // ── Single-tab guard ──────────────────────────────────────
-const TAB_ID = Math.random().toString(36).slice(2);
+const TAB_ID  = Math.random().toString(36).slice(2);
 const TAB_KEY = 'vd_active_tab';
+const TAB_TTL = 30000;  // ms — entry older than this = dead tab (crash/force-quit)
+const TAB_HB  = 5000;   // ms — heartbeat interval
+let _tabHeartbeat = null;
+
+function _writeHeartbeat() {
+  try {
+    const s = JSON.parse(localStorage.getItem(TAB_KEY));
+    if (s && s.id === TAB_ID)
+      localStorage.setItem(TAB_KEY, JSON.stringify({id: TAB_ID, ts: Date.now()}));
+  } catch {}
+}
 
 function claimTab() {
-  localStorage.setItem(TAB_KEY, TAB_ID);
+  try {
+    localStorage.setItem(TAB_KEY, JSON.stringify({id: TAB_ID, ts: Date.now()}));
+  } catch { return; }
+  clearInterval(_tabHeartbeat);
+  _tabHeartbeat = setInterval(_writeHeartbeat, TAB_HB);
 }
 function releaseTab() {
-  if (localStorage.getItem(TAB_KEY) === TAB_ID) localStorage.removeItem(TAB_KEY);
+  clearInterval(_tabHeartbeat);
+  _tabHeartbeat = null;
+  try {
+    const s = JSON.parse(localStorage.getItem(TAB_KEY));
+    if (s && s.id === TAB_ID) localStorage.removeItem(TAB_KEY);
+  } catch { try { localStorage.removeItem(TAB_KEY); } catch {} }
 }
 function checkSingleTab() {
-  const active = localStorage.getItem(TAB_KEY);
-  if (active && active !== TAB_ID) {
-    const banner = document.getElementById('multi-tab-banner');
-    if (banner) banner.style.display = 'flex';
-  }
+  try {
+    const s = JSON.parse(localStorage.getItem(TAB_KEY) || 'null');
+    if (!s || s.id === TAB_ID || Date.now() - s.ts > TAB_TTL) return;
+    document.getElementById('multi-tab-banner')?.style.setProperty('display', 'flex');
+  } catch { try { localStorage.removeItem(TAB_KEY); } catch {} }
 }
+// visibilitychange fires before the browser can freeze setInterval — refreshing
+// the timestamp here ensures a backgrounded-but-alive tab isn't mistaken for dead
+// when a second tab opens right after.
+document.addEventListener('visibilitychange', _writeHeartbeat);
 window.addEventListener('beforeunload', releaseTab);
 
 // ── Tab title + favicon state ─────────────────────────────
@@ -597,6 +621,15 @@ function onTranscribeChange() {
 }
 
 // ── Start button enable/disable + tooltip ─────────────────
+function hasEnabledNleFormats() {
+  const nle = _cachedSettingsCfg?.nle_export || {};
+  return ['fcpxml', 'edl', 'fcp7xml'].some(k => {
+    if (Object.prototype.hasOwnProperty.call(nle, k)) return !!nle[k];
+    const el = $('cfg-nle-' + k);
+    return el ? el.checked : false;
+  });
+}
+
 function updateStartEnabled() {
   if (activelyProcessing) return;  // locked during processing
   const path = $('path').value.trim();
@@ -606,13 +639,7 @@ function updateStartEnabled() {
   if (!path) {
     reason = t('tooltip.start_no_path');
   } else if (convertMode) {
-    const nle = _cachedSettingsCfg?.nle_export || {};
-    const hasFormats = ['fcpxml', 'edl', 'fcp7xml'].some(k => {
-      if (Object.prototype.hasOwnProperty.call(nle, k)) return !!nle[k];
-      const el = $('cfg-nle-' + k);
-      return el ? el.checked : false;
-    });
-    if (!hasFormats) reason = t('convert.warn_no_formats');
+    if (!hasEnabledNleFormats()) reason = t('convert.warn_no_formats');
   } else {
     const aiOn = $('analyze_images').checked;
     const transcribeOn = $('transcribe').checked;
@@ -627,14 +654,8 @@ function updateStartEnabled() {
 
 function onConvertModeChange() {
   const on = !!$('convert_existing')?.checked;
-  const nle = _cachedSettingsCfg?.nle_export || {};
-  const hasFormats = ['fcpxml', 'edl', 'fcp7xml'].some(k => {
-    if (Object.prototype.hasOwnProperty.call(nle, k)) return !!nle[k];
-    const el = $('cfg-nle-' + k);
-    return el ? el.checked : false;
-  });
   const warn = $('convert-warn-inline');
-  if (warn) warn.style.display = (on && !hasFormats) ? '' : 'none';
+  if (warn) warn.style.display = (on && !hasEnabledNleFormats()) ? '' : 'none';
   updateStartEnabled();
 }
 
@@ -855,7 +876,9 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   const path = $('path').value.trim();
   if (!path) { alert(t('alerts.provide_path')); return; }
 
-  const convertMode = !!$('convert_existing')?.checked;
+  // Resume always uses /start — convert mode must not intercept a batch resume
+  const isResume = Object.keys(resumeExtra).some(k => k.startsWith('resume_'));
+  const convertMode = !isResume && !!$('convert_existing')?.checked;
 
   const ctxEl = $('context');
   const context = ctxEl.value.trim() || ctxEl.placeholder || '';

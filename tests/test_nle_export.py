@@ -60,6 +60,11 @@ class TestParseTimestamps(unittest.TestCase):
         self.assertEqual(parse_timestamps(''), [])
         self.assertEqual(parse_timestamps('No timestamps here.\nJust prose.'), [])
 
+    def test_dash_only_text_skipped(self):
+        """Marker with only a dash (no text) must be skipped entirely."""
+        self.assertEqual(parse_timestamps('00:15 —'), [])
+        self.assertEqual(parse_timestamps('00:15 -'), [])
+
     def test_sorted_by_time(self):
         """Out-of-order timestamps must be returned sorted ascending."""
         txt = '05:00 later\n01:00 earlier\n03:00 middle\n'
