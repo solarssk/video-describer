@@ -64,6 +64,21 @@ jobs:
           python -m json.tool static/i18n/en.json >/dev/null
           python -m json.tool static/i18n/pl.json >/dev/null
 
+  typecheck:
+    name: Type check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install mypy anthropic
+      - name: mypy
+        run: mypy nle_export.py processor.py web_app.py describe_videos.py config_loader.py providers/
+
   security:
     name: Security (bandit + pip-audit)
     runs-on: ubuntu-latest

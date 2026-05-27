@@ -41,7 +41,7 @@ def make_provider(name: str, cfg: dict, api_key: str) -> AIProvider:
     if not provider_cfg:
         raise ValueError(f"No config section 'ai.{name}' in config.json")
 
-    return cls(
+    return cls(  # type: ignore[operator]
         api_key=api_key,
         model=provider_cfg['model'],
         timeout=provider_cfg.get('timeout_sec', 600),

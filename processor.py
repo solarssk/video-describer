@@ -17,6 +17,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
+from typing import Optional
 
 from batch_metadata import (
     append_metadata_footer,
@@ -164,7 +165,7 @@ def _clear_batch_state() -> None:
 
 # ── Cost + error helpers ──────────────────────────────────────────────────────
 
-def _calc_cost(input_tok: int, output_tok: int, cfg: dict = None) -> float:
+def _calc_cost(input_tok: int, output_tok: int, cfg: Optional[dict] = None) -> float:
     """Calculate provider cost in USD from token usage and configured prices."""
     cfg = cfg or config_loader.load_config()
     provider_name = cfg['ai']['provider']
@@ -353,8 +354,8 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                     })
                     return
         total_media = len(media)
-        batch_id = (
-            previous_state.get('batch_id')
+        batch_id: str = (
+            str(previous_state['batch_id'])
             if isinstance(previous_state, dict) and previous_state.get('batch_id')
             else str(uuid.uuid4())
         )
@@ -644,6 +645,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
 
                 if media_type == 'video':
                     if analyze_images:
+                        assert provider is not None
                         _call_start[0] = time.time()
                         desc = describe_video(
                             str(file_path), provider,
@@ -659,6 +661,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                             cfg=cfg, system_prompt=system_prompt,
                         )
                     else:
+                        assert whisper_model_name is not None
                         desc = transcribe_only_video(
                             str(file_path), whisper_model_name,
                             openai_api_key=openai_key,
@@ -669,6 +672,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                             cfg=cfg,
                         )
                 else:
+                    assert provider is not None
                     _step_cb(f"analyzing photo with {cfg['ai']['provider']}")
                     print("  Analyzing photo...")
                     _call_start[0] = time.time()

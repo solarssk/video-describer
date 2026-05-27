@@ -21,6 +21,7 @@ import threading
 import time
 import warnings
 from pathlib import Path
+from typing import Optional
 
 from timefmt import fmt_ts
 from retrofit_outputs import retrofit_existing_outputs
@@ -104,7 +105,7 @@ class _MLXWhisperModel:
 
     def transcribe(self, audio_path: str, language: str = 'pl',
                    beam_size: int = 5, vad_filter: bool = True,
-                   vad_parameters: dict = None):
+                   vad_parameters: Optional[dict] = None):
         """Transcribe audio and return normalised segments plus no info object."""
         result = self._mlx_whisper.transcribe(
             audio_path,
@@ -126,7 +127,7 @@ class _FasterWhisperWrapper:
 
     def transcribe(self, audio_path: str, language: str = 'pl',
                    beam_size: int = 5, vad_filter: bool = True,
-                   vad_parameters: dict = None):
+                   vad_parameters: Optional[dict] = None):
         """Transcribe audio and normalise faster-whisper segment objects."""
         segs, info = self._model.transcribe(
             audio_path,
@@ -148,7 +149,7 @@ class _OpenAIWhisperModel:
 
     def transcribe(self, audio_path: str, language: str = 'pl',
                    beam_size: int = 5, vad_filter: bool = True,
-                   vad_parameters: dict = None):
+                   vad_parameters: Optional[dict] = None):
         """Transcribe audio with OpenAI's Whisper API and normalise segments."""
         try:
             from openai import OpenAI
@@ -167,7 +168,7 @@ class _OpenAIWhisperModel:
         return segments, None
 
 
-def load_whisper_model(model_name: str, openai_api_key: str = None):
+def load_whisper_model(model_name: str, openai_api_key: Optional[str] = None):
     """Factory — returns the best available Whisper backend for this machine.
 
     Priority: mlx (Neural Engine) → faster-whisper (CPU) → OpenAI API (cloud).
@@ -307,7 +308,7 @@ def get_video_metadata(video_path: str) -> tuple:
     return duration, fps
 
 
-def _run_ffmpeg(cmd: list, stop_event=None, duration_sec: float = None,
+def _run_ffmpeg(cmd: list, stop_event=None, duration_sec: Optional[float] = None,
                 progress_cb=None) -> None:
     """Runs ffmpeg via Popen. Killable via stop_event.
 
@@ -361,8 +362,8 @@ def _run_ffmpeg(cmd: list, stop_event=None, duration_sec: float = None,
 
 def extract_frames(video_path: str, output_dir: str, interval: int,
                    stop_event=None, progress_cb=None,
-                   max_frames: int = None, width_px: int = None,
-                   jpeg_quality: int = None) -> list:
+                   max_frames: Optional[int] = None, width_px: Optional[int] = None,
+                   jpeg_quality: Optional[int] = None) -> list:
     """Extracts frames every `interval` seconds.
     Returns a list of (timestamp_sec, frame_path, camera_label).
     For multi-stream files (Insta360 dual-lens) extracts each camera separately.
@@ -432,7 +433,7 @@ def extract_frames(video_path: str, output_dir: str, interval: int,
 
 
 def extract_audio(video_path: str, output_dir: str,
-                  stop_event=None, progress_cb=None, duration: float = None) -> str:
+                  stop_event=None, progress_cb=None, duration: Optional[float] = None) -> str:
     """Extracts audio as mono WAV 16kHz (format required by Whisper)."""
     audio_path = os.path.join(output_dir, 'audio.wav')
     dur = duration if duration is not None else get_video_duration(video_path)
@@ -466,7 +467,7 @@ def transcribe_audio(audio_path: str, model) -> list:
 
 
 def _transcribe_audio_worker(result_queue, audio_path: str,
-                             model_name: str, openai_api_key: str = None):
+                             model_name: str, openai_api_key: Optional[str] = None):
     """Child-process entrypoint. Returns only JSON/pickle-friendly data."""
     try:
         sys.stdout = sys.__stdout__
@@ -484,11 +485,11 @@ def _transcribe_audio_worker(result_queue, audio_path: str,
 
 
 def transcribe_audio_with_timeout(audio_path: str, model_name: str,
-                                  openai_api_key: str = None,
+                                  openai_api_key: Optional[str] = None,
                                   timeout_sec: int = 300,
                                   stop_event=None,
                                   progress_cb=None,
-                                  duration: float = None) -> tuple:
+                                  duration: Optional[float] = None) -> tuple:
     """Run Whisper in a child process so timeout/stop can terminate it safely.
 
     Returns (segments, timed_out). On timeout, returns ([], True).
@@ -543,7 +544,7 @@ def transcribe_audio_with_timeout(audio_path: str, model_name: str,
                             -11: 'SIGSEGV (segfault)',
                             -15: 'SIGTERM (terminated)',
                         }
-                        code = proc.exitcode
+                        code: int = proc.exitcode or 0
                         label = _SIG.get(code) or (f'signal {-code}' if code < 0 else f'exit {code}')
                         raise RuntimeError(f"Whisper crashed ({label}) — transcription skipped for this file")
                 continue
@@ -571,7 +572,7 @@ def format_transcript(segments: list) -> str:
     return '\n'.join(lines)
 
 
-def _output_language(cfg: dict = None) -> str:
+def _output_language(cfg: Optional[dict] = None) -> str:
     """Return the configured output language, falling back to Polish."""
     cfg = cfg or _DEFAULT_CFG
     lang = str(cfg.get('defaults', {}).get('output_language', 'pl')).lower()
@@ -689,7 +690,7 @@ def transcript_only_text(filename: str, transcript: str, timed_out: bool = False
 
 
 def build_content(frames: list, filename: str, people: str, context: str,
-                  transcript: str = None, output_language: str = 'pl') -> list:
+                  transcript: Optional[str] = None, output_language: str = 'pl') -> list:
     """Builds the content blocks list with interleaved timestamps and frames."""
     has_transcript = bool(transcript and transcript.strip())
     texts = _content_texts(output_language)
@@ -744,12 +745,12 @@ def build_content(frames: list, filename: str, people: str, context: str,
 
 def describe_video(video_path: str, provider: AIProvider,
                    people: str, context: str, interval: int,
-                   whisper_model_name: str = None,
-                   openai_api_key: str = None,
-                   whisper_timeout_sec: int = None,
+                   whisper_model_name: Optional[str] = None,
+                   openai_api_key: Optional[str] = None,
+                   whisper_timeout_sec: Optional[int] = None,
                    stop_event=None,
                    step_cb=None, progress_cb=None, usage_cb=None,
-                   cfg: dict = None, system_prompt: str = None) -> str:
+                   cfg: Optional[dict] = None, system_prompt: Optional[str] = None) -> str:
     """Extract frames and optional transcript, then generate a text description via AI."""
     cfg = cfg or _DEFAULT_CFG
     system_prompt = system_prompt or SYSTEM_PROMPT
@@ -857,7 +858,7 @@ def describe_video(video_path: str, provider: AIProvider,
 
 def describe_photo(photo_path: str, provider: AIProvider,
                    people: str, context: str, usage_cb=None,
-                   cfg: dict = None, system_prompt: str = None) -> str:
+                   cfg: Optional[dict] = None, system_prompt: Optional[str] = None) -> str:
     """Resize and send a photo to the AI provider and return the description."""
     cfg = cfg or _DEFAULT_CFG
     system_prompt = system_prompt or SYSTEM_PROMPT
@@ -909,10 +910,10 @@ def describe_photo(photo_path: str, provider: AIProvider,
 
 
 def transcribe_only_video(video_path: str, whisper_model_name: str,
-                          openai_api_key: str = None,
-                          whisper_timeout_sec: int = None,
+                          openai_api_key: Optional[str] = None,
+                          whisper_timeout_sec: Optional[int] = None,
                           stop_event=None, step_cb=None, progress_cb=None,
-                          cfg: dict = None) -> str:
+                          cfg: Optional[dict] = None) -> str:
     """Audio-only mode: extract audio, run Whisper, return formatted transcript.
     No Claude call, no API key needed. Used when 'analyze_images' is OFF."""
     cfg = cfg or _DEFAULT_CFG
@@ -982,7 +983,7 @@ def transcribe_only_video(video_path: str, whisper_model_name: str,
         return transcript_only_text(filename, transcript, timed_out, output_language)
 
 
-def find_media(paths: list, file_filter: list = None) -> list:
+def find_media(paths: list, file_filter: Optional[list] = None) -> list:
     """Returns a list of (Path, 'video'|'photo') sorted by filename.
 
     file_filter: optional list of filenames (basename only). When non-empty,

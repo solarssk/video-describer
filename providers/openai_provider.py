@@ -20,7 +20,7 @@ class OpenAIProvider(AIProvider):
             self.client.chat.completions.create(
                 model=self.model,
                 max_tokens=1,
-                messages=[{'role': 'user', 'content': 'hi'}],
+                messages=[{'role': 'user', 'content': 'hi'}],  # type: ignore[arg-type]
             )
             return True, ''
         except Exception as e:
@@ -29,7 +29,7 @@ class OpenAIProvider(AIProvider):
     def describe(self, content_blocks: list, system_prompt: str,
                  max_tokens: int) -> ProviderResponse:
         """Send multimodal content to OpenAI and return a normalised response."""
-        messages = [
+        messages: list = [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': _translate_blocks(content_blocks)},
         ]
@@ -44,8 +44,9 @@ class OpenAIProvider(AIProvider):
 
         choice = response.choices[0]
         usage = response.usage
+        assert usage is not None
         return ProviderResponse(
-            text=choice.message.content,
+            text=choice.message.content or '',
             model=response.model,
             input_tokens=usage.prompt_tokens,
             output_tokens=usage.completion_tokens,

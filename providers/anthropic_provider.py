@@ -60,8 +60,10 @@ class AnthropicProvider(AIProvider):
         except anthropic.APIStatusError as e:
             # Re-raise with a clean message so callers don't see raw JSON dicts.
             raise RuntimeError(_clean_error_msg(e)) from e
+        from anthropic.types import TextBlock
+        text = next((b.text for b in response.content if isinstance(b, TextBlock)), '')
         return ProviderResponse(
-            text=response.content[0].text,
+            text=text,
             model=response.model,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,

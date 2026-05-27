@@ -948,11 +948,11 @@ def _preflight_startup() -> bool:
 
     # ── Whisper backend ─────────────────────────────────────
     _begin('Whisper')
-    whisper_display = {
+    whisper_display: str = {
         'mlx':            'mlx-whisper  (Neural Engine)',
         'faster-whisper': 'faster-whisper  (CPU)',
         None:             'not installed',
-    }.get(WHISPER_BACKEND, WHISPER_BACKEND)
+    }.get(WHISPER_BACKEND) or (WHISPER_BACKEND or 'not installed')
     whisper_colour = GREEN if WHISPER_AVAILABLE else YELLOW
     whisper_status = '✓' if WHISPER_AVAILABLE else '—  optional'
     _done('Whisper', whisper_display, whisper_status, whisper_colour)
@@ -1022,5 +1022,5 @@ if __name__ == '__main__':
 
     print(f'  Open in browser: http://localhost:{port}\n')
     app_logger.info(f'=== video-describer started · port {port} · logs: {_LOG_DIR} ===')
-    from waitress import serve
+    from waitress import serve  # type: ignore[import-untyped]
     serve(app, host='127.0.0.1', port=port, threads=4, channel_timeout=3600)
