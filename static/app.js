@@ -615,6 +615,15 @@ function onTranscribeChange() {
 }
 
 // ── Start button enable/disable + tooltip ─────────────────
+function hasEnabledNleFormats() {
+  const nle = _cachedSettingsCfg?.nle_export || {};
+  return ['fcpxml', 'edl', 'fcp7xml'].some(k => {
+    if (Object.prototype.hasOwnProperty.call(nle, k)) return !!nle[k];
+    const el = $('cfg-nle-' + k);
+    return el ? el.checked : false;
+  });
+}
+
 function updateStartEnabled() {
   if (activelyProcessing) return;  // locked during processing
   const path = $('path').value.trim();
@@ -624,13 +633,7 @@ function updateStartEnabled() {
   if (!path) {
     reason = t('tooltip.start_no_path');
   } else if (convertMode) {
-    const nle = _cachedSettingsCfg?.nle_export || {};
-    const hasFormats = ['fcpxml', 'edl', 'fcp7xml'].some(k => {
-      if (Object.prototype.hasOwnProperty.call(nle, k)) return !!nle[k];
-      const el = $('cfg-nle-' + k);
-      return el ? el.checked : false;
-    });
-    if (!hasFormats) reason = t('convert.warn_no_formats');
+    if (!hasEnabledNleFormats()) reason = t('convert.warn_no_formats');
   } else {
     const aiOn = $('analyze_images').checked;
     const transcribeOn = $('transcribe').checked;
@@ -645,14 +648,8 @@ function updateStartEnabled() {
 
 function onConvertModeChange() {
   const on = !!$('convert_existing')?.checked;
-  const nle = _cachedSettingsCfg?.nle_export || {};
-  const hasFormats = ['fcpxml', 'edl', 'fcp7xml'].some(k => {
-    if (Object.prototype.hasOwnProperty.call(nle, k)) return !!nle[k];
-    const el = $('cfg-nle-' + k);
-    return el ? el.checked : false;
-  });
   const warn = $('convert-warn-inline');
-  if (warn) warn.style.display = (on && !hasFormats) ? '' : 'none';
+  if (warn) warn.style.display = (on && !hasEnabledNleFormats()) ? '' : 'none';
   updateStartEnabled();
 }
 
