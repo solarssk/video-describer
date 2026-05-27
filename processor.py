@@ -645,7 +645,8 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
 
                 if media_type == 'video':
                     if analyze_images:
-                        assert provider is not None
+                        if provider is None:
+                            raise RuntimeError("No AI provider configured — cannot analyze images")
                         _call_start[0] = time.time()
                         desc = describe_video(
                             str(file_path), provider,
@@ -661,7 +662,8 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                             cfg=cfg, system_prompt=system_prompt,
                         )
                     else:
-                        assert whisper_model_name is not None
+                        if whisper_model_name is None:
+                            raise RuntimeError("Whisper model not configured — cannot transcribe audio")
                         desc = transcribe_only_video(
                             str(file_path), whisper_model_name,
                             openai_api_key=openai_key,
@@ -672,7 +674,8 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                             cfg=cfg,
                         )
                 else:
-                    assert provider is not None
+                    if provider is None:
+                        raise RuntimeError("No AI provider configured — cannot analyze photo")
                     _step_cb(f"analyzing photo with {cfg['ai']['provider']}")
                     print("  Analyzing photo...")
                     _call_start[0] = time.time()

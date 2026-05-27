@@ -44,7 +44,8 @@ class OpenAIProvider(AIProvider):
 
         choice = response.choices[0]
         usage = response.usage
-        assert usage is not None
+        if usage is None:
+            raise RuntimeError("OpenAI response missing usage data")
         return ProviderResponse(
             text=choice.message.content or '',
             model=response.model,
