@@ -8,22 +8,24 @@ let activelyProcessing = false;
 // ── Single-tab guard ──────────────────────────────────────
 const TAB_ID  = Math.random().toString(36).slice(2);
 const TAB_KEY = 'vd_active_tab';
-const TAB_TTL = 10000;  // ms — entry older than this = dead tab (crash/force-quit)
-const TAB_HB  = 3000;   // ms — heartbeat interval
+const TAB_TTL = 30000;  // ms — entry older than this = dead tab (crash/force-quit)
+const TAB_HB  = 5000;   // ms — heartbeat interval
 let _tabHeartbeat = null;
+
+function _writeHeartbeat() {
+  try {
+    const s = JSON.parse(localStorage.getItem(TAB_KEY));
+    if (s && s.id === TAB_ID)
+      localStorage.setItem(TAB_KEY, JSON.stringify({id: TAB_ID, ts: Date.now()}));
+  } catch {}
+}
 
 function claimTab() {
   try {
     localStorage.setItem(TAB_KEY, JSON.stringify({id: TAB_ID, ts: Date.now()}));
   } catch { return; }
   clearInterval(_tabHeartbeat);
-  _tabHeartbeat = setInterval(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem(TAB_KEY));
-      if (s && s.id === TAB_ID)
-        localStorage.setItem(TAB_KEY, JSON.stringify({id: TAB_ID, ts: Date.now()}));
-    } catch {}
-  }, TAB_HB);
+  _tabHeartbeat = setInterval(_writeHeartbeat, TAB_HB);
 }
 function releaseTab() {
   clearInterval(_tabHeartbeat);
@@ -40,6 +42,10 @@ function checkSingleTab() {
     document.getElementById('multi-tab-banner')?.style.setProperty('display', 'flex');
   } catch { try { localStorage.removeItem(TAB_KEY); } catch {} }
 }
+// visibilitychange fires before the browser can freeze setInterval — refreshing
+// the timestamp here ensures a backgrounded-but-alive tab isn't mistaken for dead
+// when a second tab opens right after.
+document.addEventListener('visibilitychange', _writeHeartbeat);
 window.addEventListener('beforeunload', releaseTab);
 
 // ── Tab title + favicon state ─────────────────────────────
