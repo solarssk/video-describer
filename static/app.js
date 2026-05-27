@@ -6,21 +6,35 @@ let reconnectTimer = null;
 let activelyProcessing = false;
 
 // ── Single-tab guard ──────────────────────────────────────
-const TAB_ID = Math.random().toString(36).slice(2);
+const TAB_ID  = Math.random().toString(36).slice(2);
 const TAB_KEY = 'vd_active_tab';
+const TAB_TTL = 10000;  // ms — entry older than this = dead tab (crash/force-quit)
+const TAB_HB  = 3000;   // ms — heartbeat interval
+let _tabHeartbeat = null;
 
 function claimTab() {
-  localStorage.setItem(TAB_KEY, TAB_ID);
+  localStorage.setItem(TAB_KEY, JSON.stringify({id: TAB_ID, ts: Date.now()}));
+  _tabHeartbeat = setInterval(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(TAB_KEY));
+      if (s && s.id === TAB_ID)
+        localStorage.setItem(TAB_KEY, JSON.stringify({id: TAB_ID, ts: Date.now()}));
+    } catch {}
+  }, TAB_HB);
 }
 function releaseTab() {
-  if (localStorage.getItem(TAB_KEY) === TAB_ID) localStorage.removeItem(TAB_KEY);
+  clearInterval(_tabHeartbeat);
+  try {
+    const s = JSON.parse(localStorage.getItem(TAB_KEY));
+    if (s && s.id === TAB_ID) localStorage.removeItem(TAB_KEY);
+  } catch { localStorage.removeItem(TAB_KEY); }
 }
 function checkSingleTab() {
-  const active = localStorage.getItem(TAB_KEY);
-  if (active && active !== TAB_ID) {
-    const banner = document.getElementById('multi-tab-banner');
-    if (banner) banner.style.display = 'flex';
-  }
+  try {
+    const s = JSON.parse(localStorage.getItem(TAB_KEY) || 'null');
+    if (!s || s.id === TAB_ID || Date.now() - s.ts > TAB_TTL) return;
+    document.getElementById('multi-tab-banner')?.style.setProperty('display', 'flex');
+  } catch { localStorage.removeItem(TAB_KEY); }
 }
 window.addEventListener('beforeunload', releaseTab);
 
