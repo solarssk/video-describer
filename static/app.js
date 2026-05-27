@@ -13,7 +13,10 @@ const TAB_HB  = 3000;   // ms — heartbeat interval
 let _tabHeartbeat = null;
 
 function claimTab() {
-  localStorage.setItem(TAB_KEY, JSON.stringify({id: TAB_ID, ts: Date.now()}));
+  try {
+    localStorage.setItem(TAB_KEY, JSON.stringify({id: TAB_ID, ts: Date.now()}));
+  } catch { return; }
+  clearInterval(_tabHeartbeat);
   _tabHeartbeat = setInterval(() => {
     try {
       const s = JSON.parse(localStorage.getItem(TAB_KEY));
@@ -24,10 +27,11 @@ function claimTab() {
 }
 function releaseTab() {
   clearInterval(_tabHeartbeat);
+  _tabHeartbeat = null;
   try {
     const s = JSON.parse(localStorage.getItem(TAB_KEY));
     if (s && s.id === TAB_ID) localStorage.removeItem(TAB_KEY);
-  } catch { localStorage.removeItem(TAB_KEY); }
+  } catch { try { localStorage.removeItem(TAB_KEY); } catch {} }
 }
 function checkSingleTab() {
   try {
@@ -869,7 +873,9 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   const path = $('path').value.trim();
   if (!path) { alert(t('alerts.provide_path')); return; }
 
-  const convertMode = !!$('convert_existing')?.checked;
+  // Resume always uses /start — convert mode must not intercept a batch resume
+  const isResume = Object.keys(resumeExtra).some(k => k.startsWith('resume_'));
+  const convertMode = !isResume && !!$('convert_existing')?.checked;
 
   const ctxEl = $('context');
   const context = ctxEl.value.trim() || ctxEl.placeholder || '';

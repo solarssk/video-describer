@@ -193,7 +193,7 @@
     "nle_edl_label": "EDL (DaVinci Resolve)",
     "nle_edl_sub": "video.mp4.edl — requires FPS from ffprobe",
     "nle_fcp7xml_label": "FCP7 XML (Adobe Premiere)",
-    "nle_fcp7xml_sub": "video.mp4.xmeml — requires FPS from ffprobe",
+    "nle_fcp7xml_sub": "video.mp4.xml — requires FPS from ffprobe",
     "defaults_title": "Form defaults",
     "default_context_label": "Default context",
     "default_interval_label": "Default frame interval (s)",
