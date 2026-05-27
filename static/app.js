@@ -38,7 +38,7 @@ function checkSingleTab() {
     const s = JSON.parse(localStorage.getItem(TAB_KEY) || 'null');
     if (!s || s.id === TAB_ID || Date.now() - s.ts > TAB_TTL) return;
     document.getElementById('multi-tab-banner')?.style.setProperty('display', 'flex');
-  } catch { localStorage.removeItem(TAB_KEY); }
+  } catch { try { localStorage.removeItem(TAB_KEY); } catch {} }
 }
 window.addEventListener('beforeunload', releaseTab);
 
