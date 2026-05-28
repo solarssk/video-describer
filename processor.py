@@ -203,14 +203,22 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
 
     if notif.get('macos_notify') and IS_MACOS:
         file_word = 'file' if processed == 1 else 'files'
+        if files and len(files) == 1:
+            file_label = files[0]
+        elif files:
+            file_label = f'{processed} {file_word}'
+        elif source:
+            file_label = Path(source).name or source
+        else:
+            file_label = f'{processed} {file_word}'
         if status == 'done':
             subtitle = '✓ Done'
             mins, secs = int(duration_sec) // 60, int(duration_sec) % 60
             time_str = f'{mins}m {secs}s' if mins else f'{secs}s'
-            msg = f'{processed} {file_word} · ${cost_usd:.3f} · {time_str}'
+            msg = f'{file_label} · ${cost_usd:.3f} · {time_str}'
         else:
             subtitle = '⛔ Failed'
-            msg = f'Stopped after {processed} {file_word}'
+            msg = f'Stopped after {file_label}'
         try:
             subprocess.run(
                 ['osascript', '-e',
