@@ -224,6 +224,7 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
     url = notif.get('webhook_url', '').strip()
     if notif.get('webhook_enabled') and url and (status == 'done' or notif.get('webhook_on_error', True)):
         import json as _json
+        import urllib.error
         import urllib.parse
         import urllib.request
         parsed = urllib.parse.urlparse(url)
@@ -257,6 +258,9 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
             )
             resp = urllib.request.urlopen(req, timeout=10)  # nosec B310
             print(f'[notify] Webhook sent — HTTP {resp.status}')
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode('utf-8', errors='replace')[:200]
+            print(f'[notify] Webhook failed — HTTP {exc.code}: {body}')
         except Exception as exc:
             print(f'[notify] Webhook failed for {target_host}: {type(exc).__name__}')
 
