@@ -809,7 +809,13 @@ def config_save():
     body = request.json or {}
     if 'config' in body:
         try:
-            config_loader.save_config(body['config'])
+            incoming = body['config']
+            # Connectors (API keys) are managed via /connectors/save — never let a
+            # generic settings save accidentally overwrite or clear them.
+            if 'connectors' not in incoming:
+                existing = config_loader.load_config()
+                incoming['connectors'] = existing.get('connectors', {})
+            config_loader.save_config(incoming)
         except Exception as e:
             return jsonify({'error': f'Failed to save config: {e}'}), 400
     if 'prompt' in body:

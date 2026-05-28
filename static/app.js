@@ -331,11 +331,7 @@ async function saveConnector(provider) {
 
   // If the field still shows the stored-mask placeholder, the user hasn't
   // entered a new key — there is nothing to save.
-  if (keyEl.dataset.storedMask === 'true') {
-    statusEl.textContent = t('connectors.saved');
-    statusEl.className = 'conn-status ok';
-    return;
-  }
+  if (keyEl.dataset.storedMask === 'true') return;
 
   const key = keyEl.value.trim();
   statusEl.textContent = t('connectors.saving');
@@ -1116,6 +1112,7 @@ function switchTab(tab) {
   $('pane-run').style.display         = tab === 'run'         ? '' : 'none';
   $('pane-settings').style.display    = tab === 'settings'    ? '' : 'none';
   $('pane-connectors').style.display  = tab === 'connectors'  ? '' : 'none';
+  if (tab === 'connectors') loadConnectors();
 }
 
 document.addEventListener('click', (e) => {
