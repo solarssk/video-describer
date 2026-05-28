@@ -9,7 +9,7 @@
 
 We rode from Warsaw to Muscat, Oman — through Turkey, Iraq, Kuwait, Saudi Arabia, and the UAE — and came back with 1 TB of footage across two cameras. Our editor needed to start cutting, but figuring out what was even on each clip was going to take days of scrubbing before any real work could begin.
 
-**video-describer** points Claude at a folder of recordings and comes back with timestamped descriptions of what's happening in each file. Who's there, what they're doing, where they are, what the light looks like. Enough for an editor to know which clips are worth opening before they open them.
+**video-describer** points an AI provider at a folder of recordings and comes back with timestamped descriptions of what's happening in each file. Who's there, what they're doing, where they are, what the light looks like. Enough for an editor to know which clips are worth opening before they open them.
 
 It works on common camera and phone video formats backed by ffmpeg, including GoPro, Insta360, and iPhone `.mov` clips. Whisper transcription is optional — useful when there's actual dialogue you'd want to find later.
 
@@ -51,7 +51,7 @@ This renames unambiguous legacy files such as `video.txt` to `video.mp4.txt` and
 
 - macOS (Apple Silicon or Intel), Python 3.9+
 - [ffmpeg](https://ffmpeg.org/) — `brew install ffmpeg`
-- [Anthropic API key](https://console.anthropic.com/settings/api-keys)
+- API key for your chosen provider ([Anthropic](https://console.anthropic.com/settings/api-keys), [OpenAI](https://platform.openai.com/api-keys), or [Google Gemini](https://aistudio.google.com/app/apikey))
 
 ---
 
@@ -225,7 +225,7 @@ The system prompt lives in `prompts/system.md`. Change it to change the output l
 
 ## 🗂️ Project structure
 
-```
+```text
 video-describer/
 ├── web_app.py               — Waitress/Flask app, HTTP endpoints, SSE
 ├── processor.py             — batch loop, resume state, cost/log plumbing
