@@ -231,7 +231,15 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
         if parsed.scheme.lower() not in {'http', 'https'}:
             print(f'[notify] Webhook skipped — invalid scheme for host: {target_host}')
             return
+        file_word = 'file' if processed == 1 else 'files'
+        mins, secs = int(duration_sec) // 60, int(duration_sec) % 60
+        time_str = f'{mins}m {secs}s' if mins else f'{secs}s'
+        if status == 'done':
+            content = f'✓ Video Describer — {processed} {file_word} · ${cost_usd:.3f} · {time_str}'
+        else:
+            content = f'⛔ Video Describer — failed after {processed} {file_word}'
         payload = {
+            'content': content,
             'status': status,
             'processed': processed,
             'skipped': skipped,
