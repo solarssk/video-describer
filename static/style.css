@@ -232,7 +232,7 @@ header .badge {
   width: fit-content;
 }
 .lang-select:hover { border-color: var(--accent); color: var(--text); }
-.lang-select:focus { outline: none; border-color: var(--accent); }
+.lang-select:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-color: var(--accent); }
 
 /* ── Preset action buttons under prompt textarea ── */
 .preset-actions {

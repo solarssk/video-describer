@@ -865,8 +865,9 @@ function handleMsg(msg) {
     hideStepStatus();
     if (_cachedSettingsCfg?.notifications?.browser_notify &&
         'Notification' in window && Notification.permission === 'granted') {
-      const mins = Math.floor((msg.duration_sec || 0) / 60);
-      const secs = Math.round((msg.duration_sec || 0) % 60);
+      const totalSecs = Math.round(msg.duration_sec || 0);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
       const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
       const fileLabel = msg.first_file
         ? msg.first_file
@@ -1159,17 +1160,27 @@ let activeProviderName = 'anthropic';
 // Full config cached so onProviderChange can re-read provider-specific fields
 let _cachedSettingsCfg = null;
 
-function _handleBrowserNotifyToggle() {
-  if (!('Notification' in window)) {
-    $('cfg-browser-notify').checked = false;
+function _syncBrowserNotifyState(wantEnabled) {
+  const el = $('cfg-browser-notify');
+  if (!el) return;
+  const supported = 'Notification' in window;
+  if (!supported || Notification.permission === 'denied') {
+    el.checked = false;
+    el.disabled = true;
     return;
   }
-  if ($('cfg-browser-notify').checked) {
-    if (Notification.permission === 'granted') return;
+  el.disabled = false;
+  if (wantEnabled === undefined) return;  // called from fillSettingsForm — just update disabled state
+  el.checked = wantEnabled;
+  if (wantEnabled && Notification.permission !== 'granted') {
     Notification.requestPermission().then(p => {
-      if (p !== 'granted') $('cfg-browser-notify').checked = false;
+      if (p !== 'granted') { el.checked = false; }
     });
   }
+}
+
+function _handleBrowserNotifyToggle() {
+  _syncBrowserNotifyState($('cfg-browser-notify')?.checked);
 }
 
 function _updateWebhookVis() {
@@ -1212,7 +1223,7 @@ function fillSettingsForm(cfg, prompt) {
 
   const n = cfg.notifications || {};
   $('cfg-macos-notify').checked      = !!n.macos_notify;
-  $('cfg-browser-notify').checked    = !!n.browser_notify;
+  _syncBrowserNotifyState(!!n.browser_notify);
   $('cfg-webhook-enabled').checked   = !!n.webhook_enabled;
   $('cfg-webhook-url').value         = n.webhook_url || '';
   $('cfg-webhook-on-error').checked  = n.webhook_on_error !== false;
