@@ -217,7 +217,11 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
     url = notif.get('webhook_url', '').strip()
     if url and (status == 'done' or notif.get('webhook_on_error', True)):
         import json as _json
+        import urllib.parse
         import urllib.request
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme.lower() not in {'http', 'https'}:
+            return
         payload = {
             'status': status,
             'processed': processed,
@@ -233,7 +237,7 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
                 headers={'Content-Type': 'application/json'},
                 method='POST',
             )
-            urllib.request.urlopen(req, timeout=10)
+            urllib.request.urlopen(req, timeout=10)  # nosec B310
         except Exception:
             pass
 
@@ -836,8 +840,14 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
     except Exception as e:
         emit_fn({'type': 'error', 'text': str(e)})
         print(f"Fatal error: {e}")
-        _send_notifications(cfg, 'error', processed, skipped, errors,
-                            usage.get('cost_usd', 0.0), time.time() - batch_start)
+        _safe_cfg       = locals().get('cfg') or {}
+        _safe_processed = locals().get('processed') or 0
+        _safe_skipped   = locals().get('skipped') or 0
+        _safe_errors    = locals().get('errors') or 1
+        _send_notifications(
+            _safe_cfg, 'error', _safe_processed, _safe_skipped, _safe_errors,
+            usage.get('cost_usd', 0.0), time.time() - batch_start,
+        )
     finally:
         if heartbeat_stop is not None:
             heartbeat_stop.set()
