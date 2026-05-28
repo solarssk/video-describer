@@ -863,6 +863,22 @@ function handleMsg(msg) {
     setTabState('done');
     activelyProcessing = false;
     hideStepStatus();
+    if (_cachedSettingsCfg?.notifications?.browser_notify &&
+        'Notification' in window && Notification.permission === 'granted') {
+      const totalSecs = Math.round(msg.duration_sec || 0);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+      const fileLabel = msg.first_file
+        ? msg.first_file
+        : `${msg.processed} file${msg.processed !== 1 ? 's' : ''}`;
+      const body = `${fileLabel} · $${(msg.cost_usd || 0).toFixed(3)} · ${timeStr}`;
+      const notif = new Notification('Video Describer', {
+        body,
+        icon: '/static/icons/icon-192.png',
+      });
+      notif.onclick = () => { window.focus(); notif.close(); };
+    }
     resetUI();
   }
 }
@@ -1144,6 +1160,29 @@ let activeProviderName = 'anthropic';
 // Full config cached so onProviderChange can re-read provider-specific fields
 let _cachedSettingsCfg = null;
 
+function _syncBrowserNotifyState(wantEnabled) {
+  const el = $('cfg-browser-notify');
+  if (!el) return;
+  const supported = 'Notification' in window;
+  if (!supported || Notification.permission === 'denied') {
+    el.checked = false;
+    el.disabled = true;
+    return;
+  }
+  el.disabled = false;
+  if (wantEnabled === undefined) return;  // called from fillSettingsForm — just update disabled state
+  el.checked = wantEnabled;
+  if (wantEnabled && Notification.permission !== 'granted') {
+    Notification.requestPermission().then(p => {
+      if (p !== 'granted') { el.checked = false; }
+    });
+  }
+}
+
+function _handleBrowserNotifyToggle() {
+  _syncBrowserNotifyState($('cfg-browser-notify')?.checked);
+}
+
 function _updateWebhookVis() {
   const enabled = !!$('cfg-webhook-enabled')?.checked;
   const panel = document.getElementById('webhook-sub-settings');
@@ -1184,6 +1223,7 @@ function fillSettingsForm(cfg, prompt) {
 
   const n = cfg.notifications || {};
   $('cfg-macos-notify').checked      = !!n.macos_notify;
+  _syncBrowserNotifyState(!!n.browser_notify);
   $('cfg-webhook-enabled').checked   = !!n.webhook_enabled;
   $('cfg-webhook-url').value         = n.webhook_url || '';
   $('cfg-webhook-on-error').checked  = n.webhook_on_error !== false;
@@ -1246,6 +1286,7 @@ function readSettingsForm() {
       },
       notifications: {
         macos_notify:     !!$('cfg-macos-notify')?.checked,
+        browser_notify:   !!$('cfg-browser-notify')?.checked,
         webhook_enabled:  !!$('cfg-webhook-enabled')?.checked,
         webhook_url:      $('cfg-webhook-url')?.value.trim() || '',
         webhook_on_error: !!$('cfg-webhook-on-error')?.checked,

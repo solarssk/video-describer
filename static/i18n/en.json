@@ -196,6 +196,8 @@
     "nle_fcp7xml_sub": "video.mp4.xml — requires FPS from ffprobe",
     "notifications_title": "Notifications",
     "notifications_help": "Get notified when batch processing completes.",
+    "browser_notify_label": "Browser notification",
+    "browser_notify_sub": "Browser asks permission once, then shows a popup with cost & filename",
     "macos_notify_label": "macOS notification",
     "macos_notify_sub": "Show a native system notification when batch finishes",
     "webhook_enabled_label": "Enable webhook",

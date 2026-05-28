@@ -196,6 +196,8 @@
     "nle_fcp7xml_sub": "video.mp4.xml — wymaga FPS z ffprobe",
     "notifications_title": "Powiadomienia",
     "notifications_help": "Otrzymuj powiadomienie po zakończeniu przetwarzania batcha.",
+    "browser_notify_label": "Powiadomienie przeglądarki",
+    "browser_notify_sub": "Przeglądarka pyta o pozwolenie raz, potem pokazuje popup z kosztem i nazwą pliku",
     "macos_notify_label": "Powiadomienie macOS",
     "macos_notify_sub": "Wyświetl natywne powiadomienie systemowe po zakończeniu batcha",
     "webhook_enabled_label": "Włącz webhook",

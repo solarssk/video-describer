@@ -547,6 +547,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         current_progress: list = [None, '']
         completed_times: list = []
         summary_entries: list = []
+        first_processed_file: str = ''
         if pre_resume_media and config.get('generate_summary'):
             for _idx, (_fp, _) in enumerate(pre_resume_media):
                 _entry = manifest_files[_idx]
@@ -826,6 +827,8 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                 mark_file(manifest_files, file_path, 'done', output=output_path)
                 first_line = summary_description(desc_with_metadata)
                 summary_entries.append((file_path.name, first_line))
+                if not first_processed_file:
+                    first_processed_file = file_path.name
                 file_in   = usage['input']    - file_usage_before['input']
                 file_out  = usage['output']   - file_usage_before['output']
                 file_tokens = file_in + file_out
@@ -897,7 +900,13 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                             usage.get('cost_usd', 0.0), time.time() - batch_start,
                             source=str(config.get('path', '')),
                             files=_processed_names)
-        emit_fn({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
+        emit_fn({
+            'type': 'done',
+            'processed': processed, 'skipped': skipped, 'errors': errors,
+            'cost_usd':     round(usage.get('cost_usd', 0.0), 4),
+            'duration_sec': round(time.time() - batch_start, 1),
+            'first_file':   first_processed_file,
+        })
 
     except Exception as e:
         print(f"Fatal error: {e}")
