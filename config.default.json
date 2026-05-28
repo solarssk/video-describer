@@ -58,6 +58,7 @@
   },
   "notifications": {
     "macos_notify":     false,
+    "webhook_enabled":  false,
     "webhook_url":      "",
     "webhook_on_error": true
   },

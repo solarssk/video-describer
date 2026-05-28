@@ -1147,6 +1147,12 @@ let activeProviderName = 'anthropic';
 // Full config cached so onProviderChange can re-read provider-specific fields
 let _cachedSettingsCfg = null;
 
+function _updateWebhookVis() {
+  const enabled = !!$('cfg-webhook-enabled')?.checked;
+  const panel = document.getElementById('webhook-sub-settings');
+  if (panel) panel.style.display = enabled ? '' : 'none';
+}
+
 function fillSettingsForm(cfg, prompt) {
   _cachedSettingsCfg = cfg;
   activeProviderName = cfg.ai?.provider || 'anthropic';
@@ -1181,8 +1187,10 @@ function fillSettingsForm(cfg, prompt) {
 
   const n = cfg.notifications || {};
   $('cfg-macos-notify').checked      = !!n.macos_notify;
+  $('cfg-webhook-enabled').checked   = !!n.webhook_enabled;
   $('cfg-webhook-url').value         = n.webhook_url || '';
   $('cfg-webhook-on-error').checked  = n.webhook_on_error !== false;
+  _updateWebhookVis();
 
   $('cfg-prompt').value = prompt;
 }
@@ -1241,6 +1249,7 @@ function readSettingsForm() {
       },
       notifications: {
         macos_notify:     !!$('cfg-macos-notify')?.checked,
+        webhook_enabled:  !!$('cfg-webhook-enabled')?.checked,
         webhook_url:      $('cfg-webhook-url')?.value.trim() || '',
         webhook_on_error: !!$('cfg-webhook-on-error')?.checked,
       },
@@ -1260,6 +1269,7 @@ async function saveSettings() {
     body.config.defaults.people = current.config.defaults.people;
     body.config.whisper.timeout_sec = current.config.whisper.timeout_sec;
     body.config.server = current.config.server;
+    body.config.connectors = current.config.connectors;
 
     const res = await fetch('/config', {
       method: 'POST',

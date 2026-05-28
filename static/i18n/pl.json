@@ -198,6 +198,8 @@
     "notifications_help": "Otrzymuj powiadomienie po zakończeniu przetwarzania batcha.",
     "macos_notify_label": "Powiadomienie macOS",
     "macos_notify_sub": "Wyświetl natywne powiadomienie systemowe po zakończeniu batcha",
+    "webhook_enabled_label": "Włącz webhook",
+    "webhook_enabled_sub": "Wyślij żądanie POST na podany adres po zakończeniu batcha",
     "webhook_url_label": "Adres webhook",
     "webhook_url_placeholder": "https://hooks.slack.com/…",
     "webhook_on_error_label": "Powiadamiaj też o błędach",

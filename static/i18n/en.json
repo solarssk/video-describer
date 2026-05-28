@@ -198,6 +198,8 @@
     "notifications_help": "Get notified when batch processing completes.",
     "macos_notify_label": "macOS notification",
     "macos_notify_sub": "Show a native system notification when batch finishes",
+    "webhook_enabled_label": "Enable webhook",
+    "webhook_enabled_sub": "Send a POST request to a URL when batch completes",
     "webhook_url_label": "Webhook URL",
     "webhook_url_placeholder": "https://hooks.slack.com/…",
     "webhook_on_error_label": "Also notify on error",

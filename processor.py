@@ -201,21 +201,27 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
     notif = cfg.get('notifications', {})
 
     if notif.get('macos_notify') and IS_MACOS:
+        file_word = 'file' if processed == 1 else 'files'
         if status == 'done':
-            msg = f'Processed {processed} files — ${cost_usd:.3f}'
+            subtitle = '✓ Done'
+            mins, secs = int(duration_sec) // 60, int(duration_sec) % 60
+            time_str = f'{mins}m {secs}s' if mins else f'{secs}s'
+            msg = f'{processed} {file_word} · ${cost_usd:.3f} · {time_str}'
         else:
-            msg = f'Batch failed after {processed} files'
+            subtitle = '⛔ Failed'
+            msg = f'Stopped after {processed} {file_word}'
         try:
             subprocess.run(
                 ['osascript', '-e',
-                 f'display notification "{msg}" with title "Video Describer"'],
+                 f'display notification "{msg}" with title "Video Describer"'
+                 f' subtitle "{subtitle}" sound name "Default"'],
                 timeout=5, capture_output=True,
             )
         except Exception:
             pass
 
     url = notif.get('webhook_url', '').strip()
-    if url and (status == 'done' or notif.get('webhook_on_error', True)):
+    if notif.get('webhook_enabled') and url and (status == 'done' or notif.get('webhook_on_error', True)):
         import json as _json
         import urllib.parse
         import urllib.request
