@@ -196,7 +196,8 @@ def _preflight_api(provider) -> tuple:
 
 
 def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
-                        errors: int, cost_usd: float, duration_sec: float) -> None:
+                        errors: int, cost_usd: float, duration_sec: float,
+                        source: str = '', files: Optional[list] = None) -> None:
     """Fire macOS notification and/or webhook after batch completes or fails."""
     notif = cfg.get('notifications', {})
 
@@ -251,6 +252,11 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
             _fields.append({'name': 'Skipped', 'value': str(skipped), 'inline': True})
         if errors:
             _fields.append({'name': 'Errors', 'value': str(errors), 'inline': True})
+        if files and len(files) <= 5:
+            _fields.append({'name': 'Files', 'value': '\n'.join(files), 'inline': False})
+        elif source:
+            _src = Path(source).name or source
+            _fields.append({'name': 'Source', 'value': _src, 'inline': False})
         payload = {
             'embeds': [{
                 'title':     _title,
@@ -878,8 +884,11 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             f'cost=${usage["cost_usd"]:.4f}'
         )
         print(f"\n--- Done: processed {processed}, skipped {skipped}, errors {errors} ---")
+        _processed_names = [name for name, _ in summary_entries]
         _send_notifications(cfg, 'done', processed, skipped, errors,
-                            usage.get('cost_usd', 0.0), time.time() - batch_start)
+                            usage.get('cost_usd', 0.0), time.time() - batch_start,
+                            source=str(config.get('path', '')),
+                            files=_processed_names)
         emit_fn({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
 
     except Exception as e:
@@ -888,9 +897,11 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         _safe_processed = locals().get('processed') or 0
         _safe_skipped   = locals().get('skipped') or 0
         _safe_errors    = locals().get('errors') or 1
+        _safe_source    = str((locals().get('config') or {}).get('path', '') or '')
         _send_notifications(
             _safe_cfg, 'error', _safe_processed, _safe_skipped, _safe_errors,
             usage.get('cost_usd', 0.0), time.time() - batch_start,
+            source=_safe_source,
         )
         emit_fn({'type': 'error', 'text': str(e)})
     finally:
