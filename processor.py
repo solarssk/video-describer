@@ -227,8 +227,9 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
         import urllib.parse
         import urllib.request
         parsed = urllib.parse.urlparse(url)
+        target_host = parsed.netloc or '<invalid-host>'
         if parsed.scheme.lower() not in {'http', 'https'}:
-            print(f'[notify] Webhook skipped — invalid scheme in URL: {url[:60]}')
+            print(f'[notify] Webhook skipped — invalid scheme for host: {target_host}')
             return
         payload = {
             'status': status,
@@ -238,8 +239,7 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
             'cost_usd': round(cost_usd, 4),
             'duration_sec': round(duration_sec, 1),
         }
-        short_url = url[:60] + ('…' if len(url) > 60 else '')
-        print(f'[notify] Webhook → {short_url}')
+        print(f'[notify] Webhook → {target_host}')
         try:
             req = urllib.request.Request(
                 url,
@@ -250,7 +250,7 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
             resp = urllib.request.urlopen(req, timeout=10)  # nosec B310
             print(f'[notify] Webhook sent — HTTP {resp.status}')
         except Exception as exc:
-            print(f'[notify] Webhook failed: {exc}')
+            print(f'[notify] Webhook failed for {target_host}: {type(exc).__name__}')
 
 
 # ── QueueLogger ───────────────────────────────────────────────────────────────
