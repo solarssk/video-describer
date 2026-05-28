@@ -809,7 +809,13 @@ def config_save():
     body = request.json or {}
     if 'config' in body:
         try:
-            config_loader.save_config(body['config'])
+            # Deep-merge into the existing file so that:
+            # - key order is preserved (connectors stays at top)
+            # - fields not present in the form (output_language, connectors, …)
+            #   are never silently deleted
+            existing = config_loader.load_config()
+            merged = config_loader._deep_merge(existing, body['config'])
+            config_loader.save_config(merged)
         except Exception as e:
             return jsonify({'error': f'Failed to save config: {e}'}), 400
     if 'prompt' in body:

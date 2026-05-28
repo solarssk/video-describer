@@ -196,33 +196,84 @@ def _preflight_api(provider) -> tuple:
 
 
 def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
-                        errors: int, cost_usd: float, duration_sec: float) -> None:
+                        errors: int, cost_usd: float, duration_sec: float,
+                        source: str = '', files: Optional[list] = None) -> None:
     """Fire macOS notification and/or webhook after batch completes or fails."""
     notif = cfg.get('notifications', {})
 
     if notif.get('macos_notify') and IS_MACOS:
-        if status == 'done':
-            msg = f'Processed {processed} files — ${cost_usd:.3f}'
+        file_word = 'file' if processed == 1 else 'files'
+        if files and len(files) == 1:
+            file_label = files[0]
+        elif files:
+            file_label = f'{processed} {file_word}'
+        elif source:
+            file_label = Path(source).name or source
         else:
-            msg = f'Batch failed after {processed} files'
+            file_label = f'{processed} {file_word}'
+        if status == 'done':
+            subtitle = '✓ Done'
+            mins, secs = int(duration_sec) // 60, int(duration_sec) % 60
+            time_str = f'{mins}m {secs}s' if mins else f'{secs}s'
+            msg = f'{file_label} · ${cost_usd:.3f} · {time_str}'
+        else:
+            subtitle = '⛔ Failed'
+            msg = f'Stopped after {file_label}'
         try:
             subprocess.run(
                 ['osascript', '-e',
-                 f'display notification "{msg}" with title "Video Describer"'],
+                 f'display notification "{msg}" with title "Video Describer"'
+                 f' subtitle "{subtitle}" sound name "Default"'],
                 timeout=5, capture_output=True,
             )
-        except Exception:
-            pass
+            print(f'[notify] macOS notification sent: {subtitle} — {msg}')
+        except Exception as exc:
+            print(f'[notify] macOS notification failed: {exc}')
 
     url = notif.get('webhook_url', '').strip()
-    if url and (status == 'done' or notif.get('webhook_on_error', True)):
+    if notif.get('webhook_enabled') and url and (status == 'done' or notif.get('webhook_on_error', True)):
+        import datetime as _dt
         import json as _json
+        import urllib.error
         import urllib.parse
         import urllib.request
         parsed = urllib.parse.urlparse(url)
+        target_host = parsed.netloc or '<invalid-host>'
         if parsed.scheme.lower() not in {'http', 'https'}:
+            print(f'[notify] Webhook skipped — invalid scheme for host: {target_host}')
             return
+        _fw = 'file' if processed == 1 else 'files'
+        _mins, _secs = int(duration_sec) // 60, int(duration_sec) % 60
+        _time_str = f'{_mins}m {_secs}s' if _mins else f'{_secs}s'
+        if status == 'done':
+            _color = 5763719   # 0x57F287 green
+            _title = '✓ Batch complete'
+        else:
+            _color = 15548997  # 0xED4245 red
+            _title = '⛔ Batch failed'
+        _fields = [
+            {'name': 'Processed', 'value': f'{processed} {_fw}', 'inline': True},
+            {'name': 'Cost',      'value': f'${cost_usd:.3f}',   'inline': True},
+            {'name': 'Duration',  'value': _time_str,            'inline': True},
+        ]
+        if skipped:
+            _fields.append({'name': 'Skipped', 'value': str(skipped), 'inline': True})
+        if errors:
+            _fields.append({'name': 'Errors', 'value': str(errors), 'inline': True})
+        if files and len(files) <= 5:
+            _fields.append({'name': 'Files', 'value': '\n'.join(files), 'inline': False})
+        elif source:
+            _src = Path(source).name or source
+            _fields.append({'name': 'Source', 'value': _src, 'inline': False})
         payload = {
+            'embeds': [{
+                'title':     _title,
+                'color':     _color,
+                'fields':    _fields,
+                'footer':    {'text': 'Video Describer'},
+                'timestamp': _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+            }],
+            # raw data for non-Discord consumers
             'status': status,
             'processed': processed,
             'skipped': skipped,
@@ -230,16 +281,24 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
             'cost_usd': round(cost_usd, 4),
             'duration_sec': round(duration_sec, 1),
         }
+        print(f'[notify] Webhook → {target_host}')
         try:
             req = urllib.request.Request(
                 url,
                 data=_json.dumps(payload).encode(),
-                headers={'Content-Type': 'application/json'},
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Video-Describer/1.0',
+                },
                 method='POST',
             )
-            urllib.request.urlopen(req, timeout=10)  # nosec B310
-        except Exception:
-            pass
+            resp = urllib.request.urlopen(req, timeout=10)  # nosec B310
+            print(f'[notify] Webhook sent — HTTP {resp.status}')
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode('utf-8', errors='replace')[:200]
+            print(f'[notify] Webhook failed — HTTP {exc.code}: {body}')
+        except Exception as exc:
+            print(f'[notify] Webhook failed for {target_host}: {type(exc).__name__}')
 
 
 # ── QueueLogger ───────────────────────────────────────────────────────────────
@@ -833,21 +892,26 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             f'cost=${usage["cost_usd"]:.4f}'
         )
         print(f"\n--- Done: processed {processed}, skipped {skipped}, errors {errors} ---")
-        emit_fn({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
+        _processed_names = [name for name, _ in summary_entries]
         _send_notifications(cfg, 'done', processed, skipped, errors,
-                            usage.get('cost_usd', 0.0), time.time() - batch_start)
+                            usage.get('cost_usd', 0.0), time.time() - batch_start,
+                            source=str(config.get('path', '')),
+                            files=_processed_names)
+        emit_fn({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
 
     except Exception as e:
-        emit_fn({'type': 'error', 'text': str(e)})
         print(f"Fatal error: {e}")
         _safe_cfg       = locals().get('cfg') or {}
         _safe_processed = locals().get('processed') or 0
         _safe_skipped   = locals().get('skipped') or 0
         _safe_errors    = locals().get('errors') or 1
+        _safe_source    = str((locals().get('config') or {}).get('path', '') or '')
         _send_notifications(
             _safe_cfg, 'error', _safe_processed, _safe_skipped, _safe_errors,
             usage.get('cost_usd', 0.0), time.time() - batch_start,
+            source=_safe_source,
         )
+        emit_fn({'type': 'error', 'text': str(e)})
     finally:
         if heartbeat_stop is not None:
             heartbeat_stop.set()
