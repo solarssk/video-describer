@@ -385,7 +385,7 @@
         <input type="checkbox" id="cfg-webhook-enabled" name="cfg-webhook-enabled"
                onchange="_updateWebhookVis()">
       </div>
-      <div id="webhook-sub-settings" style="display:none">
+      <div id="webhook-sub-settings" style="display:none; flex-direction:column; gap:12px">
         <div class="field">
           <label for="cfg-webhook-url" data-i18n="settings.webhook_url_label">Webhook URL</label>
           <input type="text" id="cfg-webhook-url" name="cfg-webhook-url"
@@ -393,7 +393,7 @@
                  data-i18n-attr-placeholder="settings.webhook_url_placeholder"
                  placeholder="https://hooks.slack.com/…">
         </div>
-        <div class="toggle-row" style="margin-top:8px">
+        <div class="toggle-row">
           <div>
             <div class="toggle-label" data-i18n="settings.webhook_on_error_label">Also notify on error</div>
             <div class="toggle-sub"   data-i18n="settings.webhook_on_error_sub">Send webhook even when batch fails</div>

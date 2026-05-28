@@ -1147,7 +1147,7 @@ let _cachedSettingsCfg = null;
 function _updateWebhookVis() {
   const enabled = !!$('cfg-webhook-enabled')?.checked;
   const panel = document.getElementById('webhook-sub-settings');
-  if (panel) panel.style.display = enabled ? '' : 'none';
+  if (panel) panel.style.display = enabled ? 'flex' : 'none';
 }
 
 function fillSettingsForm(cfg, prompt) {
