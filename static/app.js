@@ -1179,6 +1179,11 @@ function fillSettingsForm(cfg, prompt) {
   $('cfg-nle-edl').checked     = !!nle.edl;
   $('cfg-nle-fcp7xml').checked = !!nle.fcp7xml;
 
+  const n = cfg.notifications || {};
+  $('cfg-macos-notify').checked      = !!n.macos_notify;
+  $('cfg-webhook-url').value         = n.webhook_url || '';
+  $('cfg-webhook-on-error').checked  = n.webhook_on_error !== false;
+
   $('cfg-prompt').value = prompt;
 }
 
@@ -1233,6 +1238,11 @@ function readSettingsForm() {
         fcpxml:  $('cfg-nle-fcpxml').checked,
         edl:     $('cfg-nle-edl').checked,
         fcp7xml: $('cfg-nle-fcp7xml').checked,
+      },
+      notifications: {
+        macos_notify:     !!$('cfg-macos-notify')?.checked,
+        webhook_url:      $('cfg-webhook-url')?.value.trim() || '',
+        webhook_on_error: !!$('cfg-webhook-on-error')?.checked,
       },
       server: { port: 5555, log_buffer_max: 500, heartbeat_sec: 2 },
     },
