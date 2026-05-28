@@ -6,15 +6,42 @@ All notable changes to Video Describer are documented here.
 
 ## [Unreleased]
 
+---
+
+## [0.4.0] — 2026-05-28
+
 ### Added
 
-- **Batch manifest schema v2** — `batch_state.json` now stores `schema_version`, `batch_id`, and a per-file manifest with UUID, output path, status, and error fields. Legacy `next_index` / `next_filepath` fields are still written for the current resume UI.
-- **Metadata footer for new `.txt` outputs** — generated descriptions now include `source`, `uuid`, `batch`, `processed`, and `model` metadata after a `---` separator. Summary generation ignores this footer.
-- **Existing output retrofit** — `python3 describe_videos.py PATH --retrofit-existing` upgrades old `.txt` outputs to current `name.ext.txt` naming and appends metadata without re-processing media or requiring an API key.
+- **Multi-provider AI** — OpenAI GPT-4o and Google Gemini as drop-in alternatives to Anthropic Claude for image analysis. Switch in the Settings tab; each provider has its own model, token, and pricing config. Provider architecture makes it straightforward to add more.
+- **NLE export** — generate sidecar marker files alongside each `.txt` after processing: FCPXML (Final Cut Pro), EDL (DaVinci Resolve), FCP7 XML (Adobe Premiere). Key moments with ★ in the description become named markers on the timeline. Configurable in Settings → NLE Export; can also be run retroactively on existing outputs via the Convert existing mode.
+- **Convert existing mode** — generate NLE sidecars from already-processed `.txt` files at zero API cost. Useful when you processed a batch earlier and want to export markers now, or when you've edited the descriptions and want to regenerate the sidecars.
+- **Notifications** — three independent channels, all configurable in Settings:
+  - *macOS* — native system notification after each batch (filename, cost, duration)
+  - *Browser* — Web Notifications API; browser asks for permission once, then pops a native notification when the batch finishes; clicking focuses the tab
+  - *Webhook* — POST to any URL (Slack, Discord, Make.com, custom endpoint); payload includes `status`, `processed`, `skipped`, `errors`, `cost_usd`, `duration_sec`. Discord embed format supported automatically.
+- **Batch manifest schema v2** — `batch_state.json` stores `schema_version`, `batch_id`, and a per-file manifest with UUID, output path, status, and error fields.
+- **Metadata footer** — generated `.txt` outputs end with `source`, `uuid`, `batch`, `processed`, and `model` fields after a `---` separator. Summary generation ignores the footer.
+- **Existing output retrofit** — `python3 describe_videos.py PATH --retrofit-existing` upgrades old `stem.txt` outputs to `name.ext.txt` naming and appends metadata without re-processing media or requiring an API key. Use `--dry-run` first to preview changes.
+- **Diagnostic logs** — `logs/debug.log` with daily rotation (30 days). Each session writes a startup banner; each API call logs token counts and cost (`↳ 61,840 in / 287 out tok — $0.0891`); each completed file logs a summary line.
+- **Favicon + tab title** — tab icon and title change to reflect batch state: ⚙ Processing / ✓ Done / ✗ Error.
+- **Language dropdown** — UI language selector replaced with a dropdown with flag emojis (🇵🇱 / 🇬🇧), ready for additional languages.
 
-### Security
+### Changed
 
-- Batch state secret redaction is now recursive and removes nested API keys, webhook URLs, tokens, secrets, and passwords before writing state.
+- **Output language decoupled from UI language** — `defaults.output_language` in `config.json` controls the language of generated descriptions; the PL/EN toggle controls only the interface. Previously changing UI language also affected output.
+- **Processing logic extracted** — `processor.py` contains the full batch loop (was part of `web_app.py`). `web_app.py` handles only HTTP endpoints and SSE.
+- **Batch state secret redaction** — recursive; removes nested API keys, webhook URLs, tokens, and secrets before writing state to disk.
+
+### Fixed
+
+- Timestamps beyond 1 hour now format correctly (was showing wrong minutes)
+- Filename collision between `video.mp4` and `video.jpg` (both would map to `video.txt`) — resolved by always appending the full extension
+- Convert mode toggle and NLE export edge cases (duplicate sidecars, wrong FPS fallback)
+- Single-tab guard now uses a TTL heartbeat instead of tab-close detection — survives page refreshes correctly
+- Settings buttons (Save, Restore defaults) remain enabled and functional during active processing
+- API key no longer wiped on Settings save — `config.json` uses deep-merge so fields not in the form are preserved
+- Swift path picker returns focus to the browser window after folder/file selection
+- Skip detection improved — correctly identifies both `name.ext.txt` (current) and `name.txt` (legacy) as existing output
 
 ---
 
