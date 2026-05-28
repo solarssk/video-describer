@@ -195,6 +195,49 @@ def _preflight_api(provider) -> tuple:
     return provider.verify()
 
 
+def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
+                        errors: int, cost_usd: float, duration_sec: float) -> None:
+    """Fire macOS notification and/or webhook after batch completes or fails."""
+    notif = cfg.get('notifications', {})
+
+    if notif.get('macos_notify') and IS_MACOS:
+        if status == 'done':
+            msg = f'Processed {processed} files — ${cost_usd:.3f}'
+        else:
+            msg = f'Batch failed after {processed} files'
+        try:
+            subprocess.run(
+                ['osascript', '-e',
+                 f'display notification "{msg}" with title "Video Describer"'],
+                timeout=5, capture_output=True,
+            )
+        except Exception:
+            pass
+
+    url = notif.get('webhook_url', '').strip()
+    if url and (status == 'done' or notif.get('webhook_on_error', True)):
+        import json as _json
+        import urllib.request
+        payload = {
+            'status': status,
+            'processed': processed,
+            'skipped': skipped,
+            'errors': errors,
+            'cost_usd': round(cost_usd, 4),
+            'duration_sec': round(duration_sec, 1),
+        }
+        try:
+            req = urllib.request.Request(
+                url,
+                data=_json.dumps(payload).encode(),
+                headers={'Content-Type': 'application/json'},
+                method='POST',
+            )
+            urllib.request.urlopen(req, timeout=10)
+        except Exception:
+            pass
+
+
 # ── QueueLogger ───────────────────────────────────────────────────────────────
 
 class QueueLogger:
@@ -235,6 +278,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
     usage.clear()
     usage.update({'input': 0, 'output': 0, 'cost_usd': resume_cost_offset})
     heartbeat_stop = None
+    batch_start = time.time()
 
     old_stdout = sys.stdout
     sys.stdout = QueueLogger(logger, emit_fn)
@@ -786,10 +830,14 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         )
         print(f"\n--- Done: processed {processed}, skipped {skipped}, errors {errors} ---")
         emit_fn({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
+        _send_notifications(cfg, 'done', processed, skipped, errors,
+                            usage.get('cost_usd', 0.0), time.time() - batch_start)
 
     except Exception as e:
         emit_fn({'type': 'error', 'text': str(e)})
         print(f"Fatal error: {e}")
+        _send_notifications(cfg, 'error', processed, skipped, errors,
+                            usage.get('cost_usd', 0.0), time.time() - batch_start)
     finally:
         if heartbeat_stop is not None:
             heartbeat_stop.set()

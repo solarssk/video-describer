@@ -368,6 +368,32 @@
     </section>
 
     <section>
+      <h2 data-i18n="settings.notifications_title">Notifications</h2>
+      <p class="section-help" data-i18n="settings.notifications_help">Get notified when batch processing completes.</p>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label" data-i18n="settings.macos_notify_label">macOS notification</div>
+          <div class="toggle-sub"   data-i18n="settings.macos_notify_sub">Show a native system notification when batch finishes</div>
+        </div>
+        <input type="checkbox" id="cfg-macos-notify" name="cfg-macos-notify">
+      </div>
+      <div class="field">
+        <label for="cfg-webhook-url" data-i18n="settings.webhook_url_label">Webhook URL</label>
+        <input type="text" id="cfg-webhook-url" name="cfg-webhook-url"
+               class="text-input" autocomplete="off" spellcheck="false"
+               data-i18n-placeholder="settings.webhook_url_placeholder"
+               placeholder="https://hooks.slack.com/…">
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label" data-i18n="settings.webhook_on_error_label">Also notify on error</div>
+          <div class="toggle-sub"   data-i18n="settings.webhook_on_error_sub">Send webhook even when batch fails</div>
+        </div>
+        <input type="checkbox" id="cfg-webhook-on-error" name="cfg-webhook-on-error">
+      </div>
+    </section>
+
+    <section>
       <h2 data-i18n="settings.defaults_title">Form defaults</h2>
       <div class="field">
         <label for="cfg-default-context" data-i18n="settings.default_context_label">Default context</label>
