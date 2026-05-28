@@ -44,10 +44,10 @@
     <button class="tab" data-tab="connectors" onclick="loadConnectors()" data-i18n="tabs.connectors">🔌 Connectors</button>
   </nav>
 
-  <div class="lang-toggle" title="UI language">
-    <button class="lang-btn" data-lang="pl" onclick="setLang('pl')">PL</button>
-    <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
-  </div>
+  <select id="lang-select" class="lang-select" title="UI language" onchange="setLang(this.value)">
+    <option value="pl">🇵🇱 PL</option>
+    <option value="en">🇬🇧 EN</option>
+  </select>
 
   <div class="metrics" data-i18n-attr-title="metrics.tooltip" title="System status — refreshed every 3s">
     <span class="metric">
@@ -370,6 +370,14 @@
     <section>
       <h2 data-i18n="settings.notifications_title">Notifications</h2>
       <p class="section-help" data-i18n="settings.notifications_help">Get notified when batch processing completes.</p>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label" data-i18n="settings.browser_notify_label">Browser notification</div>
+          <div class="toggle-sub"   data-i18n="settings.browser_notify_sub">Browser asks permission once, then shows a popup with cost &amp; filename</div>
+        </div>
+        <input type="checkbox" id="cfg-browser-notify" name="cfg-browser-notify"
+               onchange="_handleBrowserNotifyToggle()">
+      </div>
       <div class="toggle-row">
         <div>
           <div class="toggle-label" data-i18n="settings.macos_notify_label">macOS notification</div>
