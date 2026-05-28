@@ -217,8 +217,9 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
                  f' subtitle "{subtitle}" sound name "Default"'],
                 timeout=5, capture_output=True,
             )
-        except Exception:
-            pass
+            print(f'[notify] macOS notification sent: {subtitle} — {msg}')
+        except Exception as exc:
+            print(f'[notify] macOS notification failed: {exc}')
 
     url = notif.get('webhook_url', '').strip()
     if notif.get('webhook_enabled') and url and (status == 'done' or notif.get('webhook_on_error', True)):
@@ -227,6 +228,7 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
         import urllib.request
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme.lower() not in {'http', 'https'}:
+            print(f'[notify] Webhook skipped — invalid scheme in URL: {url[:60]}')
             return
         payload = {
             'status': status,
@@ -236,6 +238,8 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
             'cost_usd': round(cost_usd, 4),
             'duration_sec': round(duration_sec, 1),
         }
+        short_url = url[:60] + ('…' if len(url) > 60 else '')
+        print(f'[notify] Webhook → {short_url}')
         try:
             req = urllib.request.Request(
                 url,
@@ -243,9 +247,10 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
                 headers={'Content-Type': 'application/json'},
                 method='POST',
             )
-            urllib.request.urlopen(req, timeout=10)  # nosec B310
-        except Exception:
-            pass
+            resp = urllib.request.urlopen(req, timeout=10)  # nosec B310
+            print(f'[notify] Webhook sent — HTTP {resp.status}')
+        except Exception as exc:
+            print(f'[notify] Webhook failed: {exc}')
 
 
 # ── QueueLogger ───────────────────────────────────────────────────────────────
@@ -839,12 +844,11 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             f'cost=${usage["cost_usd"]:.4f}'
         )
         print(f"\n--- Done: processed {processed}, skipped {skipped}, errors {errors} ---")
-        emit_fn({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
         _send_notifications(cfg, 'done', processed, skipped, errors,
                             usage.get('cost_usd', 0.0), time.time() - batch_start)
+        emit_fn({'type': 'done', 'processed': processed, 'skipped': skipped, 'errors': errors})
 
     except Exception as e:
-        emit_fn({'type': 'error', 'text': str(e)})
         print(f"Fatal error: {e}")
         _safe_cfg       = locals().get('cfg') or {}
         _safe_processed = locals().get('processed') or 0
@@ -854,6 +858,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             _safe_cfg, 'error', _safe_processed, _safe_skipped, _safe_errors,
             usage.get('cost_usd', 0.0), time.time() - batch_start,
         )
+        emit_fn({'type': 'error', 'text': str(e)})
     finally:
         if heartbeat_stop is not None:
             heartbeat_stop.set()
