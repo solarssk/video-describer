@@ -253,7 +253,10 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
             req = urllib.request.Request(
                 url,
                 data=_json.dumps(payload).encode(),
-                headers={'Content-Type': 'application/json'},
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Video-Describer/1.0',
+                },
                 method='POST',
             )
             resp = urllib.request.urlopen(req, timeout=10)  # nosec B310
