@@ -223,6 +223,7 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
 
     url = notif.get('webhook_url', '').strip()
     if notif.get('webhook_enabled') and url and (status == 'done' or notif.get('webhook_on_error', True)):
+        import datetime as _dt
         import json as _json
         import urllib.error
         import urllib.parse
@@ -232,15 +233,33 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
         if parsed.scheme.lower() not in {'http', 'https'}:
             print(f'[notify] Webhook skipped — invalid scheme for host: {target_host}')
             return
-        file_word = 'file' if processed == 1 else 'files'
-        mins, secs = int(duration_sec) // 60, int(duration_sec) % 60
-        time_str = f'{mins}m {secs}s' if mins else f'{secs}s'
+        _fw = 'file' if processed == 1 else 'files'
+        _mins, _secs = int(duration_sec) // 60, int(duration_sec) % 60
+        _time_str = f'{_mins}m {_secs}s' if _mins else f'{_secs}s'
         if status == 'done':
-            content = f'✓ Video Describer — {processed} {file_word} · ${cost_usd:.3f} · {time_str}'
+            _color = 5763719   # 0x57F287 green
+            _title = '✓ Batch complete'
         else:
-            content = f'⛔ Video Describer — failed after {processed} {file_word}'
+            _color = 15548997  # 0xED4245 red
+            _title = '⛔ Batch failed'
+        _fields = [
+            {'name': 'Processed', 'value': f'{processed} {_fw}', 'inline': True},
+            {'name': 'Cost',      'value': f'${cost_usd:.3f}',   'inline': True},
+            {'name': 'Duration',  'value': _time_str,            'inline': True},
+        ]
+        if skipped:
+            _fields.append({'name': 'Skipped', 'value': str(skipped), 'inline': True})
+        if errors:
+            _fields.append({'name': 'Errors', 'value': str(errors), 'inline': True})
         payload = {
-            'content': content,
+            'embeds': [{
+                'title':     _title,
+                'color':     _color,
+                'fields':    _fields,
+                'footer':    {'text': 'Video Describer'},
+                'timestamp': _dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+            }],
+            # raw data for non-Discord consumers
             'status': status,
             'processed': processed,
             'skipped': skipped,
