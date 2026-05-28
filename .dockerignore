@@ -1,0 +1,10 @@
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+config.json
+batch_state.json
+logs/
+tools/*.o
+tools/macos_path_picker
