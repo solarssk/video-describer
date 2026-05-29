@@ -45,27 +45,27 @@ jobs:
 
       - name: Make package public
         run: |
-          curl -s -X PATCH \
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/user/packages/container/video-describer" \
-            -d '{"visibility":"public"}' || true
+            -d '{"visibility":"public"}')
+          if [[ "$HTTP_STATUS" -lt 200 || "$HTTP_STATUS" -ge 300 ]]; then
+            echo "Failed to set package visibility (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
 
       - name: Extract changelog for this version
-        id: changelog
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          BODY=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
-          echo "body<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$BODY" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found && !/^---$/{print}" \
+            CHANGELOG.md > /tmp/changelog.md
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${GITHUB_REF_NAME}"
-          gh release create "$VERSION" \
-            --title "$VERSION" \
-            --notes "${{ steps.changelog.outputs.body }}" \
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file /tmp/changelog.md \
             --verify-tag
