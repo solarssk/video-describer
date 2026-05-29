@@ -8,6 +8,21 @@ All notable changes to Video Describer are documented here.
 
 ---
 
+## [0.4.1] — 2026-05-29
+
+### Added
+
+- **Docker image** — official container image published to GitHub Container Registry (`ghcr.io/solarssk/video-describer`) on every version tag. Image includes ffmpeg and faster-whisper; bind host configurable via `BIND_HOST` env variable (default `0.0.0.0` in container).
+
+### Fixed
+
+- Container runs as non-root user (`appuser`, uid 1000) — satisfies Docker security best practices
+- `faster-whisper` pinned to `1.2.1` in Docker image for reproducible builds
+- Removed redundant `import os as _os` in `web_app.py` (module was already imported at top-level)
+- CI checkout action no longer persists credentials unnecessarily (`persist-credentials: false`)
+
+---
+
 ## [0.4.0] — 2026-05-28
 
 ### Added
