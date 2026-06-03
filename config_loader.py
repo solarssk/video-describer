@@ -48,6 +48,8 @@ def load_defaults() -> dict:
 def load_default_prompt(lang: str = DEFAULT_PROMPT_LANG) -> str:
     """Returns the factory prompt preset for the given language.
     Falls back to current prompts/system.md if no preset file exists."""
+    if lang not in PROMPT_LANGUAGES:
+        raise ValueError(f'Unknown prompt language: {lang!r}')
     p = _preset_path(lang)
     if p.exists():
         return p.read_text(encoding='utf-8')

@@ -677,7 +677,7 @@ def _pick_path(kind: str) -> dict:
             'cancelled': False,
             'path': '',
             'code': 'system_error',
-            'error': str(e),  # lgtm[py/stack-trace-exposure] intentional: local app, OS error message is user-helpful
+            'error': e.strerror or str(e.args[0]) if e.args else 'System error',
         }
 
     if r.returncode != 0:
