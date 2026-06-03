@@ -24,12 +24,20 @@ VERSION_PATH = ROOT / 'VERSION'
 PROMPT_LANGUAGES = ('pl', 'en')
 DEFAULT_PROMPT_LANG = 'pl'  # original language of the project author
 
+# Pre-computed paths keyed by language — user input is never interpolated into
+# a path; callers look up from this dict to avoid path-injection taint flows.
+_PRESET_PATHS: dict[str, Path] = {
+    lang: PROMPTS_DIR / f'system.{lang}.default.md'
+    for lang in PROMPT_LANGUAGES
+}
+
 
 def _preset_path(lang: str) -> Path:
     """Returns path to a prompt preset file for the given language."""
-    if lang not in PROMPT_LANGUAGES:  # guard also repeated in callers for CodeQL taint visibility
+    path = _PRESET_PATHS.get(lang)
+    if path is None:
         raise ValueError(f'Unknown prompt language: {lang!r}')
-    return PROMPTS_DIR / f'system.{lang}.default.md'
+    return path
 
 
 def get_version() -> str:
@@ -48,9 +56,7 @@ def load_defaults() -> dict:
 def load_default_prompt(lang: str = DEFAULT_PROMPT_LANG) -> str:
     """Returns the factory prompt preset for the given language.
     Falls back to current prompts/system.md if no preset file exists."""
-    if lang not in PROMPT_LANGUAGES:  # explicit guard for CodeQL — sanitisation must be visible at call site
-        raise ValueError(f'Unknown prompt language: {lang!r}')
-    p = _preset_path(lang)
+    p = _preset_path(lang)  # raises ValueError for unknown lang
     if p.exists():
         return p.read_text(encoding='utf-8')
     # Backward compat: legacy single-default file
