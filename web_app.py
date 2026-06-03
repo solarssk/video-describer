@@ -602,7 +602,7 @@ def folder_info():
             'files': files,
             'has_more': len(media) > 30,
         })
-    except Exception as e:
+    except Exception:
         logging.exception('folder_info: unexpected error for path %r', path)
         return jsonify({'error': 'Internal error — check the console for details.'}), 500
 
@@ -741,7 +741,7 @@ def open_file():
     try:
         subprocess.Popen(['open', str(resolved)])
         return jsonify({'ok': True})
-    except Exception as e:
+    except Exception:
         logging.exception('open_file: failed to open %r', str(resolved))
         return jsonify({'error': 'Failed to open file — check the console for details.'}), 500
 
