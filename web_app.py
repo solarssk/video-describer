@@ -732,17 +732,28 @@ def open_file():
     raw = (request.json or {}).get('path', '').strip()
     if not raw:
         return jsonify({'error': 'path not found'}), 400
-    resolved = Path(raw).resolve()  # normalise to eliminate any ../.. traversal
-    if not resolved.exists():
+    resolved = Path(raw).resolve()  # lgtm[py/path-injection]
+    if not resolved.exists() or resolved.suffix != '.txt':  # lgtm[py/path-injection]
         return jsonify({'error': 'path not found'}), 400
-    # Only allow opening .txt output files — prevents arbitrary file access via the API.
-    if resolved.suffix != '.txt':
-        return jsonify({'error': 'only .txt output files can be opened'}), 403
+    # Constrain to paths this session produced or the configured output directory —
+    # prevents opening arbitrary .txt files outside of app-generated outputs.
+    known = {Path(r['output']).resolve() for r in results_buffer if r.get('output')}
+    cfg = config_loader.load_config()
+    out_dir_str = cfg.get('output_dir', '').strip()
+    in_out_dir = False
+    if out_dir_str:
+        try:
+            resolved.relative_to(Path(out_dir_str).resolve())
+            in_out_dir = True
+        except ValueError:
+            pass
+    if resolved not in known and not in_out_dir:
+        return jsonify({'error': 'path not found'}), 400
     try:
         subprocess.Popen(['open', str(resolved)])
         return jsonify({'ok': True})
     except Exception:
-        logging.exception('open_file: failed to open %r', str(resolved))
+        logging.exception('open_file: failed to open')
         return jsonify({'error': 'Failed to open file — check the console for details.'}), 500
 
 
@@ -825,13 +836,19 @@ def config_save():
             existing = config_loader.load_config()
             merged = config_loader._deep_merge(existing, body['config'])
             config_loader.save_config(merged)
-        except Exception as e:
-            return jsonify({'error': f'Failed to save config: {e}'}), 400  # lgtm[py/stack-trace-exposure]
+        except OSError as e:
+            return jsonify({'error': f'Failed to save config: {e.strerror or "I/O error"}'}), 400
+        except Exception:
+            logging.exception('config_save: unexpected error saving config')
+            return jsonify({'error': 'Failed to save config — check the console for details.'}), 400
     if 'prompt' in body:
         try:
             config_loader.save_system_prompt(body['prompt'])
-        except Exception as e:
-            return jsonify({'error': f'Failed to save prompt: {e}'}), 400  # lgtm[py/stack-trace-exposure]
+        except OSError as e:
+            return jsonify({'error': f'Failed to save prompt: {e.strerror or "I/O error"}'}), 400
+        except Exception:
+            logging.exception('config_save: unexpected error saving prompt')
+            return jsonify({'error': 'Failed to save prompt — check the console for details.'}), 400
     return jsonify({'ok': True})
 
 
