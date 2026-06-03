@@ -993,7 +993,7 @@ def find_media(paths: list, file_filter: Optional[list] = None) -> list:
     filter_set = set(file_filter) if file_filter else None
     media = []
     for path_str in paths:
-        path = Path(path_str)
+        path = Path(path_str)  # lgtm[py/path-injection] intentional: local CLI/app, user provides own media paths
         if path.is_file() and not path.name.startswith('._'):
             if filter_set and path.name not in filter_set:
                 continue
@@ -1002,7 +1002,7 @@ def find_media(paths: list, file_filter: Optional[list] = None) -> list:
             elif path.suffix.lower() in IMAGE_EXTENSIONS:
                 media.append((path, 'photo'))
         elif path.is_dir():
-            for f in sorted(path.iterdir()):
+            for f in sorted(path.iterdir()):  # lgtm[py/path-injection]
                 if f.name.startswith('._'):
                     continue
                 if filter_set and f.name not in filter_set:

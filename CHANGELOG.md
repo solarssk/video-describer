@@ -8,6 +8,21 @@ All notable changes to Video Describer are documented here.
 
 ---
 
+## [0.4.2] — 2026-06-03
+
+### Security
+
+- **Path injection hardening** — `config_loader._preset_path()` now validates the language code against the `PROMPT_LANGUAGES` allowlist before constructing a file path; unknown values raise `ValueError` instead of potentially escaping the `prompts/` directory.
+- **Path traversal fix in `/open-file`** — input path is now resolved via `Path.resolve()` before existence and extension checks, preventing `../../` traversal that could bypass the `.txt`-only guard.
+- **Stack trace exposure** — unexpected 500-range errors in `verify_key` and `connectors_verify` no longer return raw exception messages to the client; full details are logged to the console instead.
+- **CI workflow permissions** — all GitHub Actions jobs now declare `permissions: contents: read`, limiting the default `GITHUB_TOKEN` blast radius as recommended by CodeQL.
+
+### Changed
+
+- Dependency updates: `anthropic ~=0.105`, `google-generativeai >=0.8.6`, `waitress >=3.0.2`.
+
+---
+
 ## [0.4.1] — 2026-05-29
 
 ### Added
