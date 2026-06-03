@@ -27,7 +27,7 @@ DEFAULT_PROMPT_LANG = 'pl'  # original language of the project author
 
 def _preset_path(lang: str) -> Path:
     """Returns path to a prompt preset file for the given language."""
-    if lang not in PROMPT_LANGUAGES:
+    if lang not in PROMPT_LANGUAGES:  # guard also repeated in callers for CodeQL taint visibility
         raise ValueError(f'Unknown prompt language: {lang!r}')
     return PROMPTS_DIR / f'system.{lang}.default.md'
 
@@ -48,7 +48,7 @@ def load_defaults() -> dict:
 def load_default_prompt(lang: str = DEFAULT_PROMPT_LANG) -> str:
     """Returns the factory prompt preset for the given language.
     Falls back to current prompts/system.md if no preset file exists."""
-    if lang not in PROMPT_LANGUAGES:
+    if lang not in PROMPT_LANGUAGES:  # explicit guard for CodeQL — sanitisation must be visible at call site
         raise ValueError(f'Unknown prompt language: {lang!r}')
     p = _preset_path(lang)
     if p.exists():

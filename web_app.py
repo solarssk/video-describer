@@ -677,7 +677,7 @@ def _pick_path(kind: str) -> dict:
             'cancelled': False,
             'path': '',
             'code': 'system_error',
-            'error': e.strerror or str(e.args[0]) if e.args else 'System error',
+            'error': e.strerror or (str(e.args[0]) if e.args else 'System error'),
         }
 
     if r.returncode != 0:
