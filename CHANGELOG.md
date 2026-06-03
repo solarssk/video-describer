@@ -8,6 +8,15 @@ All notable changes to Video Describer are documented here.
 
 ---
 
+## [0.4.3] — 2026-06-04
+
+### Security
+
+- **`_pick_path`** — `OSError.strerror` used instead of `str(e)` so the exception object no longer flows to the HTTP response body (CodeQL `py/stack-trace-exposure`).
+- **`load_default_prompt`** — language allowlist guard added at the call site, before any path operations, making the sanitisation visible to CodeQL's taint analysis (CodeQL `py/path-injection`).
+
+---
+
 ## [0.4.2] — 2026-06-03
 
 ### Security
