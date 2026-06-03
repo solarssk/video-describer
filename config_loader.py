@@ -27,6 +27,8 @@ DEFAULT_PROMPT_LANG = 'pl'  # original language of the project author
 
 def _preset_path(lang: str) -> Path:
     """Returns path to a prompt preset file for the given language."""
+    if lang not in PROMPT_LANGUAGES:
+        raise ValueError(f'Unknown prompt language: {lang!r}')
     return PROMPTS_DIR / f'system.{lang}.default.md'
 
 

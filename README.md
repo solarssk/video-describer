@@ -1,7 +1,7 @@
 # Video Describer
 
 [![CI](https://github.com/solarssk/video-describer/actions/workflows/ci.yml/badge.svg)](https://github.com/solarssk/video-describer/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.9+-3776ab)
+![Python](https://img.shields.io/badge/python-3.11+-3776ab)
 ![macOS](https://img.shields.io/badge/macOS-only-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](#license)
 
@@ -49,7 +49,7 @@ This renames unambiguous legacy files such as `video.txt` to `video.mp4.txt` and
 
 ## ⚙️ Requirements
 
-- macOS (Apple Silicon or Intel), Python 3.9+
+- macOS (Apple Silicon or Intel), Python 3.11+
 - [ffmpeg](https://ffmpeg.org/) — `brew install ffmpeg`
 - API key for your chosen provider ([Anthropic](https://console.anthropic.com/settings/api-keys), [OpenAI](https://platform.openai.com/api-keys), or [Google Gemini](https://aistudio.google.com/app/apikey))
 

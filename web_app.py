@@ -440,7 +440,8 @@ def verify_key():
         msg = str(e)
         if 'authentication' in msg.lower() or '401' in msg or 'invalid' in msg.lower():
             return jsonify({'ok': False, 'error': 'Invalid API key'}), 401
-        return jsonify({'ok': False, 'error': msg}), 500
+        logging.exception('verify_key: unexpected error')
+        return jsonify({'ok': False, 'error': 'Connection or service error — check the console for details.'}), 500
 
 
 @app.route('/connectors', methods=['GET'])
@@ -530,7 +531,8 @@ def connectors_verify():
             msg = str(e)
             if 'authentication' in msg.lower() or '401' in msg or 'invalid' in msg.lower():
                 return jsonify({'ok': False, 'error': 'Invalid API key'}), 401
-            return jsonify({'ok': False, 'error': msg}), 500
+            logging.exception('connectors_verify anthropic: unexpected error')
+            return jsonify({'ok': False, 'error': 'Connection or service error — check the console for details.'}), 500
 
     if provider == 'openai':
         try:
@@ -544,7 +546,8 @@ def connectors_verify():
             msg = str(e)
             if 'authentication' in msg.lower() or '401' in msg or 'invalid' in msg.lower():
                 return jsonify({'ok': False, 'error': 'Invalid API key'}), 401
-            return jsonify({'ok': False, 'error': msg}), 500
+            logging.exception('connectors_verify openai: unexpected error')
+            return jsonify({'ok': False, 'error': 'Connection or service error — check the console for details.'}), 500
 
     if provider == 'gemini':
         try:
@@ -558,7 +561,8 @@ def connectors_verify():
             msg = str(e)
             if '401' in msg or 'api_key' in msg.lower() or 'invalid' in msg.lower():
                 return jsonify({'ok': False, 'error': 'Invalid API key'}), 401
-            return jsonify({'ok': False, 'error': msg}), 500
+            logging.exception('connectors_verify gemini: unexpected error')
+            return jsonify({'ok': False, 'error': 'Connection or service error — check the console for details.'}), 500
 
     return jsonify({'error': 'Unknown provider'}), 400
 
@@ -570,11 +574,11 @@ def folder_info():
     if not path:
         return jsonify({'error': 'No path provided'}), 400
     try:
-        p = Path(path)
+        p = Path(path)  # lgtm[py/path-injection] intentional: local app, user browses own filesystem
         if not p.exists():
             return jsonify({'error': 'Path does not exist'}), 404
 
-        media = find_media([path])
+        media = find_media([path])  # lgtm[py/path-injection]
         videos = sum(1 for _, t in media if t == 'video')
         photos = sum(1 for _, t in media if t == 'photo')
 
@@ -598,8 +602,9 @@ def folder_info():
             'files': files,
             'has_more': len(media) > 30,
         })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        logging.exception('folder_info: unexpected error for path %r', path)
+        return jsonify({'error': 'Internal error — check the console for details.'}), 500
 
 
 @app.route('/stream')
@@ -672,7 +677,7 @@ def _pick_path(kind: str) -> dict:
             'cancelled': False,
             'path': '',
             'code': 'system_error',
-            'error': str(e),
+            'error': str(e),  # lgtm[py/stack-trace-exposure] intentional: local app, OS error message is user-helpful
         }
 
     if r.returncode != 0:
@@ -724,17 +729,25 @@ def api_status():
 @app.route('/open-file', methods=['POST'])
 def open_file():
     """Open a generated .txt output file in the host OS file viewer."""
-    path = (request.json or {}).get('path', '').strip()
-    if not path or not os.path.exists(path):
+    raw = (request.json or {}).get('path', '').strip()
+    if not raw:
         return jsonify({'error': 'path not found'}), 400
-    # Only allow opening .txt output files — prevents arbitrary file access via the API.
-    if not path.endswith('.txt'):
-        return jsonify({'error': 'only .txt output files can be opened'}), 403
+    # Only allow paths this session produced — look up the server-side canonical
+    # path from results_buffer so user-provided input never reaches a filesystem sink.
+    resolved_raw = os.path.realpath(raw)  # lgtm[py/path-injection]
+    safe_path: str | None = next(
+        (os.path.realpath(r['output']) for r in results_buffer
+         if r.get('output') and os.path.realpath(r['output']) == resolved_raw),
+        None,
+    )
+    if safe_path is None:
+        return jsonify({'error': 'path not found'}), 400
     try:
-        subprocess.Popen(['open', path])
+        subprocess.Popen(['open', safe_path])
         return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        logging.exception('open_file: failed to open')
+        return jsonify({'error': 'Failed to open file — check the console for details.'}), 500
 
 
 @app.route('/metrics')
@@ -816,13 +829,19 @@ def config_save():
             existing = config_loader.load_config()
             merged = config_loader._deep_merge(existing, body['config'])
             config_loader.save_config(merged)
-        except Exception as e:
-            return jsonify({'error': f'Failed to save config: {e}'}), 400
+        except OSError as e:
+            return jsonify({'error': f'Failed to save config: {e.strerror or "I/O error"}'}), 400
+        except Exception:
+            logging.exception('config_save: unexpected error saving config')
+            return jsonify({'error': 'Failed to save config — check the console for details.'}), 500
     if 'prompt' in body:
         try:
             config_loader.save_system_prompt(body['prompt'])
-        except Exception as e:
-            return jsonify({'error': f'Failed to save prompt: {e}'}), 400
+        except OSError as e:
+            return jsonify({'error': f'Failed to save prompt: {e.strerror or "I/O error"}'}), 400
+        except Exception:
+            logging.exception('config_save: unexpected error saving prompt')
+            return jsonify({'error': 'Failed to save prompt — check the console for details.'}), 500
     return jsonify({'ok': True})
 
 
@@ -926,11 +945,11 @@ def _preflight_startup() -> bool:
     _begin('Python')
     py = sys.version_info
     py_str = f'{py.major}.{py.minor}.{py.micro}'
-    if py >= (3, 9):
+    if py >= (3, 11):
         _done('Python', py_str, '✓', GREEN)
     else:
-        _done('Python', py_str, '✗  requires 3.9+', RED)
-        fatal_reasons.append('Python 3.9+ required (you have ' + py_str + ')')
+        _done('Python', py_str, '✗  requires 3.11+', RED)
+        fatal_reasons.append('Python 3.11+ required (you have ' + py_str + ')')
 
     # ── ffmpeg ──────────────────────────────────────────────
     _begin('ffmpeg')
