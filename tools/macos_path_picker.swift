@@ -1,3 +1,5 @@
+// macOS-only tool — compiled with `swiftc` on the host, not part of a Swift package build.
+#if canImport(AppKit)
 import AppKit
 import Foundation
 
@@ -45,3 +47,4 @@ DispatchQueue.main.async {
 }
 
 app.run()
+#endif
