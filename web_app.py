@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-from __future__ import annotations
 """
 Web interface for Video Describer.
 Run:  python3 web_app.py
 Open: http://localhost:5555
 """
+from __future__ import annotations
 
 import json
 import logging
