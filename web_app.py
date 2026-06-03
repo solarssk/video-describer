@@ -732,25 +732,17 @@ def open_file():
     raw = (request.json or {}).get('path', '').strip()
     if not raw:
         return jsonify({'error': 'path not found'}), 400
-    resolved = Path(raw).resolve()  # lgtm[py/path-injection]
-    if not resolved.exists() or resolved.suffix != '.txt':  # lgtm[py/path-injection]
-        return jsonify({'error': 'path not found'}), 400
-    # Constrain to paths this session produced or the configured output directory —
-    # prevents opening arbitrary .txt files outside of app-generated outputs.
-    known = {Path(r['output']).resolve() for r in results_buffer if r.get('output')}
-    cfg = config_loader.load_config()
-    out_dir_str = cfg.get('output_dir', '').strip()
-    in_out_dir = False
-    if out_dir_str:
-        try:
-            resolved.relative_to(Path(out_dir_str).resolve())
-            in_out_dir = True
-        except ValueError:
-            pass
-    if resolved not in known and not in_out_dir:
+    # Only allow paths this session produced — look up the server-side canonical
+    # path from results_buffer so user-provided input never reaches a filesystem sink.
+    safe_path: str | None = next(
+        (r['output'] for r in results_buffer
+         if r.get('output') and os.path.realpath(r['output']) == os.path.realpath(raw)),  # lgtm[py/path-injection]
+        None,
+    )
+    if safe_path is None:
         return jsonify({'error': 'path not found'}), 400
     try:
-        subprocess.Popen(['open', str(resolved)])
+        subprocess.Popen(['open', safe_path])
         return jsonify({'ok': True})
     except Exception:
         logging.exception('open_file: failed to open')
