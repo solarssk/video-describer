@@ -734,9 +734,10 @@ def open_file():
         return jsonify({'error': 'path not found'}), 400
     # Only allow paths this session produced — look up the server-side canonical
     # path from results_buffer so user-provided input never reaches a filesystem sink.
+    resolved_raw = os.path.realpath(raw)  # lgtm[py/path-injection]
     safe_path: str | None = next(
-        (r['output'] for r in results_buffer
-         if r.get('output') and os.path.realpath(r['output']) == os.path.realpath(raw)),  # lgtm[py/path-injection]
+        (os.path.realpath(r['output']) for r in results_buffer
+         if r.get('output') and os.path.realpath(r['output']) == resolved_raw),
         None,
     )
     if safe_path is None:
@@ -832,7 +833,7 @@ def config_save():
             return jsonify({'error': f'Failed to save config: {e.strerror or "I/O error"}'}), 400
         except Exception:
             logging.exception('config_save: unexpected error saving config')
-            return jsonify({'error': 'Failed to save config — check the console for details.'}), 400
+            return jsonify({'error': 'Failed to save config — check the console for details.'}), 500
     if 'prompt' in body:
         try:
             config_loader.save_system_prompt(body['prompt'])
@@ -840,7 +841,7 @@ def config_save():
             return jsonify({'error': f'Failed to save prompt: {e.strerror or "I/O error"}'}), 400
         except Exception:
             logging.exception('config_save: unexpected error saving prompt')
-            return jsonify({'error': 'Failed to save prompt — check the console for details.'}), 400
+            return jsonify({'error': 'Failed to save prompt — check the console for details.'}), 500
     return jsonify({'ok': True})
 
 
