@@ -4,7 +4,6 @@ Web interface for Video Describer.
 Run:  python3 web_app.py
 Open: http://localhost:5555
 """
-from __future__ import annotations
 
 import json
 import logging
@@ -945,11 +944,11 @@ def _preflight_startup() -> bool:
     _begin('Python')
     py = sys.version_info
     py_str = f'{py.major}.{py.minor}.{py.micro}'
-    if py >= (3, 9):
+    if py >= (3, 11):
         _done('Python', py_str, '✓', GREEN)
     else:
-        _done('Python', py_str, '✗  requires 3.9+', RED)
-        fatal_reasons.append('Python 3.9+ required (you have ' + py_str + ')')
+        _done('Python', py_str, '✗  requires 3.11+', RED)
+        fatal_reasons.append('Python 3.11+ required (you have ' + py_str + ')')
 
     # ── ffmpeg ──────────────────────────────────────────────
     _begin('ffmpeg')
