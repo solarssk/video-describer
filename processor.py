@@ -423,9 +423,10 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             print(f"Whisper backend selected: {backend_label} — model '{whisper_model_name}'")
 
         file_filter = config.get('files', [])
-        media = find_media([config['path']], file_filter=file_filter)
+        input_paths = config.get('paths') or [config['path']]
+        media = find_media(input_paths, file_filter=file_filter)
         if not media:
-            emit_fn({'type': 'error', 'text': f"No video/photo files found in: {config['path']}"})
+            emit_fn({'type': 'error', 'text': f"No video/photo files found in: {input_paths[0]}"})
             return
 
         out_dir = Path(config['output_dir']) if config.get('output_dir') else None
@@ -946,9 +947,10 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
         emit_fn({'type': 'error', 'text': 'No NLE formats enabled. Enable at least one in Settings → NLE Export.'})
         return
 
-    media = find_media([config['path']])
+    input_paths = config.get('paths') or [config['path']]
+    media = find_media(input_paths)
     if not media:
-        emit_fn({'type': 'error', 'text': f"No video/photo files found in: {config['path']}"})
+        emit_fn({'type': 'error', 'text': f"No video/photo files found in: {input_paths[0]}"})
         return
 
     out_dir = Path(config['output_dir']) if config.get('output_dir') else None

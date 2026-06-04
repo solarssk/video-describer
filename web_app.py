@@ -213,8 +213,13 @@ def _run_swift_picker(kind: str, default_dir: str):
         return None
 
     if r.returncode == 0:
-        picked_path = r.stdout.strip()
-        return {'ok': True, 'path': picked_path} if picked_path else {'ok': False, 'cancelled': True, 'path': ''}
+        stdout = r.stdout.strip()
+        if not stdout:
+            return {'ok': False, 'cancelled': True, 'path': ''}
+        picked_paths = [p for p in stdout.splitlines() if p.strip()]
+        if len(picked_paths) > 1:
+            return {'ok': True, 'paths': picked_paths, 'path': picked_paths[0]}
+        return {'ok': True, 'path': picked_paths[0]}
     if r.returncode == 2:
         return {'ok': False, 'cancelled': True, 'path': ''}
 
@@ -297,7 +302,7 @@ def start():
     """Start a background processing batch from the submitted payload."""
     global is_processing, log_buffer, results_buffer, total_files_global, progress_global
     config = request.json or {}
-    if not config.get('path'):
+    if not config.get('path') and not config.get('paths'):
         return jsonify({'error': 'Please provide a folder or file path'}), 400
 
     # Both features default to ON for backward compat with old form payloads
@@ -570,7 +575,40 @@ def connectors_verify():
 @app.route('/folder-info')
 def folder_info():
     """Returns info about a given path: how many files, what types."""
+    # Support both single path and multi-path (paths[]=... repeated)
+    multi_paths = request.args.getlist('paths[]')
     path = (request.args.get('path') or '').strip()
+
+    if multi_paths:
+        # Multi-file selection: just count and return, no subfolder breakdown
+        try:
+            media = find_media(multi_paths)  # lgtm[py/path-injection]
+            videos = sum(1 for _, t in media if t == 'video')
+            photos = sum(1 for _, t in media if t == 'photo')
+            files = []
+            for f, t in media[:30]:
+                try:
+                    size = f.stat().st_size
+                    size_str = f"{size/(1024**3):.1f} GB" if size >= 1024**3 else f"{size/(1024**2):.0f} MB"
+                except OSError:
+                    size_str = '?'
+                files.append({'name': f.name, 'type': t, 'size': size_str})
+            return jsonify({
+                'is_file': False,
+                'is_dir': False,
+                'is_multi': True,
+                'name': f'{len(multi_paths)} files',
+                'count': len(media),
+                'videos': videos,
+                'photos': photos,
+                'files': files,
+                'has_more': len(media) > 30,
+                'subfolders': [],
+            })
+        except Exception:
+            logging.exception('folder_info: unexpected error for multi paths')
+            return jsonify({'error': 'Internal error — check the console for details.'}), 500
+
     if not path:
         return jsonify({'error': 'No path provided'}), 400
     try:
@@ -582,15 +620,37 @@ def folder_info():
         videos = sum(1 for _, t in media if t == 'video')
         photos = sum(1 for _, t in media if t == 'photo')
 
-        # File list — max 30 for preview
+        # Build subfolder breakdown when folder has subdirectories with media
+        subfolders = []
+        if p.is_dir():
+            from collections import defaultdict
+            sf_counts: dict = defaultdict(lambda: {'videos': 0, 'photos': 0})
+            has_subdir_files = False
+            for f, ftype in media:
+                try:
+                    parts = f.relative_to(p).parts
+                except ValueError:
+                    parts = (f.name,)
+                if len(parts) > 1:
+                    has_subdir_files = True
+                    sf_counts[parts[0]]['videos' if ftype == 'video' else 'photos'] += 1
+                else:
+                    sf_counts['']['videos' if ftype == 'video' else 'photos'] += 1
+            if has_subdir_files:
+                for name in sorted(sf_counts):
+                    entry = {'name': name or '(root)', 'videos': sf_counts[name]['videos'], 'photos': sf_counts[name]['photos']}
+                    subfolders.append(entry)
+
+        # File list for small flat folders (no subfolders, count ≤ 50)
         files = []
-        for f, t in media[:30]:
-            try:
-                size = f.stat().st_size
-                size_str = f"{size/(1024**3):.1f} GB" if size >= 1024**3 else f"{size/(1024**2):.0f} MB"
-            except OSError:
-                size_str = '?'
-            files.append({'name': f.name, 'type': t, 'size': size_str})
+        if not subfolders:
+            for f, t in media[:50]:
+                try:
+                    size = f.stat().st_size
+                    size_str = f"{size/(1024**3):.1f} GB" if size >= 1024**3 else f"{size/(1024**2):.0f} MB"
+                except OSError:
+                    size_str = '?'
+                files.append({'name': f.name, 'type': t, 'size': size_str})
 
         return jsonify({
             'is_file': p.is_file(),
@@ -600,7 +660,8 @@ def folder_info():
             'videos': videos,
             'photos': photos,
             'files': files,
-            'has_more': len(media) > 30,
+            'has_more': (not subfolders) and len(media) > 50,
+            'subfolders': subfolders,
         })
     except Exception:
         logging.exception('folder_info: unexpected error for path %r', path)
@@ -634,8 +695,10 @@ def _pick_path(kind: str) -> dict:
 
     helper_result = _run_swift_picker(kind, default_dir)
     if helper_result is not None:
-        if helper_result.get('ok') and helper_result.get('path'):
-            _remember_picked_dir(kind, helper_result['path'])
+        if helper_result.get('ok'):
+            first_path = helper_result.get('path') or (helper_result.get('paths') or [''])[0]
+            if first_path:
+                _remember_picked_dir(kind, first_path)
         return helper_result
 
     prompt = {

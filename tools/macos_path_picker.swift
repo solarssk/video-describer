@@ -2,6 +2,7 @@
 #if canImport(AppKit)
 import AppKit
 import Foundation
+import UniformTypeIdentifiers
 
 let args = CommandLine.arguments
 guard args.count >= 2 else {
@@ -23,12 +24,17 @@ app.setActivationPolicy(.accessory)
 let panel = NSOpenPanel()
 panel.canChooseFiles = kind == "file"
 panel.canChooseDirectories = kind == "folder"
-panel.allowsMultipleSelection = false
+panel.allowsMultipleSelection = kind == "file"
 panel.canCreateDirectories = kind == "folder"
 panel.prompt = "Choose"
 panel.message = kind == "folder"
     ? "Select a folder with recordings"
-    : "Select a video or photo file"
+    : "Select video or photo files"
+
+if kind == "file" {
+    let supportedExts = ["mp4", "mov", "avi", "mkv", "mts", "m2ts", "insv", "jpg", "jpeg", "png"]
+    panel.allowedContentTypes = supportedExts.compactMap { UTType(filenameExtension: $0) }
+}
 
 if !defaultDir.isEmpty {
     panel.directoryURL = URL(fileURLWithPath: defaultDir, isDirectory: true)
@@ -39,9 +45,12 @@ if !defaultDir.isEmpty {
 DispatchQueue.main.async {
     NSApp.activate(ignoringOtherApps: true)
     let response = panel.runModal()
-    if response == .OK, let url = panel.url {
-        print(url.path)
-        exit(0)
+    if response == .OK {
+        let urls = panel.urls
+        if !urls.isEmpty {
+            print(urls.map { $0.path }.joined(separator: "\n"))
+            exit(0)
+        }
     }
     exit(2)
 }
