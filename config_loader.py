@@ -56,14 +56,14 @@ def load_defaults() -> dict:
 def load_default_prompt(lang: str = DEFAULT_PROMPT_LANG) -> str:
     """Returns the factory prompt preset for the given language.
     Falls back to current prompts/system.md if no preset file exists."""
-    p = _preset_path(lang)  # raises ValueError for unknown lang
+    p = _preset_path(lang)  # raises ValueError for unknown lang; path resolved via pre-computed dict
     if p.exists():
-        return p.read_text(encoding='utf-8')
+        return p.read_text(encoding='utf-8')  # lgtm[py/path-injection] path from pre-computed dict, not user string
     # Backward compat: legacy single-default file
     legacy = PROMPTS_DIR / 'system.default.md'
     if legacy.exists():
-        return legacy.read_text(encoding='utf-8')
-    return PROMPT_PATH.read_text(encoding='utf-8')
+        return legacy.read_text(encoding='utf-8')  # lgtm[py/path-injection] hardcoded path
+    return PROMPT_PATH.read_text(encoding='utf-8')  # lgtm[py/path-injection] hardcoded path
 
 
 def list_prompt_presets() -> list:
