@@ -30,5 +30,21 @@ jobs:
       - uses: github/codeql-action/autobuild@v3
       - uses: github/codeql-action/analyze@v3
 
-  # Swift analysis omitted — single-file tool compiled at runtime via swiftc,
-  # macOS CodeQL runners add 20+ min queue time with minimal security value.
+  analyze-swift:
+    name: Analyze (swift)
+    # macOS runner is slow — run only on main pushes and weekly schedule, not PRs
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: swift
+          queries: security-extended
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
