@@ -426,7 +426,12 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         input_paths = config.get('paths') or [config['path']]
         media = find_media(input_paths, file_filter=file_filter)
         if not media:
-            emit_fn({'type': 'error', 'text': f"No video/photo files found in: {input_paths[0]}"})
+            if len(input_paths) == 1:
+                location = input_paths[0]
+            else:
+                preview = ', '.join(Path(p).name for p in input_paths[:3])
+                location = f"{preview}{'...' if len(input_paths) > 3 else ''} ({len(input_paths)} items)"
+            emit_fn({'type': 'error', 'text': f"No video/photo files found in: {location}"})
             return
 
         out_dir = Path(config['output_dir']) if config.get('output_dir') else None
