@@ -423,9 +423,17 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             print(f"Whisper backend selected: {backend_label} — model '{whisper_model_name}'")
 
         file_filter = config.get('files', [])
-        media = find_media([config['path']], file_filter=file_filter)
+        # _resolved_paths: server-side Path objects from media_selection registry (no taint)
+        # falls back to raw path strings for legacy/CLI callers
+        input_paths = config.get('_resolved_paths') or config.get('paths') or [config['path']]
+        media = find_media(input_paths, file_filter=file_filter)
         if not media:
-            emit_fn({'type': 'error', 'text': f"No video/photo files found in: {config['path']}"})
+            if len(input_paths) == 1:
+                location = Path(input_paths[0]).name if isinstance(input_paths[0], str) else input_paths[0].name
+            else:
+                preview = ', '.join((Path(p).name if isinstance(p, str) else p.name) for p in input_paths[:3])
+                location = f"{preview}{'...' if len(input_paths) > 3 else ''} ({len(input_paths)} items)"
+            emit_fn({'type': 'error', 'text': f"No video/photo files found in: {location}"})
             return
 
         out_dir = Path(config['output_dir']) if config.get('output_dir') else None
@@ -866,8 +874,9 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
 
         heartbeat_stop.set()
 
-        input_path = Path(config['path'])
-        if config.get('generate_summary') and summary_entries and input_path.is_dir():
+        _first = (config.get('_resolved_paths') or [None])[0] or config.get('path', '')
+        input_path = _first if isinstance(_first, Path) else Path(_first) if _first else None
+        if config.get('generate_summary') and summary_entries and input_path and input_path.is_dir():
             summary_dir = Path(config['output_dir']) if config.get('output_dir') else input_path
             summary_path = summary_dir / '_summary.txt'
             date_str = __import__('datetime').date.today().isoformat()
@@ -946,9 +955,11 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
         emit_fn({'type': 'error', 'text': 'No NLE formats enabled. Enable at least one in Settings → NLE Export.'})
         return
 
-    media = find_media([config['path']])
+    input_paths = config.get('_resolved_paths') or config.get('paths') or [config['path']]
+    media = find_media(input_paths)
     if not media:
-        emit_fn({'type': 'error', 'text': f"No video/photo files found in: {config['path']}"})
+        first = Path(input_paths[0]).name if isinstance(input_paths[0], str) else input_paths[0].name
+        emit_fn({'type': 'error', 'text': f"No video/photo files found in: {first}"})
         return
 
     out_dir = Path(config['output_dir']) if config.get('output_dir') else None

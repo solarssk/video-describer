@@ -410,6 +410,8 @@ async function verifyConnector(provider) {
 
 // ── File / folder picker + info ───────────────────────────
 let pickerBusy = false;
+let selectedPaths = null;   // display names / paths for UI (array or null)
+let selectionId = null;     // server-side selection_id token (preferred over raw paths)
 
 function showPickerError(message) {
   const infoEl = $('path-info');
@@ -450,7 +452,15 @@ async function runPicker(endpoint) {
     const res = await fetch(endpoint);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (data.ok && data.path) {
+    if (data.ok && data.paths && data.paths.length > 1) {
+      selectedPaths = data.paths;
+      selectionId = data.selection_id || null;
+      $('path').value = '';
+      showMultiFileInfo(data.paths);
+      updateStartEnabled();
+    } else if (data.ok && data.path) {
+      selectedPaths = null;
+      selectionId = data.selection_id || null;
       $('path').value = data.path;
       loadPathInfo();
       updateStartEnabled();
@@ -469,6 +479,19 @@ async function runPicker(endpoint) {
 
 function pickFolder() { runPicker('/pick-folder'); }
 function pickFile()   { runPicker('/pick-file');   }
+
+function showMultiFileInfo(paths) {
+  const infoEl = $('path-info');
+  const names = paths.map(p => p.split('/').pop());
+  let html = `<div class="path-info-header">🎬 <b>${paths.length} files selected</b></div>`;
+  html += '<ul class="path-info-files">';
+  names.forEach(name => {
+    html += `<li><span class="file-name">${escHtml(name)}</span></li>`;
+  });
+  html += '</ul>';
+  infoEl.innerHTML = html;
+  infoEl.style.display = 'block';
+}
 
 function onFileToggle(checkbox) {
   const li = checkbox.closest('li');
@@ -502,6 +525,8 @@ function getSelectedFiles() {
 
 let pathInfoTimer = null;
 function onPathChange() {
+  selectedPaths = null;  // manual path edit clears multi-file selection
+  selectionId = null;
   if (pathInfoTimer) clearTimeout(pathInfoTimer);
   pathInfoTimer = setTimeout(loadPathInfo, 500);
   updateStartEnabled();
@@ -515,7 +540,10 @@ async function loadPathInfo() {
     return;
   }
   try {
-    const res = await fetch('/folder-info?path=' + encodeURIComponent(path));
+    const infoUrl = selectionId
+      ? '/folder-info?selection_id=' + encodeURIComponent(selectionId)
+      : '/folder-info?path=' + encodeURIComponent(path);
+    const res = await fetch(infoUrl);
     const data = await res.json();
     if (data.error) {
       infoEl.innerHTML = `<span class="path-info-err">⚠ ${escHtml(data.error)}</span>`;
@@ -535,19 +563,31 @@ async function loadPathInfo() {
       if (data.videos > 0) parts.push(`${data.videos} ${t('path_info.video')}`);
       if (data.photos > 0) parts.push(`${data.photos} ${t('path_info.photos')}`);
       const summary = parts.join(', ') || t('path_info.no_supported');
-      let html = `<div class="path-info-header">📁 <b>${escHtml(data.name)}</b> — ${escHtml(summary)}</div>`;
-    if (data.count > 0) {
-      html += '<ul class="path-info-files" id="path-file-list">';
-      data.files.forEach((f, idx) => {
-        const icon = f.type === 'video' ? '🎬' : '📷';
-        const safeName = escHtml(f.name);
-        const inputId = `path-file-${idx}`;
-        html += `<li data-filename="${safeName}">` +
-          `<input type="checkbox" id="${inputId}" name="selected_files" checked onchange="onFileToggle(this)">` +
-          `<label class="file-name" for="${inputId}">${icon} ${safeName}</label>` +
-          `<span class="file-size">${escHtml(f.size)}</span>` +
-          `</li>`;
-      });
+      const folderIcon = data.is_multi ? '🎬' : '📁';
+      let html = `<div class="path-info-header">${folderIcon} <b>${escHtml(data.name)}</b> — ${escHtml(summary)}</div>`;
+
+      if (data.subfolders && data.subfolders.length > 0) {
+        // Subfolder breakdown — no individual file checkboxes
+        html += '<ul class="path-info-files">';
+        data.subfolders.forEach(sf => {
+          const sfParts = [];
+          if (sf.videos > 0) sfParts.push(`${sf.videos} ${t('path_info.video')}`);
+          if (sf.photos > 0) sfParts.push(`${sf.photos} ${t('path_info.photos')}`);
+          html += `<li style="list-style:none">📂 <b>${escHtml(sf.name)}</b> — ${escHtml(sfParts.join(', '))}</li>`;
+        });
+        html += '</ul>';
+      } else if (data.count > 0) {
+        html += '<ul class="path-info-files" id="path-file-list">';
+        data.files.forEach((f, idx) => {
+          const icon = f.type === 'video' ? '🎬' : '📷';
+          const safeName = escHtml(f.name);
+          const inputId = `path-file-${idx}`;
+          html += `<li data-filename="${safeName}">` +
+            `<input type="checkbox" id="${inputId}" name="selected_files" checked onchange="onFileToggle(this)">` +
+            `<label class="file-name" for="${inputId}">${icon} ${safeName}</label>` +
+            `<span class="file-size">${escHtml(f.size)}</span>` +
+            `</li>`;
+        });
         if (data.has_more) {
           const more = t('path_info.more', { count: data.count - data.files.length });
           html += `<li class="muted" style="list-style:none;padding:2px 0 0 19px">${escHtml(more)}</li>`;
@@ -632,7 +672,7 @@ function updateStartEnabled() {
   const convertMode = !!$('convert_existing')?.checked;
 
   let reason = '';
-  if (!path) {
+  if (!path && !selectedPaths) {
     reason = t('tooltip.start_no_path');
   } else if (convertMode) {
     if (!hasEnabledNleFormats()) reason = t('convert.warn_no_formats');
@@ -886,7 +926,7 @@ function handleMsg(msg) {
 // ── Start / stop ──────────────────────────────────────────
 function startProcessing(resumeExtra = {}, callbacks = {}) {
   const path = $('path').value.trim();
-  if (!path) { alert(t('alerts.provide_path')); return; }
+  if (!path && !selectedPaths) { alert(t('alerts.provide_path')); return; }
 
   // Resume always uses /start — convert mode must not intercept a batch resume
   const isResume = Object.keys(resumeExtra).some(k => k.startsWith('resume_'));
@@ -896,7 +936,13 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   const context = ctxEl.value.trim() || ctxEl.placeholder || '';
 
   const config = {
-    path:           path,
+    // Prefer server-side selection_id; fall back to raw path for manual entry
+    ...(selectionId
+      ? { selection_id: selectionId, path: selectedPaths ? selectedPaths[0] : path }
+      : {
+          path: selectedPaths ? selectedPaths[0] : path,
+          ...(selectedPaths && selectedPaths.length > 1 ? { paths: selectedPaths } : {}),
+        }),
     people:         getPeopleString(),
     context:        context,
     interval:       parseInt($('interval').value) || 5,
@@ -926,7 +972,17 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   setFormLocked(true);
 
   const endpoint = convertMode ? '/convert' : '/start';
-  const body = convertMode ? JSON.stringify({ path, output_dir: null }) : JSON.stringify(config);
+  const body = convertMode
+    ? JSON.stringify({
+        ...(selectionId
+          ? { selection_id: selectionId, path: selectedPaths ? selectedPaths[0] : path }
+          : {
+              path: selectedPaths ? selectedPaths[0] : path,
+              ...(selectedPaths && selectedPaths.length > 1 ? { paths: selectedPaths } : {}),
+            }),
+        output_dir: null,
+      })
+    : JSON.stringify(config);
 
   fetch(endpoint, {
     method: 'POST',
@@ -1454,7 +1510,17 @@ function resumeBatch() {
   // if start fails, banner is restored so the user can retry resume.
   const cfg = s.config;
   // Restore form fields from saved config
-  if (cfg.path)     $('path').value = cfg.path;
+  // Restore path / multi-file selection from saved config
+  // Note: selection_id is not restored (in-process registry cleared on restart)
+  // so we fall back to raw path/paths strings for resume.
+  selectionId = null;
+  if (cfg.paths && cfg.paths.length > 1) {
+    selectedPaths = cfg.paths;
+    showMultiFileInfo(cfg.paths);
+  } else {
+    selectedPaths = null;
+    if (cfg.path) $('path').value = cfg.path;
+  }
   if (cfg.interval) $('interval').value = cfg.interval;
   if (cfg.context !== undefined) $('context').value = cfg.context || '';
   $('analyze_images').checked  = !!cfg.analyze_images;
