@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from collections import defaultdict
 from pathlib import Path
 
 import psutil
@@ -625,7 +626,6 @@ def folder_info():
         if p.is_dir():
             # Resolve to break CodeQL taint chain before any further path ops
             p = Path(os.path.realpath(str(p)))  # lgtm[py/path-injection]
-            from collections import defaultdict
             sf_counts: dict = defaultdict(lambda: {'videos': 0, 'photos': 0})
             has_subdir_files = False
             for f, ftype in media:
