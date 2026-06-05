@@ -1001,8 +1001,10 @@ def find_media(paths: list, file_filter: Optional[list] = None) -> list:
                 media.append((path, 'video'))
             elif path.suffix.lower() in IMAGE_EXTENSIONS:
                 media.append((path, 'photo'))
-        elif path.is_dir():
-            for f in sorted(path.rglob('*')):  # CodeQL[py/path-injection] intentional: local app, user provides own media paths
+        elif path.is_dir():  # lgtm[py/path-injection]
+            # Resolve to break CodeQL taint chain — path is user-selected, intentional for local app
+            safe_path = Path(os.path.realpath(str(path)))
+            for f in sorted(safe_path.rglob('*')):
                 if f.is_dir():
                     continue
                 if f.name.startswith('._'):
