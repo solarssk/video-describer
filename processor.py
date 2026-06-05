@@ -423,13 +423,15 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             print(f"Whisper backend selected: {backend_label} — model '{whisper_model_name}'")
 
         file_filter = config.get('files', [])
-        input_paths = config.get('paths') or [config['path']]
+        # _resolved_paths: server-side Path objects from media_selection registry (no taint)
+        # falls back to raw path strings for legacy/CLI callers
+        input_paths = config.get('_resolved_paths') or config.get('paths') or [config['path']]
         media = find_media(input_paths, file_filter=file_filter)
         if not media:
             if len(input_paths) == 1:
-                location = input_paths[0]
+                location = Path(input_paths[0]).name if isinstance(input_paths[0], str) else input_paths[0].name
             else:
-                preview = ', '.join(Path(p).name for p in input_paths[:3])
+                preview = ', '.join((Path(p).name if isinstance(p, str) else p.name) for p in input_paths[:3])
                 location = f"{preview}{'...' if len(input_paths) > 3 else ''} ({len(input_paths)} items)"
             emit_fn({'type': 'error', 'text': f"No video/photo files found in: {location}"})
             return
@@ -952,10 +954,11 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
         emit_fn({'type': 'error', 'text': 'No NLE formats enabled. Enable at least one in Settings → NLE Export.'})
         return
 
-    input_paths = config.get('paths') or [config['path']]
+    input_paths = config.get('_resolved_paths') or config.get('paths') or [config['path']]
     media = find_media(input_paths)
     if not media:
-        emit_fn({'type': 'error', 'text': f"No video/photo files found in: {input_paths[0]}"})
+        first = Path(input_paths[0]).name if isinstance(input_paths[0], str) else input_paths[0].name
+        emit_fn({'type': 'error', 'text': f"No video/photo files found in: {first}"})
         return
 
     out_dir = Path(config['output_dir']) if config.get('output_dir') else None

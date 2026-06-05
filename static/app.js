@@ -410,7 +410,8 @@ async function verifyConnector(provider) {
 
 // ── File / folder picker + info ───────────────────────────
 let pickerBusy = false;
-let selectedPaths = null;  // set when user picks multiple files via file picker
+let selectedPaths = null;   // display names / paths for UI (array or null)
+let selectionId = null;     // server-side selection_id token (preferred over raw paths)
 
 function showPickerError(message) {
   const infoEl = $('path-info');
@@ -453,11 +454,13 @@ async function runPicker(endpoint) {
     const data = await res.json();
     if (data.ok && data.paths && data.paths.length > 1) {
       selectedPaths = data.paths;
+      selectionId = data.selection_id || null;
       $('path').value = '';
       showMultiFileInfo(data.paths);
       updateStartEnabled();
     } else if (data.ok && data.path) {
       selectedPaths = null;
+      selectionId = data.selection_id || null;
       $('path').value = data.path;
       loadPathInfo();
       updateStartEnabled();
@@ -523,6 +526,7 @@ function getSelectedFiles() {
 let pathInfoTimer = null;
 function onPathChange() {
   selectedPaths = null;  // manual path edit clears multi-file selection
+  selectionId = null;
   if (pathInfoTimer) clearTimeout(pathInfoTimer);
   pathInfoTimer = setTimeout(loadPathInfo, 500);
   updateStartEnabled();
@@ -536,7 +540,10 @@ async function loadPathInfo() {
     return;
   }
   try {
-    const res = await fetch('/folder-info?path=' + encodeURIComponent(path));
+    const infoUrl = selectionId
+      ? '/folder-info?selection_id=' + encodeURIComponent(selectionId)
+      : '/folder-info?path=' + encodeURIComponent(path);
+    const res = await fetch(infoUrl);
     const data = await res.json();
     if (data.error) {
       infoEl.innerHTML = `<span class="path-info-err">⚠ ${escHtml(data.error)}</span>`;
@@ -929,8 +936,13 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   const context = ctxEl.value.trim() || ctxEl.placeholder || '';
 
   const config = {
-    path:           selectedPaths ? selectedPaths[0] : path,
-    ...(selectedPaths && selectedPaths.length > 1 ? { paths: selectedPaths } : {}),
+    // Prefer server-side selection_id; fall back to raw path for manual entry
+    ...(selectionId
+      ? { selection_id: selectionId, path: selectedPaths ? selectedPaths[0] : path }
+      : {
+          path: selectedPaths ? selectedPaths[0] : path,
+          ...(selectedPaths && selectedPaths.length > 1 ? { paths: selectedPaths } : {}),
+        }),
     people:         getPeopleString(),
     context:        context,
     interval:       parseInt($('interval').value) || 5,
@@ -960,7 +972,17 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
   setFormLocked(true);
 
   const endpoint = convertMode ? '/convert' : '/start';
-  const body = convertMode ? JSON.stringify({ path, output_dir: null }) : JSON.stringify(config);
+  const body = convertMode
+    ? JSON.stringify({
+        ...(selectionId
+          ? { selection_id: selectionId, path: selectedPaths ? selectedPaths[0] : path }
+          : {
+              path: selectedPaths ? selectedPaths[0] : path,
+              ...(selectedPaths && selectedPaths.length > 1 ? { paths: selectedPaths } : {}),
+            }),
+        output_dir: null,
+      })
+    : JSON.stringify(config);
 
   fetch(endpoint, {
     method: 'POST',

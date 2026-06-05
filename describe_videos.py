@@ -993,7 +993,8 @@ def find_media(paths: list, file_filter: Optional[list] = None) -> list:
     filter_set = set(file_filter) if file_filter else None
     media = []
     for path_str in paths:
-        path = Path(path_str)  # lgtm[py/path-injection] intentional: local CLI/app, user provides own media paths
+        # Accept both Path objects (from server-side registry) and strings (CLI / legacy)
+        path = path_str if isinstance(path_str, Path) else Path(path_str)  # lgtm[py/path-injection]
         if path.is_file() and not path.name.startswith('._'):
             if filter_set and path.name not in filter_set:
                 continue
@@ -1015,13 +1016,15 @@ def find_media(paths: list, file_filter: Optional[list] = None) -> list:
                     media.append((f, 'video'))
                 elif f.suffix.lower() in IMAGE_EXTENSIONS:
                     media.append((f, 'photo'))
-    seen = set()
+    # Deduplicate by resolved path to handle symlinks (e.g. /tmp → /private/tmp on macOS)
+    seen: set[Path] = set()
     result = []
-    for item in media:
-        if item[0] not in seen:
-            seen.add(item[0])
-            result.append(item)
-    return sorted(result, key=lambda x: x[0].name)
+    for f, ftype in media:
+        resolved = Path(os.path.realpath(str(f)))
+        if resolved not in seen:
+            seen.add(resolved)
+            result.append((resolved, ftype))
+    return sorted(result, key=lambda x: str(x[0]))
 
 
 def main():

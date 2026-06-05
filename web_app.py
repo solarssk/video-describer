@@ -23,6 +23,7 @@ import psutil
 from flask import Flask, Response, jsonify, render_template, request
 
 import config_loader
+import media_selection
 from processor import (
     BATCH_STATE_PATH,
     _clear_batch_state,
@@ -303,7 +304,16 @@ def start():
     """Start a background processing batch from the submitted payload."""
     global is_processing, log_buffer, results_buffer, total_files_global, progress_global
     config = request.json or {}
-    if not config.get('path') and not config.get('paths'):
+
+    # Resolve paths: prefer server-side selection_id, fall back to raw path strings
+    sel_id = config.get('selection_id', '').strip()
+    if sel_id:
+        resolved_paths = media_selection.lookup(sel_id)
+        if not resolved_paths:
+            return jsonify({'error': 'Selection expired — please pick files again'}), 400
+        # Store resolved Path objects; processor will use these directly
+        config['_resolved_paths'] = resolved_paths
+    elif not config.get('path') and not config.get('paths'):
         return jsonify({'error': 'Please provide a folder or file path'}), 400
 
     # Both features default to ON for backward compat with old form payloads
@@ -371,7 +381,14 @@ def convert():
     """Generate NLE sidecar files for already-processed media without re-running AI."""
     global is_processing, log_buffer, results_buffer, total_files_global, progress_global
     config = request.json or {}
-    if not config.get('path'):
+
+    sel_id = config.get('selection_id', '').strip()
+    if sel_id:
+        resolved_paths = media_selection.lookup(sel_id)
+        if not resolved_paths:
+            return jsonify({'error': 'Selection expired — please pick files again'}), 400
+        config['_resolved_paths'] = resolved_paths
+    elif not config.get('path') and not config.get('paths'):
         return jsonify({'error': 'Please provide a folder or file path'}), 400
 
     with _start_lock:
@@ -573,59 +590,76 @@ def connectors_verify():
     return jsonify({'error': 'Unknown provider'}), 400
 
 
+def _fmt_size(f: Path) -> str:
+    """Return human-readable file size string."""
+    try:
+        size = f.stat().st_size
+        return f"{size/(1024**3):.1f} GB" if size >= 1024**3 else f"{size/(1024**2):.0f} MB"
+    except OSError:
+        return '?'
+
+
+def _folder_info_multi(paths: list[Path]) -> dict:
+    """Build a folder-info response for a list of specific Path objects."""
+    media = find_media(paths)
+    videos = sum(1 for _, t in media if t == 'video')
+    photos = sum(1 for _, t in media if t == 'photo')
+    files = [{'name': f.name, 'type': t, 'size': _fmt_size(f)} for f, t in media[:30]]
+    return {
+        'is_file': False,
+        'is_dir': False,
+        'is_multi': True,
+        'name': f'{len(paths)} files',
+        'count': len(media),
+        'videos': videos,
+        'photos': photos,
+        'files': files,
+        'has_more': len(media) > 30,
+        'subfolders': [],
+    }
+
+
 @app.route('/folder-info')
 def folder_info():
-    """Returns info about a given path: how many files, what types."""
-    # Support both single path and multi-path (paths[]=... repeated)
-    multi_paths = request.args.getlist('paths[]')
-    path = (request.args.get('path') or '').strip()
+    """Returns info about a given path: how many files, what types.
 
-    if multi_paths:
-        # Multi-file selection: just count and return, no subfolder breakdown
-        try:
-            media = find_media(multi_paths)  # lgtm[py/path-injection]
-            videos = sum(1 for _, t in media if t == 'video')
-            photos = sum(1 for _, t in media if t == 'photo')
-            files = []
-            for f, t in media[:30]:
-                try:
-                    size = f.stat().st_size
-                    size_str = f"{size/(1024**3):.1f} GB" if size >= 1024**3 else f"{size/(1024**2):.0f} MB"
-                except OSError:
-                    size_str = '?'
-                files.append({'name': f.name, 'type': t, 'size': size_str})
-            return jsonify({
-                'is_file': False,
-                'is_dir': False,
-                'is_multi': True,
-                'name': f'{len(multi_paths)} files',
-                'count': len(media),
-                'videos': videos,
-                'photos': photos,
-                'files': files,
-                'has_more': len(media) > 30,
-                'subfolders': [],
-            })
-        except Exception:
-            logging.exception('folder_info: unexpected error for multi paths')
-            return jsonify({'error': 'Internal error — check the console for details.'}), 500
-
-    if not path:
-        return jsonify({'error': 'No path provided'}), 400
+    Accepts (in priority order):
+      ?selection_id=<uuid>  — preferred; lookup server-side Path objects
+      ?path=<str>           — legacy single path (still supported)
+      ?paths[]=<str>&...    — legacy multi-path (still supported)
+    """
     try:
-        p = Path(path)  # lgtm[py/path-injection] intentional: local app, user browses own filesystem
+        # --- resolve paths from request, never touching raw strings as Path sinks ---
+        sel_id = request.args.get('selection_id', '').strip()
+        if sel_id:
+            resolved = media_selection.lookup(sel_id)
+            if resolved is None:
+                return jsonify({'error': 'Selection expired or not found — pick again'}), 404
+            # resolved is list[Path] from server-side registry — no taint from request
+            if len(resolved) > 1 or (resolved and resolved[0].is_file()):
+                return jsonify(_folder_info_multi(resolved))
+            p = resolved[0]
+        else:
+            # Legacy fallback: raw path strings from request (kept for manual entry)
+            multi_raw = request.args.getlist('paths[]')
+            path_raw = (request.args.get('path') or '').strip()
+            if multi_raw:
+                resolved = [Path(s) for s in multi_raw]  # lgtm[py/path-injection]
+                return jsonify(_folder_info_multi(resolved))
+            if not path_raw:
+                return jsonify({'error': 'No path provided'}), 400
+            p = Path(path_raw)  # lgtm[py/path-injection]
+
         if not p.exists():
             return jsonify({'error': 'Path does not exist'}), 404
 
-        media = find_media([path])  # lgtm[py/path-injection]
+        media = find_media([p])
         videos = sum(1 for _, t in media if t == 'video')
         photos = sum(1 for _, t in media if t == 'photo')
 
         # Build subfolder breakdown when folder has subdirectories with media
-        subfolders = []
+        subfolders: list[dict] = []
         if p.is_dir():
-            # Resolve to break CodeQL taint chain before any further path ops
-            p = Path(os.path.realpath(str(p)))  # lgtm[py/path-injection]
             sf_counts: dict = defaultdict(lambda: {'videos': 0, 'photos': 0})
             has_subdir_files = False
             for f, ftype in media:
@@ -640,19 +674,17 @@ def folder_info():
                     sf_counts['']['videos' if ftype == 'video' else 'photos'] += 1
             if has_subdir_files:
                 for name in sorted(sf_counts):
-                    entry = {'name': name or '(root)', 'videos': sf_counts[name]['videos'], 'photos': sf_counts[name]['photos']}
-                    subfolders.append(entry)
+                    subfolders.append({
+                        'name': name or '(root)',
+                        'videos': sf_counts[name]['videos'],
+                        'photos': sf_counts[name]['photos'],
+                    })
 
         # File list for small flat folders (no subfolders, count ≤ 50)
-        files = []
+        files: list[dict] = []
         if not subfolders:
             for f, t in media[:50]:
-                try:
-                    size = f.stat().st_size
-                    size_str = f"{size/(1024**3):.1f} GB" if size >= 1024**3 else f"{size/(1024**2):.0f} MB"
-                except OSError:
-                    size_str = '?'
-                files.append({'name': f.name, 'type': t, 'size': size_str})
+                files.append({'name': f.name, 'type': t, 'size': _fmt_size(f)})
 
         return jsonify({
             'is_file': p.is_file(),
@@ -768,14 +800,28 @@ def _pick_path(kind: str) -> dict:
 
 @app.route('/pick-folder')
 def pick_folder():
-    """Return a folder path selected by the user."""
-    return jsonify(_pick_path('folder'))
+    """Return a folder path selected by the user, with a server-side selection_id."""
+    result = _pick_path('folder')
+    if result.get('ok'):
+        raw_paths = result.get('paths') or ([result['path']] if result.get('path') else [])
+        if raw_paths:
+            result['selection_id'] = media_selection.register(
+                [Path(p) for p in raw_paths], source='picker'
+            )
+    return jsonify(result)
 
 
 @app.route('/pick-file')
 def pick_file():
-    """Return a file path selected by the user."""
-    return jsonify(_pick_path('file'))
+    """Return file path(s) selected by the user, with a server-side selection_id."""
+    result = _pick_path('file')
+    if result.get('ok'):
+        raw_paths = result.get('paths') or ([result['path']] if result.get('path') else [])
+        if raw_paths:
+            result['selection_id'] = media_selection.register(
+                [Path(p) for p in raw_paths], source='picker'
+            )
+    return jsonify(result)
 
 
 @app.route('/status')

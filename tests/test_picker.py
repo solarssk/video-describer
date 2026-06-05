@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import web_app
+import media_selection
 
 
 class PickerTests(unittest.TestCase):
@@ -110,6 +111,37 @@ class PickerTests(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual({'ok': False, 'cancelled': True, 'path': ''}, response.get_json())
+
+    def test_pick_folder_endpoint_registers_selection_and_returns_id(self):
+        media_selection.clear()
+        with tempfile.TemporaryDirectory() as picked_dir:
+            with patch('web_app._pick_path', return_value={'ok': True, 'path': picked_dir}):
+                response = web_app.app.test_client().get('/pick-folder')
+
+        data = response.get_json()
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(data.get('ok'))
+        self.assertIn('selection_id', data)
+        sel_id = data['selection_id']
+        from pathlib import Path
+        self.assertEqual(media_selection.lookup(sel_id), [Path(picked_dir)])
+
+    def test_pick_file_endpoint_multi_paths_registers_all(self):
+        media_selection.clear()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            f1 = tmpdir + '/clip1.mp4'
+            f2 = tmpdir + '/clip2.insv'
+            with patch('web_app._pick_path', return_value={
+                'ok': True, 'path': f1, 'paths': [f1, f2]
+            }):
+                response = web_app.app.test_client().get('/pick-file')
+
+        data = response.get_json()
+        self.assertTrue(data.get('ok'))
+        self.assertIn('selection_id', data)
+        from pathlib import Path
+        resolved = media_selection.lookup(data['selection_id'])
+        self.assertEqual(resolved, [Path(f1), Path(f2)])
 
 
 if __name__ == '__main__':
