@@ -27,3 +27,19 @@ This tool runs locally on your machine and never exposes a public endpoint. The 
 
 - Issues in third-party dependencies (report those upstream; Dependabot will handle updates here)
 - Theoretical vulnerabilities without a realistic attack path on a local-only tool
+
+## CodeQL `py/path-injection` — known triaged findings
+
+video-describer is a local macOS desktop tool served on `localhost`. The user intentionally selects their own media folders via a native macOS file picker (NSOpenPanel).
+
+Starting with v0.4.4, the primary picker flow uses a server-side **selection registry** — the UI sends a `selection_id` token, not a raw filesystem path, to processing endpoints. CodeQL sees this registry flow as clean.
+
+Three legacy compatibility paths remain and are intentionally kept:
+
+- **CLI usage** — `python describe_videos.py /path/to/media`
+- **Manual path entry** in the local UI (typed directly, no picker)
+- **Backward compatibility** with local tooling that posts `{"path": "..."}` directly
+
+CodeQL flags these as `py/path-injection`. They have been individually triaged and dismissed in the Security tab (alerts #41, #42 as *false positive*; #44, #45 as *won't fix*) with audit comments. The rule remains enabled globally so future unexpected path injection issues are still detected.
+
+A follow-up task for v0.5 will consider separating CLI raw paths from web UI paths and optionally requiring `selection_id` for all web endpoints.
