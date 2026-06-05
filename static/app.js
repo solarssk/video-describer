@@ -1510,7 +1510,17 @@ function resumeBatch() {
   // if start fails, banner is restored so the user can retry resume.
   const cfg = s.config;
   // Restore form fields from saved config
-  if (cfg.path)     $('path').value = cfg.path;
+  // Restore path / multi-file selection from saved config
+  // Note: selection_id is not restored (in-process registry cleared on restart)
+  // so we fall back to raw path/paths strings for resume.
+  selectionId = null;
+  if (cfg.paths && cfg.paths.length > 1) {
+    selectedPaths = cfg.paths;
+    showMultiFileInfo(cfg.paths);
+  } else {
+    selectedPaths = null;
+    if (cfg.path) $('path').value = cfg.path;
+  }
   if (cfg.interval) $('interval').value = cfg.interval;
   if (cfg.context !== undefined) $('context').value = cfg.context || '';
   $('analyze_images').checked  = !!cfg.analyze_images;

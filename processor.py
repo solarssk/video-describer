@@ -874,8 +874,9 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
 
         heartbeat_stop.set()
 
-        input_path = Path(config['path'])
-        if config.get('generate_summary') and summary_entries and input_path.is_dir():
+        _first = (config.get('_resolved_paths') or [None])[0] or config.get('path', '')
+        input_path = _first if isinstance(_first, Path) else Path(_first) if _first else None
+        if config.get('generate_summary') and summary_entries and input_path and input_path.is_dir():
             summary_dir = Path(config['output_dir']) if config.get('output_dir') else input_path
             summary_path = summary_dir / '_summary.txt'
             date_str = __import__('datetime').date.today().isoformat()
