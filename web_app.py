@@ -622,7 +622,7 @@ def folder_info():
 
         # Build subfolder breakdown when folder has subdirectories with media
         subfolders = []
-        if p.is_dir():
+        if p.is_dir():  # CodeQL[py/path-injection] intentional: local app, user browses own filesystem
             from collections import defaultdict
             sf_counts: dict = defaultdict(lambda: {'videos': 0, 'photos': 0})
             has_subdir_files = False
