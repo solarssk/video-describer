@@ -60,9 +60,10 @@ This renames unambiguous legacy files such as `video.txt` to `video.mp4.txt` and
 ```bash
 git clone https://github.com/solarssk/video-describer.git
 cd video-describer
-pip3 install -r requirements.txt
-python3 web_app.py
+./app.sh
 ```
+
+`app.sh` creates a virtual environment, installs dependencies, and starts the app — all in one step. On subsequent runs it only reinstalls if `requirements.txt` has changed.
 
 Open `http://localhost:5555`. Go to **Connectors**, paste your API key. Point it at a folder. That's it.
 
@@ -227,6 +228,7 @@ The system prompt lives in `prompts/system.md`. Change it to change the output l
 
 ```text
 video-describer/
+├── app.sh                   — one-command launcher: creates venv, installs deps, starts app
 ├── web_app.py               — Waitress/Flask app, HTTP endpoints, SSE
 ├── processor.py             — batch loop, resume state, cost/log plumbing
 ├── batch_metadata.py        — batch manifest + .txt metadata helpers
