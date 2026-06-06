@@ -692,7 +692,17 @@ function onConvertModeChange() {
   const on = !!$('convert_existing')?.checked;
   const warn = $('convert-warn-inline');
   if (warn) warn.style.display = (on && !hasEnabledNleFormats()) ? '' : 'none';
+  const rowOverwrite = $('row-overwrite-sidecars');
+  if (rowOverwrite) rowOverwrite.style.display = on ? '' : 'none';
+  onOverwriteSidecarsChange();
   updateStartEnabled();
+}
+
+function onOverwriteSidecarsChange() {
+  const convertOn  = !!$('convert_existing')?.checked;
+  const overwriteOn = !!$('overwrite_sidecars')?.checked;
+  const rowBackup = $('row-backup-sidecars');
+  if (rowBackup) rowBackup.style.display = (convertOn && overwriteOn) ? '' : 'none';
 }
 
 // ── UI updates ────────────────────────────────────────────
@@ -981,6 +991,8 @@ function startProcessing(resumeExtra = {}, callbacks = {}) {
               ...(selectedPaths && selectedPaths.length > 1 ? { paths: selectedPaths } : {}),
             }),
         output_dir: null,
+        overwrite_sidecars: !!$('overwrite_sidecars')?.checked,
+        backup_sidecars:    !!$('backup_sidecars')?.checked,
       })
     : JSON.stringify(config);
 

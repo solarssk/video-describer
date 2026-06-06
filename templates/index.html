@@ -178,6 +178,28 @@
     </div>
     <div id="convert-warn-inline" class="convert-warn" style="display:none; padding: 2px 0 0;" data-i18n="convert.warn_no_formats">No NLE formats enabled. Go to Settings → NLE Export and enable at least one.</div>
 
+    <div class="toggle-row" id="row-overwrite-sidecars" style="display:none;">
+      <div>
+        <div class="toggle-label" id="label-overwrite-sidecars" data-i18n="form.overwrite_sidecars.label">Overwrite existing sidecars</div>
+        <div class="toggle-sub" data-i18n="form.overwrite_sidecars.sub">Replace .edl / .fcpxml / .xml files that already exist</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="overwrite_sidecars" name="overwrite_sidecars" aria-labelledby="label-overwrite-sidecars" onchange="onOverwriteSidecarsChange()">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="toggle-row" id="row-backup-sidecars" style="display:none;">
+      <div>
+        <div class="toggle-label" id="label-backup-sidecars" data-i18n="form.backup_sidecars.label">Backup before overwrite</div>
+        <div class="toggle-sub" data-i18n="form.backup_sidecars.sub">Rename existing sidecars to .bak before replacing</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="backup_sidecars" name="backup_sidecars" aria-labelledby="label-backup-sidecars">
+        <span class="slider"></span>
+      </label>
+    </div>
+
     <div class="form-actions" style="margin-top: auto; display: flex; flex-direction: column; gap: 8px;">
       <div class="budget-row">
         <label class="budget-label" for="budget_usd" data-i18n="form.budget.label">Budget limit (USD)</label>
