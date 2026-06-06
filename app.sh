@@ -26,14 +26,14 @@ if [ ! -f "$REQUIREMENTS_HASH_FILE" ] || [ "$CURRENT_HASH" != "$(cat "$REQUIREME
     echo "$CURRENT_HASH" > "$REQUIREMENTS_HASH_FILE"
 fi
 
-# Install Whisper backend if neither variant is present
+# Install Whisper backend if neither variant is present (optional — failure does not block startup)
 if ! "$PYTHON" -c "import mlx_whisper" 2>/dev/null && ! "$PYTHON" -c "import faster_whisper" 2>/dev/null; then
-    if [ "$(uname -m)" = "arm64" ]; then
+    if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
         echo "Installing mlx-whisper (Apple Silicon)..."
-        "$PIP" install --quiet mlx-whisper
+        "$PIP" install --quiet --disable-pip-version-check mlx-whisper || echo "⚠  mlx-whisper install failed — speech transcription unavailable"
     else
         echo "Installing faster-whisper..."
-        "$PIP" install --quiet faster-whisper
+        "$PIP" install --quiet --disable-pip-version-check faster-whisper || echo "⚠  faster-whisper install failed — speech transcription unavailable"
     fi
 fi
 
