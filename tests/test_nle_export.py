@@ -299,6 +299,22 @@ class TestSanitizeResolveMarkerLine(unittest.TestCase):
     def test_edl_chars_replaced(self):
         self.assertEqual(_sanitize_resolve_marker_line('a — b'), 'a - b')
 
+    def test_pipe_replaced(self):
+        result = _sanitize_resolve_marker_line('a | b | c')
+        self.assertNotIn('|', result)
+        self.assertIn('a', result)
+        self.assertIn('b', result)
+
+    def test_truncation_max_len_3(self):
+        result = _sanitize_resolve_marker_line('abcdef', max_len=3)
+        self.assertEqual(result, 'abc')
+        self.assertLessEqual(len(result), 3)
+
+    def test_truncation_max_len_2(self):
+        result = _sanitize_resolve_marker_line('abcdef', max_len=2)
+        self.assertEqual(result, 'ab')
+        self.assertLessEqual(len(result), 2)
+
 
 class TestSanitizeEdl(unittest.TestCase):
 

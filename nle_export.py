@@ -84,13 +84,17 @@ def _truncate_edl(text: str, max_len: int = 127) -> str:
 def _sanitize_resolve_marker_line(text: str, max_len: int | None = None) -> str:
     """Prepare marker text for a Resolve EDL marker extension line.
 
-    Applies EDL character mapping, collapses CR/LF and runs of whitespace to a
-    single space.  No length cap by default — pass max_len to truncate.
+    Applies EDL character mapping, replaces pipe characters (field delimiters
+    in Resolve extensions), collapses CR/LF and runs of whitespace to a single
+    space.  No length cap by default — pass max_len to truncate.
     """
     text = _sanitize_edl(text)
+    text = text.replace('|', '/')  # '|' is a field delimiter in Resolve extensions
     text = re.sub(r'[\r\n]+', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     if max_len is not None and len(text) > max_len:
+        if max_len <= 3:
+            return text[:max_len]
         return text[:max_len - 3].rstrip() + '...'
     return text
 
