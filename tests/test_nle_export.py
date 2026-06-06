@@ -7,6 +7,7 @@ from pathlib import Path
 
 from nle_export import (
     _sanitize_edl,
+    _sanitize_resolve_marker_line,
     export_sidecars,
     parse_timestamps,
     write_edl,
@@ -224,21 +225,95 @@ class TestWriteEdl(unittest.TestCase):
         self.assertNotIn(lquote, content)
         self.assertIn('long - road...', content)
 
-    def test_long_text_truncation_stays_ascii(self):
+    def test_resolve_marker_line_format(self):
+        """Each marker must produce a single |C:<color> |M:<text> |D:1 line."""
         out = self.tmp / 'test.edl'
-        markers = [{'time_s': 10, 'text': 'x' * 200, 'is_key': False}]
-        write_edl(markers, 'clip.mp4', 25.0, out)
+        write_edl(_markers(), 'test.mp4', 25.0, out)
         content = out.read_text()
-        self.assertNotIn('…', content)   # no Unicode ellipsis
-        line = [ln for ln in content.splitlines() if ln.startswith('* |M:')][0]
-        self.assertTrue(line.endswith('...'))
-        self.assertLessEqual(len(line), len('* |M: ') + 127)
+        self.assertIn('|C:ResolveColorBlue |M:Filip buckles the roll bags |D:1', content)
+        self.assertIn('|C:ResolveColorRed |M:they pull out |D:1', content)
+        self.assertNotIn('* |M:', content)
+        self.assertNotIn('* |C:', content)
 
-    def test_from_clip_name_comment(self):
-        """Each EDL event must include a FROM CLIP NAME comment for Resolve."""
+    def test_marker_extension_count_matches_markers(self):
+        """Number of Resolve marker lines must equal number of input markers."""
+        out = self.tmp / 'test.edl'
+        markers = _markers()
+        write_edl(markers, 'test.mp4', 25.0, out)
+        marker_lines = [
+            ln for ln in out.read_text().splitlines()
+            if '|M:' in ln and '|D:' in ln
+        ]
+        self.assertEqual(len(marker_lines), len(markers))
+
+    def test_marker_text_not_truncated_by_default(self):
+        """Marker text must not be truncated unless max_len is explicitly given."""
+        out = self.tmp / 'test.edl'
+        long_text = 'x' * 300
+        write_edl([{'time_s': 10, 'text': long_text, 'is_key': False}], 'clip.mp4', 25.0, out)
+        content = out.read_text()
+        self.assertIn(long_text, content)
+        self.assertNotIn('...', content)
+
+    def test_edl_event_is_one_frame_at_25fps(self):
+        """Each EDL event must span exactly one frame: tc_in and tc_in+1."""
+        out = self.tmp / 'test.edl'
+        write_edl([{'time_s': 5, 'text': 'marker', 'is_key': False}], 'clip.mp4', 25.0, out)
+        content = out.read_text()
+        self.assertIn('00:00:05:00 00:00:05:01 00:00:05:00 00:00:05:01', content)
+        self.assertIn('|D:1', content)
+
+    def test_marker_text_is_single_line(self):
+        """Newlines in marker text must be collapsed to a single space."""
+        out = self.tmp / 'test.edl'
+        write_edl([{'time_s': 1, 'text': 'line one\nline two', 'is_key': False}], 'clip.mp4', 25.0, out)
+        self.assertIn('|M:line one line two |D:1', out.read_text())
+
+    def test_no_from_clip_name_in_marker_edl(self):
+        """Marker-only EDL must not contain FROM CLIP NAME lines."""
         out = self.tmp / 'test.edl'
         write_edl(_markers(), 'myclip.mp4', 25.0, out)
-        self.assertIn('* FROM CLIP NAME: myclip.mp4', out.read_text())
+        self.assertNotIn('FROM CLIP NAME', out.read_text())
+
+
+class TestSanitizeResolveMarkerLine(unittest.TestCase):
+
+    def test_newline_collapsed(self):
+        self.assertEqual(_sanitize_resolve_marker_line('a\nb'), 'a b')
+
+    def test_crlf_collapsed(self):
+        self.assertEqual(_sanitize_resolve_marker_line('a\r\nb'), 'a b')
+
+    def test_multiple_spaces_collapsed(self):
+        self.assertEqual(_sanitize_resolve_marker_line('a  b   c'), 'a b c')
+
+    def test_no_truncation_by_default(self):
+        long = 'x' * 300
+        self.assertEqual(_sanitize_resolve_marker_line(long), long)
+
+    def test_truncation_with_explicit_max_len(self):
+        result = _sanitize_resolve_marker_line('x' * 200, max_len=10)
+        self.assertEqual(result, 'xxxxxxx...')
+        self.assertEqual(len(result), 10)
+
+    def test_edl_chars_replaced(self):
+        self.assertEqual(_sanitize_resolve_marker_line('a — b'), 'a - b')
+
+    def test_pipe_replaced(self):
+        result = _sanitize_resolve_marker_line('a | b | c')
+        self.assertNotIn('|', result)
+        self.assertIn('a', result)
+        self.assertIn('b', result)
+
+    def test_truncation_max_len_3(self):
+        result = _sanitize_resolve_marker_line('abcdef', max_len=3)
+        self.assertEqual(result, 'abc')
+        self.assertLessEqual(len(result), 3)
+
+    def test_truncation_max_len_2(self):
+        result = _sanitize_resolve_marker_line('abcdef', max_len=2)
+        self.assertEqual(result, 'ab')
+        self.assertLessEqual(len(result), 2)
 
 
 class TestSanitizeEdl(unittest.TestCase):
