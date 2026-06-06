@@ -5,6 +5,7 @@ Each function takes a list of marker dicts:
 and writes one sidecar file next to the source .txt.
 """
 
+import datetime
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -265,22 +266,21 @@ def write_fcp7xml(markers: list, clip_name: str, fps: float,
 
 # ── Dispatcher ────────────────────────────────────────────────────────────────
 
-import datetime as _dt
-
-
 def _prepare_sidecar_path(path: Path, *, overwrite: bool, backup: bool) -> bool:
     """Return True if it is safe to write to path; handle backup if requested.
 
     When overwrite=False and the file already exists, returns False (skip).
     When overwrite=True and backup=True, renames the existing file to
-    <name>.<YYYYMMDD-HHMMSS>.bak before returning True.
+    <name>.<YYYYMMDD-HHMMSS-ffffff>.bak before returning True.  Microseconds
+    in the suffix prevent collisions when multiple formats are backed up within
+    the same second.
     """
     if not path.exists():
         return True
     if not overwrite:
         return False
     if backup:
-        ts = _dt.datetime.now().strftime('%Y%m%d-%H%M%S')
+        ts = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
         bak = path.with_name(f'{path.name}.{ts}.bak')
         path.replace(bak)
     return True

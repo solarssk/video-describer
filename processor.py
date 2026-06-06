@@ -49,6 +49,17 @@ BATCH_STATE_PATH = Path(__file__).parent / 'batch_state.json'
 
 _logger = logging.getLogger(__name__)
 
+_FALSY = frozenset({'false', '0', 'no', 'off', ''})
+
+
+def _as_bool(val) -> bool:
+    """Coerce config values to bool, handling JSON booleans and string variants."""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() not in _FALSY
+    return bool(val)
+
 
 # ── Thermal state ─────────────────────────────────────────────────────────────
 
@@ -963,8 +974,8 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
         return
 
     out_dir = Path(config['output_dir']) if config.get('output_dir') else None
-    overwrite_sidecars = bool(config.get('overwrite_sidecars'))
-    backup_sidecars    = bool(config.get('backup_sidecars'))
+    overwrite_sidecars = _as_bool(config.get('overwrite_sidecars'))
+    backup_sidecars    = _as_bool(config.get('backup_sidecars'))
     total = len(media)
     converted = 0
     skipped = 0
