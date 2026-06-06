@@ -8,6 +8,14 @@ All notable changes to Video Describer are documented here.
 
 ---
 
+## [0.4.5] — 2026-06-06
+
+### Added
+
+- **`app.sh` launcher** — single-command startup script: creates a virtual environment if one does not exist, installs dependencies from `requirements.txt`, and starts the app. On subsequent runs dependencies are only reinstalled when `requirements.txt` has changed (MD5 hash comparison), so normal launches are instant.
+
+---
+
 ## [0.4.3] — 2026-06-04
 
 ### Security
