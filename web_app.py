@@ -1018,7 +1018,7 @@ def _preflight_startup(t_start: float = 0.0) -> bool:
     DIM    = '\033[2m'  if _use_colour else ''
     CYAN   = '\033[36m' if _use_colour else ''
 
-    COL_W = 9   # label column (longest: "Whisper")
+    COL_W = 10  # label column (longest: "Anthropic" = 9 chars)
     VAL_W = 42  # value column
 
     fatal_reasons = []
@@ -1198,4 +1198,12 @@ if __name__ == '__main__':
     app_logger.info(f'=== video-describer started · port {port} · logs: {_LOG_DIR} ===')
     host = os.environ.get('BIND_HOST', '127.0.0.1')
     from waitress import serve  # type: ignore[import-untyped]
-    serve(app, host=host, port=port, threads=4, channel_timeout=3600)
+    try:
+        serve(app, host=host, port=port, threads=4, channel_timeout=3600)
+    except OSError as e:
+        if e.errno == 48:  # Address already in use
+            print(f'\n  \033[33m⚠  Port {port} is already in use.\033[0m')
+            print('  Another instance of video-describer may be running.')
+            print(f'  To find and kill it:  lsof -ti :{port} | xargs kill -9\n')
+        else:
+            raise

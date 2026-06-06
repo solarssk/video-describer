@@ -573,7 +573,10 @@ async function loadPathInfo() {
           const sfParts = [];
           if (sf.videos > 0) sfParts.push(`${sf.videos} ${t('path_info.video')}`);
           if (sf.photos > 0) sfParts.push(`${sf.photos} ${t('path_info.photos')}`);
-          html += `<li style="list-style:none">📂 <b>${escHtml(sf.name)}</b> — ${escHtml(sfParts.join(', '))}</li>`;
+          html += `<li class="subfolder-item">` +
+            `<span class="subfolder-name">📂 <b>${escHtml(sf.name)}</b></span>` +
+            `<span class="subfolder-count">${escHtml(sfParts.join(', '))}</span>` +
+            `</li>`;
         });
         html += '</ul>';
       } else if (data.count > 0) {

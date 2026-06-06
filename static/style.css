@@ -1080,6 +1080,25 @@ input.masked.unmasked {
   padding-left: 6px;
 }
 
+/* ── Subfolder items in path-info ── */
+.path-info-files .subfolder-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.path-info-files .subfolder-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.path-info-files .subfolder-count {
+  color: var(--muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Connectors pane — Settings-consistent ── */
 .conn-section-header {
   display: flex;
