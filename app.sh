@@ -31,8 +31,8 @@ if ! "$PYTHON" -c "import mlx_whisper" 2>/dev/null && ! "$PYTHON" -c "import fas
     if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
         echo "Installing mlx-whisper (Apple Silicon)..."
         "$PIP" install --quiet --disable-pip-version-check mlx-whisper || echo "⚠  mlx-whisper install failed — speech transcription unavailable"
-    else
-        echo "Installing faster-whisper..."
+    elif [ "$(uname -s)" = "Darwin" ]; then
+        echo "Installing faster-whisper (Intel Mac)..."
         "$PIP" install --quiet --disable-pip-version-check faster-whisper || echo "⚠  faster-whisper install failed — speech transcription unavailable"
     fi
 fi
