@@ -8,6 +8,20 @@ All notable changes to Video Describer are documented here.
 
 ---
 
+## [0.4.7] — 2026-06-06
+
+### Added
+
+- **Docstring coverage** — all private and nested helper functions in `web_app.py`, `processor.py`, and `nle_export.py` now have docstrings (100% coverage in each file).
+
+### Fixed
+
+- **Startup banner** — provider label column width increased so `Anthropic` no longer runs into the model name.
+- **Port-in-use error** — when the configured port is already taken, the app now prints a clear message with a `lsof` kill command instead of a Python traceback.
+- **Subfolder list layout** — long subfolder names in the path-info panel are now truncated with an ellipsis; the file-count badge stays pinned to the right.
+
+---
+
 ## [0.4.6] — 2026-06-06
 
 ### Added
