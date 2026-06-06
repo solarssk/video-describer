@@ -57,7 +57,7 @@ def _as_bool(val) -> bool:
     if isinstance(val, bool):
         return val
     if isinstance(val, str):
-        return val.lower() not in _FALSY
+        return val.strip().lower() not in _FALSY
     return bool(val)
 
 
