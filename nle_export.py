@@ -233,6 +233,7 @@ def write_fcp7xml(markers: list, clip_name: str, fps: float,
     path_url = vpath.resolve().as_uri()
 
     def _rate(parent: ET.Element) -> None:
+        """Append a <rate> child element with timebase and ntsc fields."""
         r = ET.SubElement(parent, 'rate')
         ET.SubElement(r, 'timebase').text = str(fps_int)
         ET.SubElement(r, 'ntsc').text = ntsc_str

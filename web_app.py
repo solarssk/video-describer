@@ -35,6 +35,7 @@ if _VERBOSE_STARTUP:
 
 
 def _t_begin(label: str) -> float:
+    """Print a timed-import label in progress style and return the start timestamp."""
     if _VERBOSE_STARTUP:
         sys.stdout.write(f'    {label:<24}\r')
         sys.stdout.flush()
@@ -42,6 +43,7 @@ def _t_begin(label: str) -> float:
 
 
 def _t_end(label: str, t0: float) -> None:
+    """Print the elapsed time for a timed-import label."""
     if _VERBOSE_STARTUP:
         print(f'    {label:<24}✓  {time.perf_counter() - t0:.1f}s')
 
@@ -505,6 +507,7 @@ def connectors_get():
     conns = cfg.get('connectors', {})
 
     def _status(key_val: str, env_var: str) -> dict:
+        """Return masked key status dict for a single connector."""
         key = key_val.strip() if key_val else ''
         env = os.environ.get(env_var, '').strip()
         active = bool(key or env)
@@ -1040,6 +1043,7 @@ def _preflight_startup(t_start: float = 0.0) -> bool:
         sys.stdout.flush()
 
     def _sep():
+        """Print a dim horizontal separator line to the startup banner."""
         print(f'  {DIM}{"─" * 52}{RESET}')
 
     # ── Machine info (instant — no _begin/_done needed) ────

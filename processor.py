@@ -515,6 +515,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             total_est_frames   = 0
 
             def _estimate_frame_count(fp: Path) -> int:
+                """Estimate the number of frames that will be extracted from a video."""
                 dur = get_video_duration(str(fp))
                 if dur <= 0:
                     return 1
@@ -582,6 +583,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
                     pass
 
         def _emit_step_status():
+            """Emit a step_status SSE event with elapsed time and ETA for remaining files."""
             if not current_step[0]:
                 return
             elapsed = int(time.time() - file_start[0])
@@ -604,12 +606,14 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             })
 
         def _step_cb(step: str):
+            """Update the current processing step label and emit a status event."""
             current_step[0] = step
             current_progress[0] = None
             current_progress[1] = ''
             _emit_step_status()
 
         def heartbeat():
+            """Emit step_status events every 2 s so the UI stays alive during long AI calls."""
             while not heartbeat_stop.is_set():
                 heartbeat_stop.wait(2)
                 if not heartbeat_stop.is_set():
@@ -618,12 +622,14 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         threading.Thread(target=heartbeat, daemon=True).start()
 
         def _progress_cb(pct, label):
+            """Store the latest frame extraction progress percentage and label."""
             current_progress[0] = pct
             current_progress[1] = label
 
         _call_start: list = [0.0]
 
         def _usage_cb(input_tok: int, output_tok: int):
+            """Accumulate token counts, update running cost, and emit a usage SSE event."""
             elapsed = time.time() - _call_start[0] if _call_start[0] else 0.0
             _call_start[0] = 0.0
             usage['input'] += input_tok
@@ -636,6 +642,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             emit_fn({'type': 'usage', **usage})
 
         def _sync_counts():
+            """Re-derive processed/skipped/error counters from the manifest."""
             nonlocal processed, skipped, errors
             _counts = counts_from_files(manifest_files)
             processed = _counts['processed']
@@ -643,6 +650,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
             errors = _counts['errors']
 
         def _persist_state():
+            """Flush current batch progress and usage to batch_state.json."""
             _sync_counts()
             _save_batch_state(
                 config=config,
