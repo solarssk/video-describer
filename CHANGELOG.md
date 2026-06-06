@@ -16,6 +16,7 @@ All notable changes to Video Describer are documented here.
 
 ### Fixed
 
+- **DaVinci Resolve EDL marker format** — `write_edl()` now generates correct Resolve marker extension lines (` |C:<color> |M:<text> |D:1`) attached directly to each event entry, instead of the previous `* |M:` / `* |C:` comment lines that Resolve does not recognise. Marker text is no longer truncated to 127 characters. Import via right-click on the timeline → Timelines → Import → Timeline Markers from EDL; ensure the timeline start timecode matches the EDL (typically `00:00:00:00`).
 - **`import anthropic` now visible** — previously the `anthropic` SDK loaded silently before `Starting up...` was printed, leaving the terminal blank for several seconds. Import blocks are now sequenced so the header appears first.
 - **Pip version notice suppressed** — `app.sh` passes `--disable-pip-version-check` to `pip install`, removing the `[notice] A new release of pip is available` noise from every fresh install.
 
