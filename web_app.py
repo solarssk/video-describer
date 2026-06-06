@@ -48,17 +48,27 @@ def _t_end(label: str, t0: float) -> None:
 
 # ── Third-party imports ───────────────────────────────────────────────────────
 _t = _t_begin('psutil / flask')
-import psutil
-from flask import Flask, Response, jsonify, render_template, request
+import psutil  # noqa: E402
+from flask import Flask, Response, jsonify, render_template, request  # noqa: E402
 _t_end('psutil / flask', _t)
 
 _t = _t_begin('config / media')
-import config_loader
-import media_selection
+import config_loader  # noqa: E402
+import media_selection  # noqa: E402
 _t_end('config / media', _t)
 
+# describe_videos must be imported before processor — processor imports it too
+# (processor.py:38), so timing describe_videos after processor would show 0.0s.
+_t = _t_begin('describe_videos')
+from describe_videos import (  # noqa: E402
+    WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
+    MLX_WHISPER_AVAILABLE, FASTER_WHISPER_AVAILABLE,
+    find_media,
+)
+_t_end('describe_videos', _t)
+
 _t = _t_begin('anthropic')
-from processor import (
+from processor import (  # noqa: E402
     BATCH_STATE_PATH,
     _clear_batch_state,
     get_thermal_state,
@@ -66,14 +76,6 @@ from processor import (
     run_conversion as _run_conversion,
 )
 _t_end('anthropic', _t)
-
-_t = _t_begin('describe_videos')
-from describe_videos import (
-    WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
-    MLX_WHISPER_AVAILABLE, FASTER_WHISPER_AVAILABLE,
-    find_media,
-)
-_t_end('describe_videos', _t)
 
 if _VERBOSE_STARTUP:
     print()
