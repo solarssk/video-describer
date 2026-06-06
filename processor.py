@@ -963,6 +963,8 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
         return
 
     out_dir = Path(config['output_dir']) if config.get('output_dir') else None
+    overwrite_sidecars = bool(config.get('overwrite_sidecars'))
+    backup_sidecars    = bool(config.get('backup_sidecars'))
     total = len(media)
     converted = 0
     skipped = 0
@@ -998,22 +1000,28 @@ def run_conversion(config: dict, emit_fn, stop_event: threading.Event) -> None:
         except (OSError, UnicodeDecodeError):
             pass
 
-        _ext_map = [
-            ('fcpxml',  '.fcpxml'),
-            ('edl',     '.edl'),
-            ('fcp7xml', '.xml'),
-        ]
-        enabled_exts = [ext for key, ext in _ext_map if nle_cfg.get(key)]
-        if enabled_exts and all(existing.with_suffix(ext).exists() for ext in enabled_exts):
-            skipped += 1
-            continue
+        if not overwrite_sidecars:
+            _ext_map = [
+                ('fcpxml',  '.fcpxml'),
+                ('edl',     '.edl'),
+                ('fcp7xml', '.xml'),
+            ]
+            enabled_exts = [ext for key, ext in _ext_map if nle_cfg.get(key)]
+            if enabled_exts and all(existing.with_suffix(ext).exists() for ext in enabled_exts):
+                emit_fn({'type': 'log', 'text': f'  {file_path.name} — skipped (sidecars already exist)'})
+                skipped += 1
+                continue
 
         _dur, _fps = get_video_metadata(str(file_path))
         try:
-            sidecars = export_sidecars(existing, file_path.name, _dur, _fps, cfg)
+            sidecars = export_sidecars(
+                existing, file_path.name, _dur, _fps, cfg,
+                overwrite=overwrite_sidecars, backup=backup_sidecars,
+            )
             if sidecars:
                 for sc in sidecars:
-                    emit_fn({'type': 'log', 'text': f'  {file_path.name} → {sc.name}'})
+                    action = 'replaced' if overwrite_sidecars else 'written'
+                    emit_fn({'type': 'log', 'text': f'  {file_path.name} → {sc.name} ({action})'})
                 converted += 1
             else:
                 skipped += 1

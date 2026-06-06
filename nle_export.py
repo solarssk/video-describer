@@ -265,12 +265,39 @@ def write_fcp7xml(markers: list, clip_name: str, fps: float,
 
 # ── Dispatcher ────────────────────────────────────────────────────────────────
 
+import datetime as _dt
+
+
+def _prepare_sidecar_path(path: Path, *, overwrite: bool, backup: bool) -> bool:
+    """Return True if it is safe to write to path; handle backup if requested.
+
+    When overwrite=False and the file already exists, returns False (skip).
+    When overwrite=True and backup=True, renames the existing file to
+    <name>.<YYYYMMDD-HHMMSS>.bak before returning True.
+    """
+    if not path.exists():
+        return True
+    if not overwrite:
+        return False
+    if backup:
+        ts = _dt.datetime.now().strftime('%Y%m%d-%H%M%S')
+        bak = path.with_name(f'{path.name}.{ts}.bak')
+        path.replace(bak)
+    return True
+
+
 def export_sidecars(txt_path: Path, clip_name: str, duration_s: float,
-                    fps: float, cfg: dict) -> list:
+                    fps: float, cfg: dict, *,
+                    overwrite: bool = True, backup: bool = False) -> list:
     """Generate all enabled NLE sidecar files next to txt_path.
 
     cfg['nle_export'] controls which formats are written:
         {'fcpxml': True, 'edl': True, 'fcp7xml': False}
+
+    overwrite=False  — skip formats whose sidecar file already exists.
+    overwrite=True   — replace existing sidecars (default, preserves old behaviour).
+    backup=True      — rename existing sidecar to <name>.<timestamp>.bak before
+                       replacing (only meaningful when overwrite=True).
 
     Returns a list of Path objects that were written.
     """
@@ -288,21 +315,24 @@ def export_sidecars(txt_path: Path, clip_name: str, duration_s: float,
 
     if nle_cfg.get('fcpxml'):
         p = base.with_suffix('.fcpxml')
-        video_path = txt_path.parent / clip_name
-        write_fcpxml(markers, clip_name, duration_s, p, fps=fps,
-                     video_path=video_path if video_path.exists() else None)
-        written.append(p)
+        if _prepare_sidecar_path(p, overwrite=overwrite, backup=backup):
+            video_path = txt_path.parent / clip_name
+            write_fcpxml(markers, clip_name, duration_s, p, fps=fps,
+                         video_path=video_path if video_path.exists() else None)
+            written.append(p)
 
     if nle_cfg.get('edl') and fps and fps > 0:
         p = base.with_suffix('.edl')
-        write_edl(markers, clip_name, fps, p)
-        written.append(p)
+        if _prepare_sidecar_path(p, overwrite=overwrite, backup=backup):
+            write_edl(markers, clip_name, fps, p)
+            written.append(p)
 
     if nle_cfg.get('fcp7xml') and fps and fps > 0:
         p = base.with_suffix('.xml')
-        video_path_p = txt_path.parent / clip_name
-        write_fcp7xml(markers, clip_name, fps, p, duration_s=duration_s,
-                      video_path=video_path_p if video_path_p.exists() else None)
-        written.append(p)
+        if _prepare_sidecar_path(p, overwrite=overwrite, backup=backup):
+            video_path_p = txt_path.parent / clip_name
+            write_fcp7xml(markers, clip_name, fps, p, duration_s=duration_s,
+                          video_path=video_path_p if video_path_p.exists() else None)
+            written.append(p)
 
     return written

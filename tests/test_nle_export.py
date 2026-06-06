@@ -374,6 +374,31 @@ class TestExportSidecars(unittest.TestCase):
         result = export_sidecars(self._txt('No timestamps.'), 'clip.mp4', 600.0, 25.0, cfg)
         self.assertEqual(result, [])
 
+    def test_does_not_overwrite_when_disabled(self):
+        cfg = {'nle_export': {'edl': True}}
+        edl = self.tmp / 'clip.mp4.edl'
+        edl.write_text('OLD', encoding='utf-8')
+        export_sidecars(self._txt(), 'clip.mp4', 600.0, 25.0, cfg, overwrite=False)
+        self.assertEqual(edl.read_text(encoding='utf-8'), 'OLD')
+
+    def test_overwrites_when_enabled(self):
+        cfg = {'nle_export': {'edl': True}}
+        edl = self.tmp / 'clip.mp4.edl'
+        edl.write_text('OLD', encoding='utf-8')
+        export_sidecars(self._txt(), 'clip.mp4', 600.0, 25.0, cfg, overwrite=True)
+        content = edl.read_text(encoding='utf-8')
+        self.assertNotEqual(content, 'OLD')
+        self.assertIn('|M:', content)
+
+    def test_backup_created_before_overwrite(self):
+        cfg = {'nle_export': {'edl': True}}
+        edl = self.tmp / 'clip.mp4.edl'
+        edl.write_text('OLD', encoding='utf-8')
+        export_sidecars(self._txt(), 'clip.mp4', 600.0, 25.0, cfg, overwrite=True, backup=True)
+        backups = list(self.tmp.glob('clip.mp4.edl.*.bak'))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(encoding='utf-8'), 'OLD')
+
 
 if __name__ == '__main__':
     unittest.main()

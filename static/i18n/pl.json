@@ -68,6 +68,14 @@
       "label": "Konwertuj istniejące pliki .txt",
       "sub": "Generuj sidecary NLE z istniejących opisów — bez wywołań AI, bez kosztu"
     },
+    "overwrite_sidecars": {
+      "label": "Nadpisz istniejące sidecary",
+      "sub": "Zastąp pliki .edl / .fcpxml / .xml które już istnieją"
+    },
+    "backup_sidecars": {
+      "label": "Backup przed nadpisaniem",
+      "sub": "Zmień nazwy istniejących sidecarów na .bak przed zastąpieniem"
+    },
     "budget": {
       "label": "Limit budżetu (USD)",
       "placeholder": "bez limitu"
