@@ -8,6 +8,19 @@ All notable changes to Video Describer are documented here.
 
 ---
 
+## [0.4.6] — 2026-06-06
+
+### Added
+
+- **Startup library timing** — on launch, the terminal now shows a `Loading libraries...` section with a timed row for each import group (`psutil / flask`, `config / media`, `anthropic`, `describe_videos`). The preflight banner ends with a `Started in X.Xs` summary line. Active only when run directly; silent when imported in tests.
+
+### Fixed
+
+- **`import anthropic` now visible** — previously the `anthropic` SDK loaded silently before `Starting up...` was printed, leaving the terminal blank for several seconds. Import blocks are now sequenced so the header appears first.
+- **Pip version notice suppressed** — `app.sh` passes `--disable-pip-version-check` to `pip install`, removing the `[notice] A new release of pip is available` noise from every fresh install.
+
+---
+
 ## [0.4.5] — 2026-06-06
 
 ### Added
