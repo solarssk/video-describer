@@ -101,6 +101,17 @@ Key moments marked with ★ in the description become named markers on the timel
 
 Already processed a batch and want to add markers now? Use **Convert existing** — it reads your `.txt` files and writes the sidecars at zero API cost.
 
+**Importing EDL markers into DaVinci Resolve:**
+
+1. Import your clip into the Media Pool.
+2. Create a timeline and set its start timecode to `00:00:00:00`.
+3. Right-click the timeline in the Media Pool.
+4. Choose **Timelines → Import → Timeline Markers from EDL**.
+5. Select the `.edl` file next to your `.txt`.
+6. Check the Edit Index — markers should appear at the correct positions.
+
+> The timeline start timecode must match the EDL (`00:00:00:00`). If the timeline starts at `01:00:00:00`, markers will be offset or fall outside the clip.
+
 ---
 
 ## 🔔 Notifications (optional)

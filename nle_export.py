@@ -81,6 +81,20 @@ def _truncate_edl(text: str, max_len: int = 127) -> str:
     return text[:max_len - 3] + '...'
 
 
+def _sanitize_resolve_marker_line(text: str, max_len: int | None = None) -> str:
+    """Prepare marker text for a Resolve EDL marker extension line.
+
+    Applies EDL character mapping, collapses CR/LF and runs of whitespace to a
+    single space.  No length cap by default — pass max_len to truncate.
+    """
+    text = _sanitize_edl(text)
+    text = re.sub(r'[\r\n]+', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    if max_len is not None and len(text) > max_len:
+        return text[:max_len - 3].rstrip() + '...'
+    return text
+
+
 _EDL_UNICODE_MAP = [
     ('—', '-'), ('–', '-'),  # em-dash, en-dash
     ('…', '...'),                  # ellipsis
@@ -169,22 +183,25 @@ def write_fcpxml(markers: list, clip_name: str, duration_s: float,
 def write_edl(markers: list, clip_name: str, fps: float, out_path: Path) -> None:
     """Write a CMX 3600 EDL with DaVinci Resolve marker extensions.
 
-    Each marker becomes a one-frame cut entry with a Resolve |M: comment.
+    Each marker becomes a one-frame event followed by a single Resolve marker
+    extension line: |C:<color> |M:<text> |D:1
     Key moments use ResolveColorRed; regular moments use ResolveColorBlue.
-    Import via Timelines > Import > Timeline Markers from EDL in DaVinci.
+
+    Import in DaVinci Resolve via right-click on timeline in Media Pool →
+    Timelines → Import → Timeline Markers from EDL.
+    Timeline must start at 00:00:00:00 for markers to land at the correct position.
     """
     title = Path(clip_name).stem
     lines = [f'TITLE: {title}', 'FCM: NON-DROP FRAME', '']
     for idx, mk in enumerate(markers, start=1):
         tc_in  = _timecode(mk['time_s'],             fps)
         tc_out = _timecode(mk['time_s'] + 1.0 / fps, fps)
-        color = 'ResolveColorRed' if mk['is_key'] else 'ResolveColorBlue'
+        color  = 'ResolveColorRed' if mk['is_key'] else 'ResolveColorBlue'
+        text   = _sanitize_resolve_marker_line(mk['text'])
         lines.append(
-            f'{idx:03d}  AX  V  C  {tc_in} {tc_out} {tc_in} {tc_out}'
+            f'{idx:03d}  AX       V     C        {tc_in} {tc_out} {tc_in} {tc_out}'
         )
-        lines.append(f'* FROM CLIP NAME: {clip_name}')
-        lines.append(f'* |M: {_truncate_edl(_sanitize_edl(mk["text"]))}')
-        lines.append(f'* |C: {color}')
+        lines.append(f' |C:{color} |M:{text} |D:1')
         lines.append('')
     out_path.write_text('\n'.join(lines), encoding='utf-8')
 
