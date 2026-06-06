@@ -1018,7 +1018,7 @@ def _preflight_startup(t_start: float = 0.0) -> bool:
     DIM    = '\033[2m'  if _use_colour else ''
     CYAN   = '\033[36m' if _use_colour else ''
 
-    COL_W = 9   # label column (longest: "Whisper")
+    COL_W = 10  # label column (longest: "Anthropic" = 9 chars)
     VAL_W = 42  # value column
 
     fatal_reasons = []
