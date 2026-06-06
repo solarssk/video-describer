@@ -16,14 +16,48 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
+sys.path.insert(0, os.path.dirname(__file__))
+warnings.filterwarnings('ignore', category=RuntimeWarning)
+
+# ── Startup timing ────────────────────────────────────────────────────────────
+# Active only when run directly — silent when imported in tests or other modules.
+_VERBOSE_STARTUP = __name__ == '__main__'
+_t_start = time.perf_counter()
+
+if _VERBOSE_STARTUP:
+    sys.stdout.write('\n  Loading libraries...\n')
+    sys.stdout.flush()
+
+
+def _t_begin(label: str) -> float:
+    if _VERBOSE_STARTUP:
+        sys.stdout.write(f'    {label:<24}\r')
+        sys.stdout.flush()
+    return time.perf_counter()
+
+
+def _t_end(label: str, t0: float) -> None:
+    if _VERBOSE_STARTUP:
+        print(f'    {label:<24}✓  {time.perf_counter() - t0:.1f}s')
+
+
+# ── Third-party imports ───────────────────────────────────────────────────────
+_t = _t_begin('psutil / flask')
 import psutil
 from flask import Flask, Response, jsonify, render_template, request
+_t_end('psutil / flask', _t)
 
+_t = _t_begin('config / media')
 import config_loader
 import media_selection
+_t_end('config / media', _t)
+
+_t = _t_begin('anthropic')
 from processor import (
     BATCH_STATE_PATH,
     _clear_batch_state,
@@ -31,6 +65,18 @@ from processor import (
     run_processing as _run_processing,
     run_conversion as _run_conversion,
 )
+_t_end('anthropic', _t)
+
+_t = _t_begin('describe_videos')
+from describe_videos import (
+    WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
+    MLX_WHISPER_AVAILABLE, FASTER_WHISPER_AVAILABLE,
+    find_media,
+)
+_t_end('describe_videos', _t)
+
+if _VERBOSE_STARTUP:
+    print()
 
 IS_MACOS = platform.system() == 'Darwin'
 
@@ -50,23 +96,6 @@ class _QuietAccessLogFilter(logging.Filter):
 
 
 logging.getLogger('werkzeug').addFilter(_QuietAccessLogFilter())
-
-sys.path.insert(0, os.path.dirname(__file__))
-import warnings  # noqa: E402
-warnings.filterwarnings('ignore', category=RuntimeWarning)
-
-# Print "Starting up..." immediately — before the slow describe_videos import
-# (mlx_whisper / anthropic / etc. take a few seconds to load).
-# "Open in browser" is shown later, once the server is actually ready.
-if __name__ == '__main__':
-    sys.stdout.write('\n  Starting up...\r')
-    sys.stdout.flush()
-
-from describe_videos import (  # noqa: E402
-    WHISPER_AVAILABLE, WHISPER_BACKEND, IS_APPLE_SILICON,
-    MLX_WHISPER_AVAILABLE, FASTER_WHISPER_AVAILABLE,
-    find_media,
-)
 
 app = Flask(__name__)
 
@@ -974,7 +1003,7 @@ def config_reset():
     })
 
 
-def _preflight_startup() -> bool:
+def _preflight_startup(t_start: float = 0.0) -> bool:
     """Runs pre-flight checks before the server starts.
     Prints each check live as it runs (label → pending → result).
     Returns False if a fatal error was found and the user chose not to continue.
@@ -1126,6 +1155,13 @@ def _preflight_startup() -> bool:
 
     print()
 
+    if t_start:
+        elapsed = time.perf_counter() - t_start
+        _sep()
+        print(f'  {DIM}Started in {elapsed:.1f}s{RESET}')
+
+    print()
+
     # ── Warnings ────────────────────────────────────────────
     for w in warnings:
         print(f'{YELLOW}⚠  {w}{RESET}')
@@ -1150,7 +1186,7 @@ def _preflight_startup() -> bool:
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5555))
 
-    if not _preflight_startup():
+    if not _preflight_startup(t_start=_t_start):
         sys.exit(1)
 
     if IS_MACOS:
