@@ -15,7 +15,7 @@ fi
 
 # Install/update dependencies if requirements.txt changed
 REQUIREMENTS_HASH_FILE="$VENV_DIR/.requirements_hash"
-CURRENT_HASH=$(md5 -q requirements.txt)
+CURRENT_HASH=$(python3 -c "import hashlib; print(hashlib.md5(open('requirements.txt','rb').read()).hexdigest())")
 
 if [ ! -f "$REQUIREMENTS_HASH_FILE" ] || [ "$CURRENT_HASH" != "$(cat "$REQUIREMENTS_HASH_FILE")" ]; then
     echo "Installing dependencies..."
