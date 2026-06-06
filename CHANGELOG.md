@@ -13,6 +13,7 @@ All notable changes to Video Describer are documented here.
 ### Added
 
 - **Startup library timing** — on launch, the terminal now shows a `Loading libraries...` section with a timed row for each import group (`psutil / flask`, `config / media`, `anthropic`, `describe_videos`). The preflight banner ends with a `Started in X.Xs` summary line. Active only when run directly; silent when imported in tests.
+- **Sidecar overwrite and backup in Convert mode** — "Convert existing .txt files" now shows two additional toggles: *Overwrite existing sidecars* (replace `.edl` / `.fcpxml` / `.xml` files that already exist) and *Backup before overwrite* (rename existing sidecars to `<name>.<YYYYMMDD-HHMMSS>.bak` before replacing). Without overwrite enabled, existing sidecars are skipped and the log says so explicitly. Useful for replacing malformed `.edl` files from older versions without re-running AI analysis.
 
 ### Fixed
 
