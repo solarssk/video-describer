@@ -99,7 +99,7 @@ After processing, the app can write marker sidecar files next to each `.txt`:
 
 Key moments marked with ★ in the description become named markers on the timeline. Enable formats in **Settings → NLE Export**.
 
-Already processed a batch and want to add markers now? Use **Convert existing** — it reads your `.txt` files and writes the sidecars at zero API cost.
+Already processed a batch and want to add markers now? Use **Convert existing** — it reads your `.txt` files and writes the sidecars at zero API cost. If sidecars already exist (e.g. from an older version with a wrong EDL format), enable **Overwrite existing sidecars**. Optionally turn on **Backup before overwrite** to rename the old files to `.bak` first.
 
 **Importing EDL markers into DaVinci Resolve:**
 
