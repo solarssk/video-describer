@@ -254,15 +254,18 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
             print(f'[notify] Webhook skipped — invalid scheme for host: {target_host}')
             return
 
-        # Guard against SSRF: reject loopback, link-local, and private ranges
+        # Guard against SSRF: reject loopback, link-local, and private ranges.
+        # getaddrinfo() covers all returned addresses (IPv4 + IPv6).
         import ipaddress as _ipaddress
         import socket as _socket
         _hostname = parsed.hostname or ''
         try:
-            _ip = _ipaddress.ip_address(_socket.gethostbyname(_hostname))
-            if _ip.is_loopback or _ip.is_link_local or _ip.is_private:
-                print(f'[notify] Webhook skipped — private/internal address: {target_host}')
-                return
+            _addrs = _socket.getaddrinfo(_hostname, None)
+            for _af, _socktype, _proto, _canon, _sockaddr in _addrs:
+                _ip = _ipaddress.ip_address(_sockaddr[0])
+                if _ip.is_loopback or _ip.is_link_local or _ip.is_private:
+                    print(f'[notify] Webhook skipped — private/internal address: {target_host}')
+                    return
         except (_socket.gaierror, ValueError):
             print(f'[notify] Webhook skipped — cannot resolve hostname: {target_host}')
             return
@@ -316,7 +319,12 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
                 },
                 method='POST',
             )
-            resp = urllib.request.urlopen(req, timeout=10)  # nosec B310
+            # Custom opener without redirect handler — prevents redirect-based SSRF bypass.
+            class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+                def redirect_request(self, req, fp, code, msg, headers, newurl):
+                    return None
+            _opener = urllib.request.build_opener(_NoRedirectHandler)
+            resp = _opener.open(req, timeout=10)  # nosec B310
             print(f'[notify] Webhook sent — HTTP {resp.status}')
         except urllib.error.HTTPError as exc:
             body = exc.read().decode('utf-8', errors='replace')[:200]

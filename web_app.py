@@ -77,6 +77,7 @@ from processor import (  # noqa: E402
     run_processing as _run_processing,
     run_conversion as _run_conversion,
 )
+from batch_metadata import redact_secrets  # noqa: E402
 _t_end('anthropic', _t)
 
 if _VERBOSE_STARTUP:
@@ -956,7 +957,7 @@ def config_get():
     API keys are intentionally excluded — they are served exclusively through
     /connectors which returns only masked values.
     """
-    cfg = config_loader.load_config()
+    cfg = redact_secrets(config_loader.load_config())
     cfg.pop('connectors', None)
     return jsonify({
         'version': VERSION,
