@@ -454,11 +454,11 @@ def extract_audio(video_path: str, output_dir: str,
     return audio_path
 
 
-def transcribe_audio(audio_path: str, model) -> list:
+def transcribe_audio(audio_path: str, model, language: str = 'pl') -> list:
     """Transcribes audio. Returns a list of normalised _Segment objects."""
     segments, _ = model.transcribe(
         audio_path,
-        language='pl',
+        language=language,
         beam_size=5,
         vad_filter=True,        # skips silence and wind noise — mlx-whisper ignores this gracefully
         vad_parameters={"min_silence_duration_ms": 500},
@@ -467,12 +467,13 @@ def transcribe_audio(audio_path: str, model) -> list:
 
 
 def _transcribe_audio_worker(result_queue, audio_path: str,
-                             model_name: str, openai_api_key: Optional[str] = None):
+                             model_name: str, openai_api_key: Optional[str] = None,
+                             language: str = 'pl'):
     """Child-process entrypoint. Returns only JSON/pickle-friendly data."""
     try:
         sys.stdout = sys.__stdout__
         model = load_whisper_model(model_name, openai_api_key=openai_api_key)
-        segments = transcribe_audio(audio_path, model)
+        segments = transcribe_audio(audio_path, model, language=language)
         result_queue.put({
             'ok': True,
             'segments': [
@@ -489,7 +490,8 @@ def transcribe_audio_with_timeout(audio_path: str, model_name: str,
                                   timeout_sec: int = 300,
                                   stop_event=None,
                                   progress_cb=None,
-                                  duration: Optional[float] = None) -> tuple:
+                                  duration: Optional[float] = None,
+                                  language: str = 'pl') -> tuple:
     """Run Whisper in a child process so timeout/stop can terminate it safely.
 
     Returns (segments, timed_out). On timeout, returns ([], True).
@@ -502,7 +504,7 @@ def transcribe_audio_with_timeout(audio_path: str, model_name: str,
     result_queue = ctx.Queue()
     proc = ctx.Process(
         target=_transcribe_audio_worker,
-        args=(result_queue, audio_path, model_name, openai_api_key),
+        args=(result_queue, audio_path, model_name, openai_api_key, language),
         daemon=True,
     )
     started = time.time()
@@ -825,6 +827,7 @@ def describe_video(video_path: str, provider: AIProvider,
                 stop_event=stop_event,
                 progress_cb=_progress,
                 duration=duration,
+                language=cfg['whisper'].get('language', 'pl'),
             )
             if timed_out:
                 print(f"  ⚠ Transcription timed out after {whisper_timeout_sec or cfg['whisper'].get('timeout_sec', 300)}s — skipping audio, continuing")
@@ -965,6 +968,7 @@ def transcribe_only_video(video_path: str, whisper_model_name: str,
             stop_event=stop_event,
             progress_cb=_progress,
             duration=duration,
+            language=cfg['whisper'].get('language', 'pl'),
         )
         if timed_out:
             print(f"  ⚠ Transcription timed out after {whisper_timeout_sec or cfg['whisper'].get('timeout_sec', 300)}s — skipping audio")

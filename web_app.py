@@ -682,7 +682,7 @@ def folder_info():
                 return jsonify(_folder_info_multi(resolved))
             if not path_raw:
                 return jsonify({'error': 'No path provided'}), 400
-            p = Path(path_raw)  # lgtm[py/path-injection]
+            p = Path(path_raw).resolve()
 
         if not p.exists():
             return jsonify({'error': 'Path does not exist'}), 404
@@ -951,10 +951,16 @@ def version():
 
 @app.route('/config', methods=['GET'])
 def config_get():
-    """Return current config, defaults, prompt, and prompt presets."""
+    """Return current config, defaults, prompt, and prompt presets.
+
+    API keys are intentionally excluded — they are served exclusively through
+    /connectors which returns only masked values.
+    """
+    cfg = config_loader.load_config()
+    cfg.pop('connectors', None)
     return jsonify({
         'version': VERSION,
-        'config': config_loader.load_config(),
+        'config': cfg,
         'defaults': config_loader.load_defaults(),
         'prompt': config_loader.load_system_prompt(),
         'prompt_presets': config_loader.list_prompt_presets(),

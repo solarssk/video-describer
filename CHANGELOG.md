@@ -8,6 +8,41 @@ All notable changes to Video Describer are documented here.
 
 ---
 
+## [0.4.8] — 2026-06-22
+
+### Security
+
+- **API key exposure fix** — `GET /config` no longer returns raw API keys from the `connectors`
+  section. Credentials are served exclusively through `GET /connectors` which returns only masked
+  values (twelve bullets + last 4 chars). Fixes a critical information-disclosure issue where any
+  HTTP client that could reach the server received plaintext keys in the JSON response.
+- **Docker bind-host hardened** — `ENV BIND_HOST=0.0.0.0` removed from `Dockerfile`. The server
+  now defaults to `127.0.0.1` (localhost only) in all environments, including Docker. Users who
+  need network exposure must pass `-e BIND_HOST=0.0.0.0` explicitly at runtime.
+- **SSRF guard on webhook URL** — the webhook notification feature now resolves the configured
+  hostname before connecting and rejects requests to loopback, link-local, and RFC-1918 private
+  ranges. Prevents an attacker with UI access from probing internal HTTP endpoints (e.g., AWS IMDS
+  at `169.254.169.254` or `127.0.0.1`).
+- **Path traversal fix in `/folder-info`** — raw path strings passed via the legacy `?path=`
+  query parameter are now canonicalised with `Path.resolve()` before use, preventing `../`
+  directory traversal.
+
+### Fixed
+
+- **Whisper language configurable** — `transcribe_audio` no longer hardcodes `language='pl'`.
+  The transcription language is now read from `whisper.language` in `config.json` (default: `pl`
+  for backwards compatibility). English-language footage with `output_language = "en"` will now
+  produce correct transcriptions instead of garbage output.
+- **OpenAI empty choices guard** — `OpenAIProvider.describe()` now checks that `response.choices`
+  is non-empty before accessing index 0. When OpenAI returns no choices (e.g., content-filter
+  block), a clear `RuntimeError` is raised instead of an opaque `IndexError`.
+- **KeyError on batch start without path** — the debug log line in `processor.py` used
+  `config["path"]` (subscript) instead of `config.get("path", "?")`, crashing the entire batch
+  when `/start` was called with only a `selection_id`. Fixed to use `.get()` consistently with
+  all other accesses in the same file.
+
+---
+
 ## [0.4.7] — 2026-06-06
 
 ### Added

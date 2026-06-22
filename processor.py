@@ -253,6 +253,19 @@ def _send_notifications(cfg: dict, status: str, processed: int, skipped: int,
         if parsed.scheme.lower() not in {'http', 'https'}:
             print(f'[notify] Webhook skipped — invalid scheme for host: {target_host}')
             return
+
+        # Guard against SSRF: reject loopback, link-local, and private ranges
+        import ipaddress as _ipaddress
+        import socket as _socket
+        _hostname = parsed.hostname or ''
+        try:
+            _ip = _ipaddress.ip_address(_socket.gethostbyname(_hostname))
+            if _ip.is_loopback or _ip.is_link_local or _ip.is_private:
+                print(f'[notify] Webhook skipped — private/internal address: {target_host}')
+                return
+        except (_socket.gaierror, ValueError):
+            print(f'[notify] Webhook skipped — cannot resolve hostname: {target_host}')
+            return
         _fw = 'file' if processed == 1 else 'files'
         _mins, _secs = int(duration_sec) // 60, int(duration_sec) % 60
         _time_str = f'{_mins}m {_secs}s' if _mins else f'{_secs}s'
@@ -555,7 +568,7 @@ def run_processing(config: dict, emit_fn, logger, stop_event: threading.Event,
         _model_label  = cfg['ai'].get(_provider_key, {}).get('model', '?')
         _budget_dbg   = f'  budget=${budget_usd:.2f}' if budget_usd is not None else ''
         logger.debug(
-            f'[batch]  path={config["path"]}  model={_model_label}  '
+            f'[batch]  path={config.get("path", "?")}  model={_model_label}  '
             f'interval={config.get("interval", 5)}s  '
             f'max_frames={cfg["frames"]["max_per_video"]}  '
             f'files={total_media}{_budget_dbg}'

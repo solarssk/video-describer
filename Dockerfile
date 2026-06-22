@@ -17,7 +17,8 @@ RUN chown -R appuser:appuser /app
 
 USER appuser
 
-ENV BIND_HOST=0.0.0.0
+# To expose the server on the network pass -e BIND_HOST=0.0.0.0 at runtime.
+# Omitting the variable keeps the safe default (127.0.0.1 — localhost only).
 
 EXPOSE 5555
 
