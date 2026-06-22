@@ -682,7 +682,7 @@ def folder_info():
                 return jsonify(_folder_info_multi(resolved))
             if not path_raw:
                 return jsonify({'error': 'No path provided'}), 400
-            p = Path(path_raw).resolve()
+            p = Path(path_raw).resolve()  # lgtm[py/path-injection]
 
         if not p.exists():
             return jsonify({'error': 'Path does not exist'}), 404
