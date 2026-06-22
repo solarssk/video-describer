@@ -32,8 +32,8 @@ jobs:
 
   analyze-swift:
     name: Analyze (swift)
-    # macOS runner is slow — run only on main branch pushes and weekly schedule
-    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    # macOS runner is slow — run only on main branch pushes, PRs to main, and weekly schedule
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.base_ref == 'main')
     runs-on: macos-latest
     permissions:
       security-events: write

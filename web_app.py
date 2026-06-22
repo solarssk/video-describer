@@ -77,6 +77,7 @@ from processor import (  # noqa: E402
     run_processing as _run_processing,
     run_conversion as _run_conversion,
 )
+from batch_metadata import redact_secrets  # noqa: E402
 _t_end('anthropic', _t)
 
 if _VERBOSE_STARTUP:
@@ -682,7 +683,7 @@ def folder_info():
                 return jsonify(_folder_info_multi(resolved))
             if not path_raw:
                 return jsonify({'error': 'No path provided'}), 400
-            p = Path(path_raw)  # lgtm[py/path-injection]
+            p = Path(path_raw).resolve()  # lgtm[py/path-injection]
 
         if not p.exists():
             return jsonify({'error': 'Path does not exist'}), 404
@@ -951,10 +952,16 @@ def version():
 
 @app.route('/config', methods=['GET'])
 def config_get():
-    """Return current config, defaults, prompt, and prompt presets."""
+    """Return current config, defaults, prompt, and prompt presets.
+
+    API keys are intentionally excluded — they are served exclusively through
+    /connectors which returns only masked values.
+    """
+    cfg = redact_secrets(config_loader.load_config())
+    cfg.pop('connectors', None)
     return jsonify({
         'version': VERSION,
-        'config': config_loader.load_config(),
+        'config': cfg,
         'defaults': config_loader.load_defaults(),
         'prompt': config_loader.load_system_prompt(),
         'prompt_presets': config_loader.list_prompt_presets(),

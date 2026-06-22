@@ -42,6 +42,8 @@ class OpenAIProvider(AIProvider):
         except openai.APIStatusError as e:
             raise RuntimeError(str(e)) from e
 
+        if not response.choices:
+            raise RuntimeError("OpenAI returned no choices — possible content filter block")
         choice = response.choices[0]
         usage = response.usage
         if usage is None:
